@@ -18,7 +18,7 @@
             <button class="menu-close" onclick="app.closeMenu()">✕</button>
         </div>
         <div class="menu-items">
-            <div class="menu-item" onclick="app.closeMenu();">📅 カレンダー（実装予定）</div>
+            <div class="menu-item" onclick="app.showCalendar(); app.closeMenu();">📅 カレンダー</div>
         </div>
     </div>
 
@@ -111,7 +111,8 @@
 
     <!-- メインコンテンツ -->
     <div class="container">
-        <div class="content-section">
+        <!-- 家計簿セクション -->
+        <div class="content-section" id="budgetSection">
             <div class="sync-status" id="syncStatus">接続中...</div>
 
             <div class="month-selector">
@@ -152,6 +153,69 @@
                     Discordに移動
                 </button>
             </div>
+        </div>
+
+        <!-- カレンダーセクション -->
+        <div class="content-section calendar-section" id="calendarSection" style="display: none;">
+            <div class="calendar-header">
+                <button class="back-btn" onclick="app.showBudget()">← 家計簿に戻る</button>
+                <h1>📅 カレンダー</h1>
+            </div>
+
+            <div class="calendar-controls">
+                <button class="month-nav-btn" onclick="app.calendar.changeMonth(-1)">◀</button>
+                <div class="calendar-month-display" id="calendarMonthDisplay"></div>
+                <button class="month-nav-btn" onclick="app.calendar.changeMonth(1)">▶</button>
+            </div>
+
+            <div class="calendar-grid" id="calendarGrid">
+                <!-- カレンダーがここに表示される -->
+            </div>
+
+            <div class="quick-add-section">
+                <button class="quick-add-btn" onclick="app.calendar.showTodoModal()">✓ Todo追加</button>
+                <button class="quick-add-btn" onclick="app.calendar.goToToday()">📍 今日</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- スケジュール作成・編集モーダル -->
+    <div class="event-modal" id="eventModal">
+        <div class="modal-header">
+            <h2 id="eventModalTitle">📅 スケジュール作成</h2>
+            <button class="modal-close" onclick="app.calendar.closeEventModal()">✕</button>
+        </div>
+        
+        <div class="event-form">
+            <input type="text" id="eventTitle" placeholder="タイトル">
+            <input type="date" id="eventDate">
+            
+            <div class="time-inputs">
+                <input type="time" id="eventStartTime" placeholder="開始時刻">
+                <span>〜</span>
+                <input type="time" id="eventEndTime" placeholder="終了時刻">
+            </div>
+            
+            <textarea id="eventDescription" placeholder="説明（任意）" rows="3"></textarea>
+            
+            <button onclick="app.calendar.saveEvent()" class="save-btn">保存</button>
+            <button id="deleteEventBtn" onclick="app.calendar.deleteEvent()" class="delete-event-btn" style="display: none;">削除</button>
+        </div>
+    </div>
+
+    <!-- Todo追加モーダル -->
+    <div class="todo-modal" id="todoModal">
+        <div class="modal-header">
+            <h2>✓ Todo追加</h2>
+            <button class="modal-close" onclick="app.calendar.closeTodoModal()">✕</button>
+        </div>
+        
+        <div class="todo-form">
+            <input type="text" id="todoTitle" placeholder="Todoタイトル">
+            <input type="date" id="todoDate">
+            <textarea id="todoDescription" placeholder="説明（任意）" rows="2"></textarea>
+            
+            <button onclick="app.calendar.saveTodo()" class="save-btn">追加</button>
         </div>
     </div>
 

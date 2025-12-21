@@ -931,3 +931,366 @@ button.edit-btn:hover {
         font-size: 32px;
     }
 }
+
+/* カレンダーページ */
+.calendar-section {
+    display: none;
+}
+
+.calendar-section.active {
+    display: block;
+}
+
+.calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 25px;
+    gap: 15px;
+}
+
+.calendar-header h1 {
+    font-size: 24px;
+    font-weight: 900;
+    color: #ffffff;
+    margin: 0;
+    flex: 1;
+    text-align: center;
+}
+
+.back-btn {
+    padding: 10px 15px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #e0e0e0;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 700;
+    transition: all 0.3s ease;
+}
+
+.back-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateX(-3px);
+}
+
+.calendar-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+}
+
+.month-nav-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 700;
+    transition: all 0.3s ease;
+}
+
+.month-nav-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.5);
+}
+
+.calendar-month-display {
+    font-size: 20px;
+    font-weight: 900;
+    color: #ffffff;
+    text-align: center;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.calendar-weekday {
+    text-align: center;
+    padding: 10px 5px;
+    font-weight: 700;
+    color: #888;
+    font-size: 12px;
+}
+
+.calendar-day {
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 4px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    min-height: 70px;
+    overflow: hidden;
+}
+
+.calendar-day:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: scale(1.05);
+}
+
+.calendar-day.today {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-weight: 900;
+}
+
+.calendar-day.other-month {
+    opacity: 0.3;
+}
+
+.calendar-day-number {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 5px;
+}
+
+.calendar-event-item {
+    font-size: 9px;
+    background: rgba(102, 126, 234, 0.8);
+    color: white;
+    padding: 2px 4px;
+    border-radius: 3px;
+    margin-bottom: 2px;
+    width: 100%;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.calendar-event-item:hover {
+    background: rgba(102, 126, 234, 1);
+}
+
+.calendar-todo-item {
+    font-size: 9px;
+    background: rgba(56, 239, 125, 0.8);
+    color: white;
+    padding: 2px 4px;
+    border-radius: 3px;
+    margin-bottom: 2px;
+    width: 100%;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+}
+
+.calendar-todo-item.completed {
+    opacity: 0.5;
+    text-decoration: line-through;
+}
+
+.quick-add-section {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.quick-add-btn {
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 700;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(56, 239, 125, 0.4);
+}
+
+.quick-add-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(56, 239, 125, 0.6);
+}
+
+/* スケジュール作成モーダル */
+.event-modal, .todo-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(15, 12, 41, 0.98);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    padding: 30px;
+    z-index: 1500;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.event-modal.show, .todo-modal.show {
+    display: block;
+    animation: modalFadeIn 0.3s ease-out;
+}
+
+.event-form, .todo-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.event-form input[type="text"],
+.event-form input[type="date"],
+.event-form input[type="time"],
+.event-form textarea,
+.todo-form input[type="text"],
+.todo-form input[type="date"],
+.todo-form textarea {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    font-size: 16px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #ffffff;
+    transition: all 0.3s ease;
+    font-family: 'Noto Sans JP', sans-serif;
+}
+
+.event-form input::placeholder,
+.event-form textarea::placeholder,
+.todo-form input::placeholder,
+.todo-form textarea::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.event-form input:focus,
+.event-form textarea:focus,
+.todo-form input:focus,
+.todo-form textarea:focus {
+    outline: none;
+    border-color: #667eea;
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 0 20px rgba(102, 126, 234, 0.3);
+}
+
+.time-inputs {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.time-inputs input {
+    flex: 1;
+}
+
+.time-inputs span {
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 700;
+}
+
+.save-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 700;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.save-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+}
+
+.delete-event-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 700;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
+}
+
+.delete-event-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(245, 87, 108, 0.6);
+}
+
+@media (max-width: 768px) {
+    .calendar-grid {
+        gap: 4px;
+        padding: 10px;
+    }
+
+    .calendar-day {
+        min-height: 55px;
+        padding: 5px 2px;
+    }
+
+    .calendar-day-number {
+        font-size: 12px;
+    }
+
+    .calendar-event-item,
+    .calendar-todo-item {
+        font-size: 8px;
+        padding: 1px 2px;
+    }
+
+    .calendar-month-display {
+        font-size: 18px;
+    }
+
+    .quick-add-section {
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 480px) {
+    .calendar-day {
+        min-height: 45px;
+        padding: 3px 1px;
+    }
+
+    .calendar-day-number {
+        font-size: 10px;
+    }
+
+    .calendar-event-item,
+    .calendar-todo-item {
+        font-size: 7px;
+        padding: 1px;
+    }
+}

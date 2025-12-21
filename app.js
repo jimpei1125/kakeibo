@@ -230,6 +230,301 @@ class CSVExporter {
     }
 }
 
+// カレンダー管理クラス
+class CalendarManager {
+    constructor() {
+        this.currentYear = new Date().getFullYear();
+        this.currentMonth = new Date().getMonth() + 1;
+        this.data = { events: {}, todos: {} };
+        this.selectedEventId = null;
+        this.selectedDate = null;
+        this.isEditMode = false;
+    }
+
+    async loadFromFirestore() {
+        const docRef = doc(db, 'calendarData', 'data');
+        
+        onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+                this.data = docSnap.data();
+                if (!this.data.events) this.data.events = {};
+                if (!this.data.todos) this.data.todos = {};
+                this.renderCalendar();
+            }
+        });
+    }
+
+    async saveToFirestore() {
+        try {
+            const docRef = doc(db, 'calendarData', 'data');
+            await setDoc(docRef, this.data);
+        } catch (error) {
+            console.error('カレンダーデータ保存エラー:', error);
+            Utils.showToast('保存に失敗しました');
+        }
+    }
+
+    changeMonth(delta) {
+        this.currentMonth += delta;
+        if (this.currentMonth > 12) {
+            this.currentMonth = 1;
+            this.currentYear++;
+        } else if (this.currentMonth < 1) {
+            this.currentMonth = 12;
+            this.currentYear--;
+        }
+        this.renderCalendar();
+    }
+
+    goToToday() {
+        const today = new Date();
+        this.currentYear = today.getFullYear();
+        this.currentMonth = today.getMonth() + 1;
+        this.renderCalendar();
+    }
+
+    renderCalendar() {
+        document.getElementById('calendarMonthDisplay').textContent = 
+            this.currentYear + '年 ' + this.currentMonth + '月';
+
+        const firstDay = new Date(this.currentYear, this.currentMonth - 1, 1);
+        const lastDay = new Date(this.currentYear, this.currentMonth, 0);
+        const daysInMonth = lastDay.getDate();
+        const startDayOfWeek = firstDay.getDay();
+
+        let html = '';
+        
+        // 曜日ヘッダー
+        ['日', '月', '火', '水', '木', '金', '土'].forEach(day => {
+            html += '<div class="calendar-weekday">' + day + '</div>';
+        });
+
+        // 前月の日付
+        const prevMonthDays = new Date(this.currentYear, this.currentMonth - 1, 0).getDate();
+        for (let i = startDayOfWeek - 1; i >= 0; i--) {
+            html += '<div class="calendar-day other-month">';
+            html += '<div class="calendar-day-number">' + (prevMonthDays - i) + '</div>';
+            html += '</div>';
+        }
+
+        // 今日の日付
+        const today = new Date();
+        const todayStr = today.getFullYear() + '-' + 
+                       String(today.getMonth() + 1).padStart(2, '0') + '-' +
+                       String(today.getDate()).padStart(2, '0');
+
+        // 当月の日付
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = this.currentYear + '-' + 
+                          String(this.currentMonth).padStart(2, '0') + '-' +
+                          String(day).padStart(2, '0');
+            
+            const isToday = dateStr === todayStr;
+            const events = this.data.events[dateStr] || [];
+            const todos = this.data.todos[dateStr] || [];
+
+            html += '<div class="calendar-day' + (isToday ? ' today' : '') + 
+                   '" onclick="app.calendar.showEventModal(\'' + dateStr + '\')">';
+            html += '<div class="calendar-day-number">' + day + '</div>';
+            
+            // イベント表示
+            events.forEach(event => {
+                html += '<div class="calendar-event-item" onclick="event.stopPropagation(); app.calendar.editEvent(\'' + 
+                       dateStr + '\', \'' + event.id + '\')">';
+                html += event.title;
+                html += '</div>';
+            });
+            
+            // Todo表示
+            todos.forEach(todo => {
+                html += '<div class="calendar-todo-item' + (todo.completed ? ' completed' : '') + 
+                       '" onclick="event.stopPropagation(); app.calendar.toggleTodo(\'' + 
+                       dateStr + '\', \'' + todo.id + '\')">';
+                html += '✓ ' + todo.title;
+                html += '</div>';
+            });
+            
+            html += '</div>';
+        }
+
+        // 次月の日付
+        const remainingDays = 42 - (startDayOfWeek + daysInMonth);
+        for (let i = 1; i <= remainingDays; i++) {
+            html += '<div class="calendar-day other-month">';
+            html += '<div class="calendar-day-number">' + i + '</div>';
+            html += '</div>';
+        }
+
+        document.getElementById('calendarGrid').innerHTML = html;
+    }
+
+    showEventModal(dateStr) {
+        this.isEditMode = false;
+        this.selectedDate = dateStr;
+        this.selectedEventId = null;
+        
+        document.getElementById('eventModalTitle').textContent = '📅 スケジュール作成';
+        document.getElementById('eventTitle').value = '';
+        document.getElementById('eventDate').value = dateStr;
+        document.getElementById('eventStartTime').value = '';
+        document.getElementById('eventEndTime').value = '';
+        document.getElementById('eventDescription').value = '';
+        document.getElementById('deleteEventBtn').style.display = 'none';
+        
+        document.getElementById('eventModal').classList.add('show');
+    }
+
+    editEvent(dateStr, eventId) {
+        this.isEditMode = true;
+        this.selectedDate = dateStr;
+        this.selectedEventId = eventId;
+        
+        const event = this.data.events[dateStr].find(e => e.id === eventId);
+        
+        document.getElementById('eventModalTitle').textContent = '📅 スケジュール編集';
+        document.getElementById('eventTitle').value = event.title;
+        document.getElementById('eventDate').value = dateStr;
+        document.getElementById('eventStartTime').value = event.startTime || '';
+        document.getElementById('eventEndTime').value = event.endTime || '';
+        document.getElementById('eventDescription').value = event.description || '';
+        document.getElementById('deleteEventBtn').style.display = 'block';
+        
+        document.getElementById('eventModal').classList.add('show');
+    }
+
+    closeEventModal() {
+        document.getElementById('eventModal').classList.remove('show');
+    }
+
+    saveEvent() {
+        const title = document.getElementById('eventTitle').value.trim();
+        const date = document.getElementById('eventDate').value;
+        const startTime = document.getElementById('eventStartTime').value;
+        const endTime = document.getElementById('eventEndTime').value;
+        const description = document.getElementById('eventDescription').value.trim();
+
+        if (!title) {
+            alert('タイトルを入力してください');
+            return;
+        }
+
+        if (!date) {
+            alert('日付を選択してください');
+            return;
+        }
+
+        if (!this.data.events[date]) {
+            this.data.events[date] = [];
+        }
+
+        if (this.isEditMode && this.selectedEventId) {
+            // 編集モード
+            const eventIndex = this.data.events[date].findIndex(e => e.id === this.selectedEventId);
+            this.data.events[date][eventIndex] = {
+                id: this.selectedEventId,
+                title,
+                startTime,
+                endTime,
+                description,
+                updatedAt: new Date().toISOString()
+            };
+            Utils.showToast('スケジュールを更新しました');
+        } else {
+            // 新規作成
+            const eventId = 'event_' + Date.now();
+            this.data.events[date].push({
+                id: eventId,
+                title,
+                startTime,
+                endTime,
+                description,
+                createdAt: new Date().toISOString()
+            });
+            Utils.showToast('スケジュールを作成しました');
+        }
+
+        this.saveToFirestore();
+        this.closeEventModal();
+        this.renderCalendar();
+    }
+
+    deleteEvent() {
+        if (!confirm('このスケジュールを削除しますか？')) return;
+
+        const date = this.selectedDate;
+        this.data.events[date] = this.data.events[date].filter(e => e.id !== this.selectedEventId);
+        
+        if (this.data.events[date].length === 0) {
+            delete this.data.events[date];
+        }
+
+        this.saveToFirestore();
+        this.closeEventModal();
+        this.renderCalendar();
+        Utils.showToast('スケジュールを削除しました');
+    }
+
+    showTodoModal() {
+        const today = new Date();
+        const todayStr = today.getFullYear() + '-' + 
+                       String(today.getMonth() + 1).padStart(2, '0') + '-' +
+                       String(today.getDate()).padStart(2, '0');
+        
+        document.getElementById('todoTitle').value = '';
+        document.getElementById('todoDate').value = todayStr;
+        document.getElementById('todoDescription').value = '';
+        
+        document.getElementById('todoModal').classList.add('show');
+    }
+
+    closeTodoModal() {
+        document.getElementById('todoModal').classList.remove('show');
+    }
+
+    saveTodo() {
+        const title = document.getElementById('todoTitle').value.trim();
+        const date = document.getElementById('todoDate').value;
+        const description = document.getElementById('todoDescription').value.trim();
+
+        if (!title) {
+            alert('Todoタイトルを入力してください');
+            return;
+        }
+
+        if (!date) {
+            alert('日付を選択してください');
+            return;
+        }
+
+        if (!this.data.todos[date]) {
+            this.data.todos[date] = [];
+        }
+
+        const todoId = 'todo_' + Date.now();
+        this.data.todos[date].push({
+            id: todoId,
+            title,
+            description,
+            completed: false,
+            createdAt: new Date().toISOString()
+        });
+
+        this.saveToFirestore();
+        this.closeTodoModal();
+        this.renderCalendar();
+        Utils.showToast('Todoを追加しました');
+    }
+
+    toggleTodo(dateStr, todoId) {
+        const todo = this.data.todos[dateStr].find(t => t.id === todoId);
+        if (todo) {
+            todo.completed = !todo.completed;
+            this.saveToFirestore();
+            this.renderCalendar();
+        }
+    }
+}
+
 // 予算管理クラス
 class BudgetManager {
     constructor() {
@@ -695,6 +990,7 @@ class KakeiboApp {
         this.budget = new BudgetManager();
         this.calculator = new Calculator();
         this.csv = new CSVExporter(this.budget);
+        this.calendar = new CalendarManager();
     }
 
     toggleMenu() {
@@ -707,16 +1003,34 @@ class KakeiboApp {
         document.getElementById('menuOverlay').classList.remove('show');
     }
 
+    showBudget() {
+        document.getElementById('budgetSection').style.display = 'block';
+        document.getElementById('calendarSection').classList.remove('active');
+        
+        const jstDate = Utils.getJSTDate();
+        this.budget.currentYear = jstDate.getFullYear();
+        this.budget.currentMonth = jstDate.getMonth() + 1;
+        this.budget.updateDisplay();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    showCalendar() {
+        document.getElementById('budgetSection').style.display = 'none';
+        document.getElementById('calendarSection').classList.add('active');
+        
+        const jstDate = Utils.getJSTDate();
+        this.calendar.currentYear = jstDate.getFullYear();
+        this.calendar.currentMonth = jstDate.getMonth() + 1;
+        this.calendar.renderCalendar();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
     showSection(section) {
         document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
         event.target.classList.add('active');
         
         if (section === 'budget') {
-            const jstDate = Utils.getJSTDate();
-            this.budget.currentYear = jstDate.getFullYear();
-            this.budget.currentMonth = jstDate.getMonth() + 1;
-            this.budget.updateDisplay();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            this.showBudget();
         }
     }
 
@@ -724,6 +1038,7 @@ class KakeiboApp {
         this.budget.showSyncStatus('syncing', '接続中...');
         this.budget.loadFromFirestore();
         this.budget.updateDisplay();
+        this.calendar.loadFromFirestore();
     }
 }
 
