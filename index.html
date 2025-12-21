@@ -4,17 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>家計簿</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=10">
 </head>
 <body>
-    <!-- ヘッダー -->
-    <div class="header">
-        <div class="header-nav">
-            <button class="nav-btn active" onclick="app.showSection('budget')">📊 家計簿</button>
-            <button class="nav-btn" onclick="app.calculator.show()">🔢 計算機</button>
-            <button class="nav-btn" onclick="app.csv.showModal()">📥 CSV出力</button>
+    <!-- 右上メニューボタン -->
+    <button class="menu-btn" onclick="app.toggleMenu()">☰</button>
+
+    <!-- サイドメニュー -->
+    <div class="side-menu" id="sideMenu">
+        <button class="close-menu" onclick="app.closeMenu()">✕</button>
+        <div class="menu-items">
+            <div class="menu-item" onclick="app.closeMenu();">📅 カレンダー（実装予定）</div>
         </div>
     </div>
+    <div class="menu-overlay" id="menuOverlay" onclick="app.closeMenu()"></div>
 
     <!-- トーストメッセージ -->
     <div class="toast" id="toast"></div>
@@ -149,6 +152,15 @@
         </div>
     </div>
 
-    <script type="module" src="app.js"></script>
+    <!-- フッター -->
+    <div class="footer">
+        <div class="footer-nav">
+            <button class="nav-btn active" onclick="app.showSection('budget')">📊 家計簿</button>
+            <button class="nav-btn" onclick="app.calculator.show()">🔢 計算機</button>
+            <button class="nav-btn" onclick="app.csv.showModal()">📥 CSV出力</button>
+        </div>
+    </div>
+
+    <script type="module" src="app.js?v=10"></script>
 </body>
 </html>
