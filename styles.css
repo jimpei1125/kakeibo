@@ -937,10 +937,6 @@ button.edit-btn:hover {
     display: none;
 }
 
-.calendar-section.active {
-    display: block;
-}
-
 .calendar-header {
     display: flex;
     align-items: center;

@@ -1005,7 +1005,7 @@ class KakeiboApp {
 
     showBudget() {
         document.getElementById('budgetSection').style.display = 'block';
-        document.getElementById('calendarSection').classList.remove('active');
+        document.getElementById('calendarSection').style.display = 'none';
         
         const jstDate = Utils.getJSTDate();
         this.budget.currentYear = jstDate.getFullYear();
@@ -1016,7 +1016,7 @@ class KakeiboApp {
 
     showCalendar() {
         document.getElementById('budgetSection').style.display = 'none';
-        document.getElementById('calendarSection').classList.add('active');
+        document.getElementById('calendarSection').style.display = 'block';
         
         const jstDate = Utils.getJSTDate();
         this.calendar.currentYear = jstDate.getFullYear();
