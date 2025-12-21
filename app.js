@@ -284,21 +284,15 @@ class CalendarManager {
     }
 
     renderCalendar() {
-        console.log('📆 renderCalendar() called');
-        
         const monthDisplay = document.getElementById('calendarMonthDisplay');
         const grid = document.getElementById('calendarGrid');
-        
-        console.log('calendarMonthDisplay:', monthDisplay);
-        console.log('calendarGrid:', grid);
         
         if (!monthDisplay || !grid) {
             console.error('❌ Calendar elements not found!');
             return;
         }
         
-        document.getElementById('calendarMonthDisplay').textContent = 
-            this.currentYear + '年 ' + this.currentMonth + '月';
+        monthDisplay.textContent = this.currentYear + '年 ' + this.currentMonth + '月';
 
         const firstDay = new Date(this.currentYear, this.currentMonth - 1, 1);
         const lastDay = new Date(this.currentYear, this.currentMonth, 0);
@@ -361,16 +355,6 @@ class CalendarManager {
         }
 
         // 次月の日付
-        const remainingDays = 42 - (startDayOfWeek + daysInMonth);
-        for (let i = 1; i <= remainingDays; i++) {
-            html += '<div class="calendar-day other-month">';
-            html += '<div class="calendar-day-number">' + i + '</div>';
-            html += '</div>';
-        }
-
-        document.getElementById('calendarGrid').innerHTML = html;
-        console.log('✅ Calendar rendered successfully');
-    }
         const remainingDays = 42 - (startDayOfWeek + daysInMonth);
         for (let i = 1; i <= remainingDays; i++) {
             html += '<div class="calendar-day other-month">';
@@ -482,10 +466,10 @@ class CalendarManager {
         document.getElementById('eventModal').classList.add('show');
     }
 
-    closeEventModal() {
+    closeEventModal(returnToTimeslot = true) {
         document.getElementById('eventModal').classList.remove('show');
-        // 編集モードでなければタイムスロットモーダルに戻る
-        if (!this.isEditMode && this.selectedDate) {
+        // 編集モードでなく、タイムスロットに戻る場合のみ
+        if (returnToTimeslot && !this.isEditMode && this.selectedDate) {
             this.showTimeslotModal(this.selectedDate);
         }
     }
@@ -538,13 +522,15 @@ class CalendarManager {
         }
 
         this.saveToFirestore();
-        this.closeEventModal();
+        
+        // モーダルを閉じる（タイムスロットに戻らない）
+        this.closeEventModal(false);
+        
+        // カレンダーを更新
         this.renderCalendar();
         
-        // タイムスロットモーダルを更新
-        if (this.selectedDate) {
-            this.showTimeslotModal(this.selectedDate);
-        }
+        // タイムスロットモーダルを表示
+        this.showTimeslotModal(this.selectedDate);
     }
 
     deleteEvent() {
@@ -558,14 +544,17 @@ class CalendarManager {
         }
 
         this.saveToFirestore();
-        this.closeEventModal();
+        
+        // モーダルを閉じる（タイムスロットに戻らない）
+        this.closeEventModal(false);
+        
+        // カレンダーを更新
         this.renderCalendar();
+        
         Utils.showToast('スケジュールを削除しました');
         
-        // タイムスロットモーダルを更新
-        if (this.selectedDate) {
-            this.showTimeslotModal(this.selectedDate);
-        }
+        // タイムスロットモーダルを表示
+        this.showTimeslotModal(this.selectedDate);
     }
 
     showTodoModal() {
@@ -1119,13 +1108,8 @@ class KakeiboApp {
     }
 
     showCalendar() {
-        console.log('📅 showCalendar() called');
-        
         const budgetSection = document.getElementById('budgetSection');
         const calendarSection = document.getElementById('calendarSection');
-        
-        console.log('budgetSection:', budgetSection);
-        console.log('calendarSection:', calendarSection);
         
         if (!calendarSection) {
             console.error('❌ calendarSection not found!');
@@ -1135,13 +1119,9 @@ class KakeiboApp {
         budgetSection.style.display = 'none';
         calendarSection.style.display = 'block';
         
-        console.log('calendarSection display after:', window.getComputedStyle(calendarSection).display);
-        
         const jstDate = Utils.getJSTDate();
         this.calendar.currentYear = jstDate.getFullYear();
         this.calendar.currentMonth = jstDate.getMonth() + 1;
-        
-        console.log('Rendering calendar for:', this.calendar.currentYear, this.calendar.currentMonth);
         this.calendar.renderCalendar();
         
         window.scrollTo({ top: 0, behavior: 'smooth' });
