@@ -233,7 +233,7 @@ class CSVExporter {
 // Google Calendar認証クラス
 class GoogleCalendarAuth {
     constructor() {
-        this.clientId = '805926802884-n1clrn2a0el5pkbkdfn2bf2btje2vnge.apps.googleusercontent.com.apps.googleusercontent.com'; // ← ここにクライアントIDを入力
+        this.clientId = '805926802884-n1clrn2a0el5pkbkdfn2bf2btje2vnge.apps.googleusercontent.com';
         this.apiKey = null; // Web版OAuth 2.0ではAPIキーは不要
         this.discoveryDocs = ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'];
         this.scopes = 'https://www.googleapis.com/auth/calendar.events';
