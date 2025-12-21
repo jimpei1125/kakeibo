@@ -697,6 +697,16 @@ class KakeiboApp {
         this.csv = new CSVExporter(this.budget);
     }
 
+    toggleMenu() {
+        document.getElementById('sideMenu').classList.toggle('open');
+        document.getElementById('menuOverlay').classList.toggle('show');
+    }
+
+    closeMenu() {
+        document.getElementById('sideMenu').classList.remove('open');
+        document.getElementById('menuOverlay').classList.remove('show');
+    }
+
     showSection(section) {
         document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
         event.target.classList.add('active');

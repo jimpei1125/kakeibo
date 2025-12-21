@@ -7,12 +7,18 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <!-- ヘッダー -->
-    <div class="header">
-        <div class="header-nav">
-            <button class="nav-btn active" onclick="app.showSection('budget')">📊 家計簿</button>
-            <button class="nav-btn" onclick="app.calculator.show()">🔢 計算機</button>
-            <button class="nav-btn" onclick="app.csv.showModal()">📥 CSV出力</button>
+    <!-- 右上メニューボタン -->
+    <button class="menu-button" onclick="app.toggleMenu()">☰</button>
+
+    <!-- サイドメニュー -->
+    <div class="menu-overlay" id="menuOverlay" onclick="app.closeMenu()"></div>
+    <div class="side-menu" id="sideMenu">
+        <div class="menu-header">
+            <h2>メニュー</h2>
+            <button class="menu-close" onclick="app.closeMenu()">✕</button>
+        </div>
+        <div class="menu-items">
+            <div class="menu-item" onclick="app.closeMenu();">📅 カレンダー（実装予定）</div>
         </div>
     </div>
 
@@ -146,6 +152,15 @@
                     Discordに移動
                 </button>
             </div>
+        </div>
+    </div>
+
+    <!-- フッター -->
+    <div class="footer">
+        <div class="footer-nav">
+            <button class="nav-btn active" onclick="app.showSection('budget')">📊 家計簿</button>
+            <button class="nav-btn" onclick="app.calculator.show()">🔢 計算機</button>
+            <button class="nav-btn" onclick="app.csv.showModal()">📥 CSV出力</button>
         </div>
     </div>
 
