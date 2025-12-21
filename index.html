@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>家計簿</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=3">
 </head>
 <body>
     <!-- 右上メニューボタン -->
@@ -203,6 +203,18 @@
         </div>
     </div>
 
+    <!-- タイムスロット選択モーダル -->
+    <div class="timeslot-modal" id="timeslotModal">
+        <div class="modal-header">
+            <h2 id="timeslotModalTitle">2024年12月21日</h2>
+            <button class="modal-close" onclick="app.calendar.closeTimeslotModal()">✕</button>
+        </div>
+        
+        <div class="timeslot-grid" id="timeslotGrid">
+            <!-- タイムスロットがここに表示される -->
+        </div>
+    </div>
+
     <!-- Todo追加モーダル -->
     <div class="todo-modal" id="todoModal">
         <div class="modal-header">
@@ -228,6 +240,6 @@
         </div>
     </div>
 
-    <script type="module" src="app.js"></script>
+    <script type="module" src="app.js?v=3"></script>
 </body>
 </html>

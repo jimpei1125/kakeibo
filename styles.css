@@ -1126,7 +1126,7 @@ button.edit-btn:hover {
 }
 
 /* スケジュール作成モーダル */
-.event-modal, .todo-modal {
+.event-modal, .todo-modal, .timeslot-modal {
     display: none;
     position: fixed;
     top: 50%;
@@ -1145,9 +1145,66 @@ button.edit-btn:hover {
     overflow-y: auto;
 }
 
-.event-modal.show, .todo-modal.show {
+.event-modal.show, .todo-modal.show, .timeslot-modal.show {
     display: block;
     animation: modalFadeIn 0.3s ease-out;
+}
+
+.timeslot-modal {
+    max-width: 600px;
+}
+
+.timeslot-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.timeslot {
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.timeslot:hover {
+    background: rgba(102, 126, 234, 0.2);
+    border-color: #667eea;
+    transform: scale(1.05);
+}
+
+.timeslot.occupied {
+    background: rgba(102, 126, 234, 0.3);
+    border-color: #667eea;
+    cursor: default;
+}
+
+.timeslot.occupied:hover {
+    transform: scale(1);
+}
+
+.timeslot-time {
+    font-size: 16px;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 5px;
+}
+
+.timeslot-event {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.timeslot.occupied .timeslot-event {
+    color: #ffffff;
+    font-weight: 600;
 }
 
 .event-form, .todo-form {

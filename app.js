@@ -284,6 +284,19 @@ class CalendarManager {
     }
 
     renderCalendar() {
+        console.log('📆 renderCalendar() called');
+        
+        const monthDisplay = document.getElementById('calendarMonthDisplay');
+        const grid = document.getElementById('calendarGrid');
+        
+        console.log('calendarMonthDisplay:', monthDisplay);
+        console.log('calendarGrid:', grid);
+        
+        if (!monthDisplay || !grid) {
+            console.error('❌ Calendar elements not found!');
+            return;
+        }
+        
         document.getElementById('calendarMonthDisplay').textContent = 
             this.currentYear + '年 ' + this.currentMonth + '月';
 
@@ -356,22 +369,96 @@ class CalendarManager {
         }
 
         document.getElementById('calendarGrid').innerHTML = html;
+        console.log('✅ Calendar rendered successfully');
+    }
+        const remainingDays = 42 - (startDayOfWeek + daysInMonth);
+        for (let i = 1; i <= remainingDays; i++) {
+            html += '<div class="calendar-day other-month">';
+            html += '<div class="calendar-day-number">' + i + '</div>';
+            html += '</div>';
+        }
+
+        document.getElementById('calendarGrid').innerHTML = html;
     }
 
-    showEventModal(dateStr) {
+    showEventModal(dateStr, startHour = null) {
         this.isEditMode = false;
         this.selectedDate = dateStr;
         this.selectedEventId = null;
         
-        document.getElementById('eventModalTitle').textContent = '📅 スケジュール作成';
-        document.getElementById('eventTitle').value = '';
-        document.getElementById('eventDate').value = dateStr;
-        document.getElementById('eventStartTime').value = '';
-        document.getElementById('eventEndTime').value = '';
-        document.getElementById('eventDescription').value = '';
-        document.getElementById('deleteEventBtn').style.display = 'none';
+        // 時間指定がある場合は直接スケジュール作成画面へ
+        if (startHour !== null) {
+            const endHour = startHour + 1;
+            const startTime = String(startHour).padStart(2, '0') + ':00';
+            const endTime = String(endHour).padStart(2, '0') + ':00';
+            
+            document.getElementById('eventModalTitle').textContent = '📅 スケジュール作成';
+            document.getElementById('eventTitle').value = '';
+            document.getElementById('eventDate').value = dateStr;
+            document.getElementById('eventStartTime').value = startTime;
+            document.getElementById('eventEndTime').value = endTime;
+            document.getElementById('eventDescription').value = '';
+            document.getElementById('deleteEventBtn').style.display = 'none';
+            
+            document.getElementById('eventModal').classList.add('show');
+        } else {
+            // 時間指定がない場合はタイムスロット選択画面へ
+            this.showTimeslotModal(dateStr);
+        }
+    }
+
+    showTimeslotModal(dateStr) {
+        this.selectedDate = dateStr;
         
-        document.getElementById('eventModal').classList.add('show');
+        // 日付をフォーマット
+        const date = new Date(dateStr);
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+        
+        document.getElementById('timeslotModalTitle').textContent = 
+            year + '年' + month + '月' + day + '日';
+        
+        // タイムスロットを生成
+        let html = '';
+        const events = this.data.events[dateStr] || [];
+        
+        for (let hour = 0; hour < 24; hour++) {
+            const startTime = String(hour).padStart(2, '0') + ':00';
+            const endTime = String(hour + 1).padStart(2, '0') + ':00';
+            
+            // この時間帯にイベントがあるか確認
+            const eventsInSlot = events.filter(event => {
+                if (!event.startTime) return false;
+                const eventHour = parseInt(event.startTime.split(':')[0]);
+                return eventHour === hour;
+            });
+            
+            const isOccupied = eventsInSlot.length > 0;
+            
+            html += '<div class="timeslot' + (isOccupied ? ' occupied' : '') + '" ';
+            
+            if (isOccupied) {
+                // 既存イベントをクリックして編集
+                html += 'onclick="app.calendar.editEvent(\'' + dateStr + '\', \'' + eventsInSlot[0].id + '\')">';
+                html += '<div class="timeslot-time">' + startTime + ' - ' + endTime + '</div>';
+                html += '<div class="timeslot-event">' + eventsInSlot[0].title + '</div>';
+            } else {
+                // 空きスロットをクリックして新規作成
+                html += 'onclick="app.calendar.showEventModal(\'' + dateStr + '\', ' + hour + ')">';
+                html += '<div class="timeslot-time">' + startTime + ' - ' + endTime + '</div>';
+                html += '<div class="timeslot-event">空き</div>';
+            }
+            
+            html += '</div>';
+        }
+        
+        document.getElementById('timeslotGrid').innerHTML = html;
+        document.getElementById('timeslotModal').classList.add('show');
+    }
+
+    closeTimeslotModal() {
+        document.getElementById('timeslotModal').classList.remove('show');
     }
 
     editEvent(dateStr, eventId) {
@@ -389,11 +476,18 @@ class CalendarManager {
         document.getElementById('eventDescription').value = event.description || '';
         document.getElementById('deleteEventBtn').style.display = 'block';
         
+        // タイムスロットモーダルを閉じる
+        this.closeTimeslotModal();
+        
         document.getElementById('eventModal').classList.add('show');
     }
 
     closeEventModal() {
         document.getElementById('eventModal').classList.remove('show');
+        // 編集モードでなければタイムスロットモーダルに戻る
+        if (!this.isEditMode && this.selectedDate) {
+            this.showTimeslotModal(this.selectedDate);
+        }
     }
 
     saveEvent() {
@@ -446,6 +540,11 @@ class CalendarManager {
         this.saveToFirestore();
         this.closeEventModal();
         this.renderCalendar();
+        
+        // タイムスロットモーダルを更新
+        if (this.selectedDate) {
+            this.showTimeslotModal(this.selectedDate);
+        }
     }
 
     deleteEvent() {
@@ -462,6 +561,11 @@ class CalendarManager {
         this.closeEventModal();
         this.renderCalendar();
         Utils.showToast('スケジュールを削除しました');
+        
+        // タイムスロットモーダルを更新
+        if (this.selectedDate) {
+            this.showTimeslotModal(this.selectedDate);
+        }
     }
 
     showTodoModal() {
@@ -1015,13 +1119,31 @@ class KakeiboApp {
     }
 
     showCalendar() {
-        document.getElementById('budgetSection').style.display = 'none';
-        document.getElementById('calendarSection').style.display = 'block';
+        console.log('📅 showCalendar() called');
+        
+        const budgetSection = document.getElementById('budgetSection');
+        const calendarSection = document.getElementById('calendarSection');
+        
+        console.log('budgetSection:', budgetSection);
+        console.log('calendarSection:', calendarSection);
+        
+        if (!calendarSection) {
+            console.error('❌ calendarSection not found!');
+            return;
+        }
+        
+        budgetSection.style.display = 'none';
+        calendarSection.style.display = 'block';
+        
+        console.log('calendarSection display after:', window.getComputedStyle(calendarSection).display);
         
         const jstDate = Utils.getJSTDate();
         this.calendar.currentYear = jstDate.getFullYear();
         this.calendar.currentMonth = jstDate.getMonth() + 1;
+        
+        console.log('Rendering calendar for:', this.calendar.currentYear, this.calendar.currentMonth);
         this.calendar.renderCalendar();
+        
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
