@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>家計簿</title>
-    <link rel="stylesheet" href="styles.css?v=6">
+    <link rel="stylesheet" href="styles.css?v=7">
 </head>
 <body>
     <!-- 右上メニューボタン -->
@@ -19,6 +19,7 @@
         </div>
         <div class="menu-items">
             <div class="menu-item" onclick="app.showCalendar(); app.closeMenu();">📅 カレンダー</div>
+            <div class="menu-item" id="googleAuthMenu" onclick="app.googleAuth.showAuthModal(); app.closeMenu();">🔗 Google連携</div>
         </div>
     </div>
 
@@ -162,6 +163,18 @@
                 <h1>📅 カレンダー</h1>
             </div>
 
+            <!-- Google Calendar連携セクション -->
+            <div class="google-sync-section" id="googleSyncSection">
+                <div class="sync-status-card" id="syncStatusCard">
+                    <div class="sync-icon">🔗</div>
+                    <div class="sync-info">
+                        <div class="sync-title" id="syncTitle">Googleカレンダー連携</div>
+                        <div class="sync-description" id="syncDescription">連携すると自動でGoogleカレンダーに同期されます</div>
+                    </div>
+                    <button class="sync-btn" id="syncBtn" onclick="app.calendar.toggleGoogleSync()">連携する</button>
+                </div>
+            </div>
+
             <div class="calendar-controls">
                 <button class="month-nav-btn" onclick="app.calendar.changeMonth(-1)">◀</button>
                 <div class="calendar-month-display" id="calendarMonthDisplay"></div>
@@ -214,6 +227,43 @@
         </div>
     </div>
 
+    <!-- Google認証モーダル -->
+    <div class="auth-modal" id="authModal">
+        <div class="modal-header">
+            <h2>🔗 Googleカレンダー連携</h2>
+            <button class="modal-close" onclick="app.googleAuth.closeAuthModal()">✕</button>
+        </div>
+        
+        <div class="auth-content">
+            <div class="auth-status" id="authStatus">
+                <p>Googleカレンダーと連携すると、作成したスケジュールが自動的にGoogleカレンダーに同期されます。</p>
+            </div>
+            
+            <div class="auth-user-info" id="authUserInfo" style="display: none;">
+                <div class="user-avatar" id="userAvatar"></div>
+                <div class="user-details">
+                    <div class="user-name" id="userName"></div>
+                    <div class="user-email" id="userEmail"></div>
+                </div>
+                <div class="connection-status connected">✓ 接続済み</div>
+            </div>
+            
+            <button id="authButton" class="auth-btn" onclick="app.googleAuth.handleAuth()">
+                <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+                    <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
+                    <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/>
+                    <path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.175 0 7.55 0 9s.348 2.825.957 4.039l3.007-2.332z"/>
+                    <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/>
+                </svg>
+                Googleアカウントで連携
+            </button>
+            
+            <button id="disconnectButton" class="disconnect-btn" onclick="app.googleAuth.disconnect()" style="display: none;">
+                連携を解除
+            </button>
+        </div>
+    </div>
+
     <!-- フッター -->
     <div class="footer">
         <div class="footer-nav">
@@ -223,6 +273,8 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=6"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
+    <script type="module" src="app.js?v=7"></script>
 </body>
 </html>

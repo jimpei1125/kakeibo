@@ -230,9 +230,304 @@ class CSVExporter {
     }
 }
 
+// Google Calendar認証クラス
+class GoogleCalendarAuth {
+    constructor() {
+        this.clientId = '805926802884-n1clrn2a0el5pkbkdfn2bf2btje2vnge.apps.googleusercontent.com.apps.googleusercontent.com'; // ← ここにクライアントIDを入力
+        this.apiKey = null; // Web版OAuth 2.0ではAPIキーは不要
+        this.discoveryDocs = ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'];
+        this.scopes = 'https://www.googleapis.com/auth/calendar.events';
+        this.tokenClient = null;
+        this.accessToken = null;
+        this.isSignedIn = false;
+    }
+
+    async init() {
+        try {
+            // Google Identity Services (GIS) の初期化
+            await this.loadGoogleAPIs();
+            
+            // トークンクライアントの初期化
+            this.tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: this.clientId,
+                scope: this.scopes,
+                callback: (response) => {
+                    if (response.error !== undefined) {
+                        console.error('認証エラー:', response);
+                        Utils.showToast('認証に失敗しました');
+                        return;
+                    }
+                    
+                    this.accessToken = response.access_token;
+                    this.isSignedIn = true;
+                    this.saveTokenToFirestore(response);
+                    this.updateSyncStatus(true);
+                    Utils.showToast('Googleカレンダーと連携しました');
+                }
+            });
+
+            // Firestoreから保存されたトークンを読み込み
+            await this.loadTokenFromFirestore();
+        } catch (error) {
+            console.error('Google API初期化エラー:', error);
+        }
+    }
+
+    async loadGoogleAPIs() {
+        return new Promise((resolve) => {
+            const checkGapi = setInterval(() => {
+                if (window.gapi && window.google) {
+                    clearInterval(checkGapi);
+                    gapi.load('client', () => {
+                        gapi.client.init({
+                            discoveryDocs: this.discoveryDocs,
+                        }).then(() => {
+                            resolve();
+                        });
+                    });
+                }
+            }, 100);
+        });
+    }
+
+    async signIn() {
+        if (!this.tokenClient) {
+            Utils.showToast('初期化中です...');
+            return;
+        }
+        
+        // トークン取得リクエスト
+        this.tokenClient.requestAccessToken({ prompt: 'consent' });
+    }
+
+    async signOut() {
+        if (this.accessToken) {
+            google.accounts.oauth2.revoke(this.accessToken, () => {
+                console.log('トークンを取り消しました');
+            });
+        }
+        
+        this.accessToken = null;
+        this.isSignedIn = false;
+        
+        // Firestoreから削除
+        await this.removeTokenFromFirestore();
+        
+        this.updateSyncStatus(false);
+        Utils.showToast('Googleカレンダーとの連携を解除しました');
+    }
+
+    async saveTokenToFirestore(tokenResponse) {
+        try {
+            const user = auth.currentUser;
+            if (!user) {
+                console.log('ユーザーが未ログイン');
+                return;
+            }
+
+            const userRef = doc(db, 'users', user.uid);
+            await setDoc(userRef, {
+                googleAuth: {
+                    accessToken: tokenResponse.access_token,
+                    expiresAt: Date.now() + (tokenResponse.expires_in * 1000),
+                    scope: tokenResponse.scope,
+                    tokenType: tokenResponse.token_type,
+                    connectedAt: new Date().toISOString()
+                }
+            }, { merge: true });
+        } catch (error) {
+            console.error('トークン保存エラー:', error);
+        }
+    }
+
+    async loadTokenFromFirestore() {
+        try {
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const userRef = doc(db, 'users', user.uid);
+            const userSnap = await getDoc(userRef);
+
+            if (userSnap.exists() && userSnap.data().googleAuth) {
+                const authData = userSnap.data().googleAuth;
+                
+                // トークンの有効期限チェック
+                if (authData.expiresAt > Date.now()) {
+                    this.accessToken = authData.accessToken;
+                    this.isSignedIn = true;
+                    this.updateSyncStatus(true);
+                } else {
+                    // トークンが期限切れ
+                    await this.removeTokenFromFirestore();
+                }
+            }
+        } catch (error) {
+            console.error('トークン読み込みエラー:', error);
+        }
+    }
+
+    async removeTokenFromFirestore() {
+        try {
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const userRef = doc(db, 'users', user.uid);
+            await setDoc(userRef, {
+                googleAuth: deleteField()
+            }, { merge: true });
+        } catch (error) {
+            console.error('トークン削除エラー:', error);
+        }
+    }
+
+    updateSyncStatus(connected) {
+        const syncCard = document.getElementById('syncStatusCard');
+        const syncTitle = document.getElementById('syncTitle');
+        const syncDescription = document.getElementById('syncDescription');
+        const syncBtn = document.getElementById('syncBtn');
+
+        if (connected) {
+            syncCard.classList.add('connected');
+            syncTitle.textContent = 'Googleカレンダー連携中';
+            syncDescription.textContent = '予定は自動的にGoogleカレンダーに同期されます';
+            syncBtn.textContent = '連携解除';
+            syncBtn.classList.add('connected');
+        } else {
+            syncCard.classList.remove('connected');
+            syncTitle.textContent = 'Googleカレンダー連携';
+            syncDescription.textContent = '連携すると自動でGoogleカレンダーに同期されます';
+            syncBtn.textContent = '連携する';
+            syncBtn.classList.remove('connected');
+        }
+    }
+
+    async createCalendarEvent(event, dateStr) {
+        if (!this.isSignedIn || !this.accessToken) {
+            console.log('Google Calendar未連携');
+            return null;
+        }
+
+        try {
+            const [year, month, day] = dateStr.split('-');
+            const startDateTime = event.startTime 
+                ? `${dateStr}T${event.startTime}:00`
+                : `${dateStr}T00:00:00`;
+            const endDateTime = event.endTime 
+                ? `${dateStr}T${event.endTime}:00`
+                : `${dateStr}T01:00:00`;
+
+            const calendarEvent = {
+                summary: event.title,
+                description: event.description || '',
+                start: {
+                    dateTime: startDateTime,
+                    timeZone: 'Asia/Tokyo'
+                },
+                end: {
+                    dateTime: endDateTime,
+                    timeZone: 'Asia/Tokyo'
+                }
+            };
+
+            const response = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.accessToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(calendarEvent)
+            });
+
+            if (!response.ok) {
+                throw new Error('Calendar API error: ' + response.statusText);
+            }
+
+            const data = await response.json();
+            console.log('Googleカレンダーにイベント作成:', data.id);
+            return data.id;
+        } catch (error) {
+            console.error('カレンダーイベント作成エラー:', error);
+            Utils.showToast('Googleカレンダーへの同期に失敗しました');
+            return null;
+        }
+    }
+
+    async updateCalendarEvent(googleEventId, event, dateStr) {
+        if (!this.isSignedIn || !this.accessToken || !googleEventId) {
+            return null;
+        }
+
+        try {
+            const [year, month, day] = dateStr.split('-');
+            const startDateTime = event.startTime 
+                ? `${dateStr}T${event.startTime}:00`
+                : `${dateStr}T00:00:00`;
+            const endDateTime = event.endTime 
+                ? `${dateStr}T${event.endTime}:00`
+                : `${dateStr}T01:00:00`;
+
+            const calendarEvent = {
+                summary: event.title,
+                description: event.description || '',
+                start: {
+                    dateTime: startDateTime,
+                    timeZone: 'Asia/Tokyo'
+                },
+                end: {
+                    dateTime: endDateTime,
+                    timeZone: 'Asia/Tokyo'
+                }
+            };
+
+            const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${googleEventId}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${this.accessToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(calendarEvent)
+            });
+
+            if (!response.ok) {
+                throw new Error('Calendar API error: ' + response.statusText);
+            }
+
+            console.log('Googleカレンダーのイベントを更新');
+            return googleEventId;
+        } catch (error) {
+            console.error('カレンダーイベント更新エラー:', error);
+            return null;
+        }
+    }
+
+    async deleteCalendarEvent(googleEventId) {
+        if (!this.isSignedIn || !this.accessToken || !googleEventId) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${googleEventId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${this.accessToken}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Calendar API error: ' + response.statusText);
+            }
+
+            console.log('Googleカレンダーからイベントを削除');
+        } catch (error) {
+            console.error('カレンダーイベント削除エラー:', error);
+        }
+    }
+}
+
 // カレンダー管理クラス
 class CalendarManager {
-    constructor() {
+    constructor(googleAuth) {
+        this.googleAuth = googleAuth;
         this.currentYear = new Date().getFullYear();
         this.currentMonth = new Date().getMonth() + 1;
         this.data = { events: {}, todos: {} };
@@ -281,6 +576,18 @@ class CalendarManager {
         this.currentYear = today.getFullYear();
         this.currentMonth = today.getMonth() + 1;
         this.renderCalendar();
+    }
+
+    toggleGoogleSync() {
+        if (this.googleAuth.isSignedIn) {
+            // 連携解除
+            if (confirm('Googleカレンダーとの連携を解除しますか？')) {
+                this.googleAuth.signOut();
+            }
+        } else {
+            // 連携開始
+            this.googleAuth.signIn();
+        }
     }
 
     renderCalendar() {
@@ -467,7 +774,7 @@ class CalendarManager {
         }
     }
 
-    saveEvent() {
+    async saveEvent() {
         const title = document.getElementById('eventTitle').value.trim();
         const date = document.getElementById('eventDate').value;
         const startTime = document.getElementById('eventStartTime').value;
@@ -491,26 +798,51 @@ class CalendarManager {
         if (this.isEditMode && this.selectedEventId) {
             // 編集モード
             const eventIndex = this.data.events[date].findIndex(e => e.id === this.selectedEventId);
+            const existingEvent = this.data.events[date][eventIndex];
+            
             this.data.events[date][eventIndex] = {
                 id: this.selectedEventId,
                 title,
                 startTime,
                 endTime,
                 description,
+                googleEventId: existingEvent.googleEventId, // 既存のGoogleイベントIDを保持
                 updatedAt: new Date().toISOString()
             };
+            
+            // Googleカレンダーを更新
+            if (existingEvent.googleEventId) {
+                await this.googleAuth.updateCalendarEvent(existingEvent.googleEventId, {
+                    title,
+                    startTime,
+                    endTime,
+                    description
+                }, date);
+            }
+            
             Utils.showToast('スケジュールを更新しました');
         } else {
             // 新規作成
             const eventId = 'event_' + Date.now();
+            
+            // Googleカレンダーにイベント作成
+            const googleEventId = await this.googleAuth.createCalendarEvent({
+                title,
+                startTime,
+                endTime,
+                description
+            }, date);
+            
             this.data.events[date].push({
                 id: eventId,
                 title,
                 startTime,
                 endTime,
                 description,
+                googleEventId: googleEventId, // GoogleイベントIDを保存
                 createdAt: new Date().toISOString()
             });
+            
             Utils.showToast('スケジュールを作成しました');
         }
 
@@ -526,10 +858,17 @@ class CalendarManager {
         this.showTimeslotModal(this.selectedDate);
     }
 
-    deleteEvent() {
+    async deleteEvent() {
         if (!confirm('このスケジュールを削除しますか？')) return;
 
         const date = this.selectedDate;
+        const event = this.data.events[date].find(e => e.id === this.selectedEventId);
+        
+        // Googleカレンダーから削除
+        if (event && event.googleEventId) {
+            await this.googleAuth.deleteCalendarEvent(event.googleEventId);
+        }
+        
         this.data.events[date] = this.data.events[date].filter(e => e.id !== this.selectedEventId);
         
         if (this.data.events[date].length === 0) {
@@ -550,6 +889,266 @@ class CalendarManager {
         this.showTimeslotModal(this.selectedDate);
     }
 
+}
+
+// Google認証クラス
+class GoogleAuthManager {
+    constructor() {
+        this.CLIENT_ID = 'YOUR_CLIENT_ID_HERE.apps.googleusercontent.com'; // ★ここにクライアントIDを入れる
+        this.SCOPES = 'https://www.googleapis.com/auth/calendar.events';
+        this.tokenClient = null;
+        this.accessToken = null;
+        this.userInfo = null;
+    }
+
+    init() {
+        // Google Identity Services の初期化
+        if (typeof google !== 'undefined') {
+            this.tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: this.CLIENT_ID,
+                scope: this.SCOPES,
+                callback: (response) => {
+                    if (response.error) {
+                        console.error('認証エラー:', response);
+                        Utils.showToast('認証に失敗しました');
+                        return;
+                    }
+                    this.accessToken = response.access_token;
+                    this.saveTokenToFirestore(response);
+                    this.getUserInfo();
+                    Utils.showToast('Googleカレンダーと連携しました');
+                }
+            });
+        }
+
+        // 保存済みのトークンを読み込む
+        this.loadTokenFromFirestore();
+    }
+
+    showAuthModal() {
+        this.updateAuthUI();
+        document.getElementById('authModal').classList.add('show');
+    }
+
+    closeAuthModal() {
+        document.getElementById('authModal').classList.remove('show');
+    }
+
+    handleAuth() {
+        if (!this.tokenClient) {
+            alert('Google認証の準備ができていません。ページを再読み込みしてください。');
+            return;
+        }
+
+        // トークンリクエスト
+        this.tokenClient.requestAccessToken();
+    }
+
+    async getUserInfo() {
+        if (!this.accessToken) return;
+
+        try {
+            const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+                headers: {
+                    'Authorization': `Bearer ${this.accessToken}`
+                }
+            });
+
+            if (response.ok) {
+                this.userInfo = await response.json();
+                this.updateAuthUI();
+            }
+        } catch (error) {
+            console.error('ユーザー情報取得エラー:', error);
+        }
+    }
+
+    updateAuthUI() {
+        const authButton = document.getElementById('authButton');
+        const disconnectButton = document.getElementById('disconnectButton');
+        const authUserInfo = document.getElementById('authUserInfo');
+        const authStatus = document.getElementById('authStatus');
+
+        if (this.accessToken && this.userInfo) {
+            // 接続済み
+            authButton.style.display = 'none';
+            disconnectButton.style.display = 'block';
+            authUserInfo.style.display = 'flex';
+            authStatus.style.display = 'none';
+
+            // ユーザー情報を表示
+            document.getElementById('userName').textContent = this.userInfo.name;
+            document.getElementById('userEmail').textContent = this.userInfo.email;
+            
+            const avatar = document.getElementById('userAvatar');
+            if (this.userInfo.picture) {
+                avatar.innerHTML = `<img src="${this.userInfo.picture}" alt="${this.userInfo.name}">`;
+            } else {
+                avatar.textContent = this.userInfo.name.charAt(0);
+            }
+        } else {
+            // 未接続
+            authButton.style.display = 'block';
+            disconnectButton.style.display = 'none';
+            authUserInfo.style.display = 'none';
+            authStatus.style.display = 'block';
+        }
+    }
+
+    disconnect() {
+        if (!confirm('Googleカレンダーとの連携を解除しますか？')) return;
+
+        this.accessToken = null;
+        this.userInfo = null;
+        
+        // Firestoreから削除
+        this.deleteTokenFromFirestore();
+        
+        this.updateAuthUI();
+        Utils.showToast('連携を解除しました');
+    }
+
+    async saveTokenToFirestore(tokenResponse) {
+        try {
+            const docRef = doc(db, 'googleAuth', 'tokens');
+            await setDoc(docRef, {
+                accessToken: tokenResponse.access_token,
+                expiresAt: Date.now() + (tokenResponse.expires_in * 1000),
+                updatedAt: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error('トークン保存エラー:', error);
+        }
+    }
+
+    async loadTokenFromFirestore() {
+        try {
+            const docRef = doc(db, 'googleAuth', 'tokens');
+            onSnapshot(docRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    
+                    // トークンの有効期限チェック
+                    if (data.expiresAt > Date.now()) {
+                        this.accessToken = data.accessToken;
+                        this.getUserInfo();
+                    } else {
+                        // 期限切れ
+                        this.deleteTokenFromFirestore();
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('トークン読み込みエラー:', error);
+        }
+    }
+
+    async deleteTokenFromFirestore() {
+        try {
+            const docRef = doc(db, 'googleAuth', 'tokens');
+            await setDoc(docRef, {});
+        } catch (error) {
+            console.error('トークン削除エラー:', error);
+        }
+    }
+
+    // カレンダーにイベントを作成
+    async createCalendarEvent(event) {
+        if (!this.accessToken) {
+            console.log('Google未連携のためスキップ');
+            return null;
+        }
+
+        try {
+            const calendarEvent = {
+                summary: event.title,
+                description: event.description || '',
+                start: {
+                    dateTime: event.date + 'T' + (event.startTime || '00:00') + ':00',
+                    timeZone: 'Asia/Tokyo'
+                },
+                end: {
+                    dateTime: event.date + 'T' + (event.endTime || '23:59') + ':00',
+                    timeZone: 'Asia/Tokyo'
+                }
+            };
+
+            const response = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.accessToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(calendarEvent)
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log('Googleカレンダーにイベント作成:', data.id);
+                return data.id;
+            } else {
+                throw new Error('イベント作成失敗');
+            }
+        } catch (error) {
+            console.error('Googleカレンダー同期エラー:', error);
+            return null;
+        }
+    }
+
+    // カレンダーのイベントを更新
+    async updateCalendarEvent(googleEventId, event) {
+        if (!this.accessToken || !googleEventId) return;
+
+        try {
+            const calendarEvent = {
+                summary: event.title,
+                description: event.description || '',
+                start: {
+                    dateTime: event.date + 'T' + (event.startTime || '00:00') + ':00',
+                    timeZone: 'Asia/Tokyo'
+                },
+                end: {
+                    dateTime: event.date + 'T' + (event.endTime || '23:59') + ':00',
+                    timeZone: 'Asia/Tokyo'
+                }
+            };
+
+            const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${googleEventId}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${this.accessToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(calendarEvent)
+            });
+
+            if (response.ok) {
+                console.log('Googleカレンダーのイベント更新:', googleEventId);
+            }
+        } catch (error) {
+            console.error('Googleカレンダー更新エラー:', error);
+        }
+    }
+
+    // カレンダーのイベントを削除
+    async deleteCalendarEvent(googleEventId) {
+        if (!this.accessToken || !googleEventId) return;
+
+        try {
+            const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${googleEventId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${this.accessToken}`
+                }
+            });
+
+            if (response.ok) {
+                console.log('Googleカレンダーのイベント削除:', googleEventId);
+            }
+        } catch (error) {
+            console.error('Googleカレンダー削除エラー:', error);
+        }
+    }
 }
 
 // 予算管理クラス
@@ -1014,10 +1613,11 @@ class BudgetManager {
 // アプリケーションクラス
 class KakeiboApp {
     constructor() {
+        this.googleAuth = new GoogleCalendarAuth();
         this.budget = new BudgetManager();
         this.calculator = new Calculator();
         this.csv = new CSVExporter(this.budget);
-        this.calendar = new CalendarManager();
+        this.calendar = new CalendarManager(this.googleAuth);
     }
 
     toggleMenu() {
@@ -1075,6 +1675,11 @@ class KakeiboApp {
         this.budget.loadFromFirestore();
         this.budget.updateDisplay();
         this.calendar.loadFromFirestore();
+        
+        // Google認証の初期化
+        setTimeout(() => {
+            this.googleAuth.init();
+        }, 1000);
     }
 }
 
