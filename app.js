@@ -370,7 +370,10 @@ class CalendarManager {
         this.selectedDate = dateStr;
         this.selectedEventId = null;
         
-        // 時間指定がある場合は直接スケジュール作成画面へ
+        // タイムスロットモーダルを閉じる
+        this.closeTimeslotModal();
+        
+        // 時間指定がある場合は自動入力
         if (startHour !== null) {
             const endHour = startHour + 1;
             const startTime = String(startHour).padStart(2, '0') + ':00';
@@ -466,10 +469,10 @@ class CalendarManager {
         document.getElementById('eventModal').classList.add('show');
     }
 
-    closeEventModal(returnToTimeslot = true) {
+    closeEventModal() {
         document.getElementById('eventModal').classList.remove('show');
-        // 編集モードでなく、タイムスロットに戻る場合のみ
-        if (returnToTimeslot && !this.isEditMode && this.selectedDate) {
+        // スケジュール作成画面を閉じたらタイムスロットモーダルに戻る
+        if (this.selectedDate) {
             this.showTimeslotModal(this.selectedDate);
         }
     }
@@ -523,8 +526,8 @@ class CalendarManager {
 
         this.saveToFirestore();
         
-        // モーダルを閉じる（タイムスロットに戻らない）
-        this.closeEventModal(false);
+        // モーダルを閉じる
+        document.getElementById('eventModal').classList.remove('show');
         
         // カレンダーを更新
         this.renderCalendar();
@@ -545,8 +548,8 @@ class CalendarManager {
 
         this.saveToFirestore();
         
-        // モーダルを閉じる（タイムスロットに戻らない）
-        this.closeEventModal(false);
+        // モーダルを閉じる
+        document.getElementById('eventModal').classList.remove('show');
         
         // カレンダーを更新
         this.renderCalendar();
