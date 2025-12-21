@@ -328,7 +328,6 @@ class CalendarManager {
             
             const isToday = dateStr === todayStr;
             const events = this.data.events[dateStr] || [];
-            const todos = this.data.todos[dateStr] || [];
 
             html += '<div class="calendar-day' + (isToday ? ' today' : '') + 
                    '" onclick="app.calendar.showEventModal(\'' + dateStr + '\')">';
@@ -339,15 +338,6 @@ class CalendarManager {
                 html += '<div class="calendar-event-item" onclick="event.stopPropagation(); app.calendar.editEvent(\'' + 
                        dateStr + '\', \'' + event.id + '\')">';
                 html += event.title;
-                html += '</div>';
-            });
-            
-            // Todo表示
-            todos.forEach(todo => {
-                html += '<div class="calendar-todo-item' + (todo.completed ? ' completed' : '') + 
-                       '" onclick="event.stopPropagation(); app.calendar.toggleTodo(\'' + 
-                       dateStr + '\', \'' + todo.id + '\')">';
-                html += '✓ ' + todo.title;
                 html += '</div>';
             });
             
@@ -560,65 +550,6 @@ class CalendarManager {
         this.showTimeslotModal(this.selectedDate);
     }
 
-    showTodoModal() {
-        const today = new Date();
-        const todayStr = today.getFullYear() + '-' + 
-                       String(today.getMonth() + 1).padStart(2, '0') + '-' +
-                       String(today.getDate()).padStart(2, '0');
-        
-        document.getElementById('todoTitle').value = '';
-        document.getElementById('todoDate').value = todayStr;
-        document.getElementById('todoDescription').value = '';
-        
-        document.getElementById('todoModal').classList.add('show');
-    }
-
-    closeTodoModal() {
-        document.getElementById('todoModal').classList.remove('show');
-    }
-
-    saveTodo() {
-        const title = document.getElementById('todoTitle').value.trim();
-        const date = document.getElementById('todoDate').value;
-        const description = document.getElementById('todoDescription').value.trim();
-
-        if (!title) {
-            alert('Todoタイトルを入力してください');
-            return;
-        }
-
-        if (!date) {
-            alert('日付を選択してください');
-            return;
-        }
-
-        if (!this.data.todos[date]) {
-            this.data.todos[date] = [];
-        }
-
-        const todoId = 'todo_' + Date.now();
-        this.data.todos[date].push({
-            id: todoId,
-            title,
-            description,
-            completed: false,
-            createdAt: new Date().toISOString()
-        });
-
-        this.saveToFirestore();
-        this.closeTodoModal();
-        this.renderCalendar();
-        Utils.showToast('Todoを追加しました');
-    }
-
-    toggleTodo(dateStr, todoId) {
-        const todo = this.data.todos[dateStr].find(t => t.id === todoId);
-        if (todo) {
-            todo.completed = !todo.completed;
-            this.saveToFirestore();
-            this.renderCalendar();
-        }
-    }
 }
 
 // 予算管理クラス

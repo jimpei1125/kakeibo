@@ -1078,29 +1078,6 @@ button.edit-btn:hover {
     background: rgba(102, 126, 234, 1);
 }
 
-.calendar-todo-item {
-    font-size: 9px;
-    background: rgba(56, 239, 125, 0.8);
-    color: white;
-    padding: 2px 4px;
-    border-radius: 3px;
-    margin-bottom: 2px;
-    width: 100%;
-    text-align: center;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-}
-
-.calendar-todo-item.completed {
-    opacity: 0.5;
-    text-decoration: line-through;
-}
-
 .quick-add-section {
     display: flex;
     gap: 10px;
@@ -1109,7 +1086,7 @@ button.edit-btn:hover {
 
 .quick-add-btn {
     padding: 12px 24px;
-    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     border: none;
     border-radius: 10px;
@@ -1117,16 +1094,16 @@ button.edit-btn:hover {
     font-size: 14px;
     font-weight: 700;
     transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(56, 239, 125, 0.4);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
 }
 
 .quick-add-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(56, 239, 125, 0.6);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
 }
 
 /* スケジュール作成モーダル */
-.event-modal, .todo-modal, .timeslot-modal {
+.event-modal, .timeslot-modal {
     display: none;
     position: fixed;
     top: 50%;
@@ -1145,7 +1122,7 @@ button.edit-btn:hover {
     overflow-y: auto;
 }
 
-.event-modal.show, .todo-modal.show, .timeslot-modal.show {
+.event-modal.show, .timeslot-modal.show {
     display: block;
     animation: modalFadeIn 0.3s ease-out;
 }
@@ -1207,7 +1184,7 @@ button.edit-btn:hover {
     font-weight: 600;
 }
 
-.event-form, .todo-form {
+.event-form {
     display: flex;
     flex-direction: column;
     gap: 15px;
@@ -1216,10 +1193,7 @@ button.edit-btn:hover {
 .event-form input[type="text"],
 .event-form input[type="date"],
 .event-form input[type="time"],
-.event-form textarea,
-.todo-form input[type="text"],
-.todo-form input[type="date"],
-.todo-form textarea {
+.event-form textarea {
     width: 100%;
     padding: 12px;
     border: 2px solid rgba(255, 255, 255, 0.15);
@@ -1232,16 +1206,12 @@ button.edit-btn:hover {
 }
 
 .event-form input::placeholder,
-.event-form textarea::placeholder,
-.todo-form input::placeholder,
-.todo-form textarea::placeholder {
+.event-form textarea::placeholder {
     color: rgba(255, 255, 255, 0.5);
 }
 
 .event-form input:focus,
-.event-form textarea:focus,
-.todo-form input:focus,
-.todo-form textarea:focus {
+.event-form textarea:focus {
     outline: none;
     border-color: #667eea;
     background: rgba(255, 255, 255, 0.1);
@@ -1316,8 +1286,7 @@ button.edit-btn:hover {
         font-size: 12px;
     }
 
-    .calendar-event-item,
-    .calendar-todo-item {
+    .calendar-event-item {
         font-size: 8px;
         padding: 1px 2px;
     }
@@ -1341,8 +1310,7 @@ button.edit-btn:hover {
         font-size: 10px;
     }
 
-    .calendar-event-item,
-    .calendar-todo-item {
+    .calendar-event-item {
         font-size: 7px;
         padding: 1px;
     }

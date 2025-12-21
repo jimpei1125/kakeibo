@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>家計簿</title>
-    <link rel="stylesheet" href="styles.css?v=5">
+    <link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
     <!-- 右上メニューボタン -->
@@ -173,7 +173,6 @@
             </div>
 
             <div class="quick-add-section">
-                <button class="quick-add-btn" onclick="app.calendar.showTodoModal()">✓ Todo追加</button>
                 <button class="quick-add-btn" onclick="app.calendar.goToToday()">📍 今日</button>
             </div>
         </div>
@@ -215,22 +214,6 @@
         </div>
     </div>
 
-    <!-- Todo追加モーダル -->
-    <div class="todo-modal" id="todoModal">
-        <div class="modal-header">
-            <h2>✓ Todo追加</h2>
-            <button class="modal-close" onclick="app.calendar.closeTodoModal()">✕</button>
-        </div>
-        
-        <div class="todo-form">
-            <input type="text" id="todoTitle" placeholder="Todoタイトル">
-            <input type="date" id="todoDate">
-            <textarea id="todoDescription" placeholder="説明（任意）" rows="2"></textarea>
-            
-            <button onclick="app.calendar.saveTodo()" class="save-btn">追加</button>
-        </div>
-    </div>
-
     <!-- フッター -->
     <div class="footer">
         <div class="footer-nav">
@@ -240,6 +223,6 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=5"></script>
+    <script type="module" src="app.js?v=6"></script>
 </body>
 </html>
