@@ -1,5 +1,5 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-import { getFirestore, doc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, updateDoc, deleteDoc, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
 // Firebase設定
 const firebaseConfig = {
@@ -227,6 +227,502 @@ class CSVExporter {
         
         Utils.showToast('CSVファイルをダウンロードしました');
         this.closeModal();
+    }
+}
+
+// 休日カレンダークラス
+class HolidayCalendar {
+    constructor() {
+        this.currentYear = new Date().getFullYear();
+        this.currentMonth = new Date().getMonth() + 1;
+        this.editYear = this.currentYear;
+        this.editMonth = this.currentMonth;
+        this.users = [];
+        this.holidays = [];
+        this.selectedUser = null;
+        this.editingUserId = null;
+        this.selectedColor = null;
+        this.tempHolidays = []; // 編集中の一時的な休日データ
+        
+        this.colors = [
+            { name: '赤', value: '#FF5733', emoji: '🔴' },
+            { name: 'オレンジ', value: '#FF8C42', emoji: '🟠' },
+            { name: '黄', value: '#FFC300', emoji: '🟡' },
+            { name: '緑', value: '#38EF7D', emoji: '🟢' },
+            { name: '青', value: '#4FACFE', emoji: '🔵' },
+            { name: '紫', value: '#9B59B6', emoji: '🟣' },
+            { name: 'ピンク', value: '#FF69B4', emoji: '💗' },
+            { name: '茶', value: '#8B4513', emoji: '🟤' }
+        ];
+    }
+
+    async init() {
+        await this.loadUsers();
+        await this.loadHolidays();
+        this.renderCalendar();
+    }
+
+    async loadUsers() {
+        const usersCol = collection(db, 'holidayUsers');
+        const q = query(usersCol, orderBy('order', 'asc'));
+        
+        onSnapshot(q, (snapshot) => {
+            this.users = [];
+            snapshot.forEach(doc => {
+                this.users.push({
+                    id: doc.id,
+                    ...doc.data()
+                });
+            });
+            this.updateUsersList();
+            this.renderCalendar();
+        });
+    }
+
+    async loadHolidays() {
+        const holidaysCol = collection(db, 'holidays');
+        
+        onSnapshot(holidaysCol, (snapshot) => {
+            this.holidays = [];
+            snapshot.forEach(doc => {
+                this.holidays.push({
+                    id: doc.id,
+                    ...doc.data()
+                });
+            });
+            this.renderCalendar();
+        });
+    }
+
+    updateUsersList() {
+        const usersList = document.getElementById('usersList');
+        
+        if (this.users.length === 0) {
+            usersList.innerHTML = '<span class="no-users">ユーザーが登録されていません</span>';
+            return;
+        }
+        
+        let html = '';
+        this.users.forEach(user => {
+            html += `
+                <div class="user-tag">
+                    <div class="user-color-dot" style="background-color: ${user.color}"></div>
+                    <span>${user.name}</span>
+                </div>
+            `;
+        });
+        
+        usersList.innerHTML = html;
+    }
+
+    changeMonth(delta) {
+        this.currentMonth += delta;
+        if (this.currentMonth > 12) {
+            this.currentMonth = 1;
+            this.currentYear++;
+        } else if (this.currentMonth < 1) {
+            this.currentMonth = 12;
+            this.currentYear--;
+        }
+        this.renderCalendar();
+    }
+
+    changeEditMonth(delta) {
+        this.editMonth += delta;
+        if (this.editMonth > 12) {
+            this.editMonth = 1;
+            this.editYear++;
+        } else if (this.editMonth < 1) {
+            this.editMonth = 12;
+            this.editYear--;
+        }
+        this.renderEditCalendar();
+    }
+
+    renderCalendar() {
+        document.getElementById('calendarCurrentMonth').textContent = 
+            this.currentYear + '年' + this.currentMonth + '月';
+
+        const firstDay = new Date(this.currentYear, this.currentMonth - 1, 1);
+        const lastDay = new Date(this.currentYear, this.currentMonth, 0);
+        const daysInMonth = lastDay.getDate();
+        const startDayOfWeek = firstDay.getDay();
+
+        let html = '';
+        
+        // 曜日ヘッダー
+        ['日', '月', '火', '水', '木', '金', '土'].forEach(day => {
+            html += '<div class="calendar-weekday">' + day + '</div>';
+        });
+
+        // 前月の日付
+        const prevMonthDays = new Date(this.currentYear, this.currentMonth - 1, 0).getDate();
+        for (let i = startDayOfWeek - 1; i >= 0; i--) {
+            html += '<div class="calendar-date-cell other-month">';
+            html += '<div class="calendar-date-number">' + (prevMonthDays - i) + '</div>';
+            html += '</div>';
+        }
+
+        // 今日の日付
+        const today = new Date();
+        const todayStr = today.getFullYear() + '-' + 
+                       String(today.getMonth() + 1).padStart(2, '0') + '-' +
+                       String(today.getDate()).padStart(2, '0');
+
+        // 当月の日付
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = this.currentYear + '-' + 
+                          String(this.currentMonth).padStart(2, '0') + '-' +
+                          String(day).padStart(2, '0');
+            
+            const isToday = dateStr === todayStr;
+            const dayHolidays = this.holidays.filter(h => h.date === dateStr);
+
+            html += '<div class="calendar-date-cell' + (isToday ? ' today' : '') + '">';
+            html += '<div class="calendar-date-number">' + day + '</div>';
+            html += '<div class="calendar-holiday-users">';
+            
+            // 最大3人まで表示
+            const displayUsers = dayHolidays.slice(0, 3);
+            displayUsers.forEach(holiday => {
+                const user = this.users.find(u => u.id === holiday.userId);
+                if (user) {
+                    html += `
+                        <div class="calendar-holiday-user">
+                            <div class="calendar-holiday-dot" style="background-color: ${user.color}"></div>
+                            <span class="calendar-holiday-name">${user.name}</span>
+                        </div>
+                    `;
+                }
+            });
+            
+            // 4人以上の場合は「+N」と表示
+            if (dayHolidays.length > 3) {
+                html += '<div class="calendar-more-users">+' + (dayHolidays.length - 3) + '</div>';
+            }
+            
+            html += '</div></div>';
+        }
+
+        // 次月の日付
+        const remainingDays = 42 - (startDayOfWeek + daysInMonth);
+        for (let i = 1; i <= remainingDays; i++) {
+            html += '<div class="calendar-date-cell other-month">';
+            html += '<div class="calendar-date-number">' + i + '</div>';
+            html += '</div>';
+        }
+
+        document.getElementById('holidayCalendar').innerHTML = html;
+    }
+
+    // ユーザー管理
+    showUserManagement() {
+        this.renderUserList();
+        document.getElementById('userModal').classList.add('show');
+    }
+
+    closeUserModal() {
+        document.getElementById('userModal').classList.remove('show');
+    }
+
+    renderUserList() {
+        const userListModal = document.getElementById('userListModal');
+        
+        if (this.users.length === 0) {
+            userListModal.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.5);">ユーザーが登録されていません</p>';
+            return;
+        }
+        
+        let html = '';
+        this.users.forEach(user => {
+            html += `
+                <div class="user-item" onclick="app.holidayCalendar.editUser('${user.id}')">
+                    <div class="user-color-dot" style="background-color: ${user.color}"></div>
+                    <span>${user.name}</span>
+                </div>
+            `;
+        });
+        
+        userListModal.innerHTML = html;
+    }
+
+    showUserForm(userId = null) {
+        this.editingUserId = userId;
+        
+        if (userId) {
+            // 編集モード
+            const user = this.users.find(u => u.id === userId);
+            document.getElementById('userFormTitle').textContent = '✏️ ユーザー編集';
+            document.getElementById('userName').value = user.name;
+            this.selectedColor = user.color;
+            document.getElementById('deleteUserBtn').style.display = 'block';
+        } else {
+            // 新規登録モード
+            document.getElementById('userFormTitle').textContent = '✨ ユーザー新規登録';
+            document.getElementById('userName').value = '';
+            this.selectedColor = null;
+            document.getElementById('deleteUserBtn').style.display = 'none';
+        }
+        
+        this.renderColorPalette();
+        document.getElementById('userModal').classList.remove('show');
+        document.getElementById('userFormModal').classList.add('show');
+    }
+
+    editUser(userId) {
+        this.showUserForm(userId);
+    }
+
+    closeUserForm() {
+        document.getElementById('userFormModal').classList.remove('show');
+        document.getElementById('userModal').classList.add('show');
+    }
+
+    renderColorPalette() {
+        const palette = document.getElementById('colorPalette');
+        const usedColors = this.users
+            .filter(u => u.id !== this.editingUserId)
+            .map(u => u.color);
+        
+        let html = '';
+        this.colors.forEach(color => {
+            const isUsed = usedColors.includes(color.value);
+            const isSelected = this.selectedColor === color.value;
+            const classes = ['color-option'];
+            if (isUsed) classes.push('disabled');
+            if (isSelected) classes.push('selected');
+            
+            html += `
+                <div class="${classes.join(' ')}" 
+                     style="background-color: ${color.value}"
+                     onclick="app.holidayCalendar.selectColor('${color.value}', ${isUsed})">
+                    ${isSelected ? '✓' : color.emoji}
+                </div>
+            `;
+        });
+        
+        palette.innerHTML = html;
+    }
+
+    selectColor(color, isDisabled) {
+        if (isDisabled) return;
+        this.selectedColor = color;
+        this.renderColorPalette();
+    }
+
+    async saveUser() {
+        const name = document.getElementById('userName').value.trim();
+        
+        if (!name) {
+            alert('名前を入力してください');
+            return;
+        }
+        
+        if (name.length > 15) {
+            alert('名前は15文字以内で入力してください');
+            return;
+        }
+        
+        if (!this.selectedColor) {
+            alert('カラーを選択してください');
+            return;
+        }
+        
+        try {
+            if (this.editingUserId) {
+                // 更新
+                const userRef = doc(db, 'holidayUsers', this.editingUserId);
+                await updateDoc(userRef, {
+                    name: name,
+                    color: this.selectedColor
+                });
+                Utils.showToast('ユーザー情報を更新しました');
+            } else {
+                // 新規登録
+                const usersCol = collection(db, 'holidayUsers');
+                await addDoc(usersCol, {
+                    name: name,
+                    color: this.selectedColor,
+                    order: this.users.length,
+                    createdAt: new Date().toISOString()
+                });
+                Utils.showToast('ユーザーを登録しました');
+            }
+            
+            document.getElementById('userFormModal').classList.remove('show');
+            document.getElementById('userModal').classList.add('show');
+        } catch (error) {
+            console.error('ユーザー保存エラー:', error);
+            alert('保存に失敗しました');
+        }
+    }
+
+    async deleteUser() {
+        if (!confirm('このユーザーを削除しますか？\n休日データもすべて削除されます。')) {
+            return;
+        }
+        
+        try {
+            // ユーザー削除
+            await deleteDoc(doc(db, 'holidayUsers', this.editingUserId));
+            
+            // 該当ユーザーの休日をすべて削除
+            const holidaysQuery = query(
+                collection(db, 'holidays'),
+                where('userId', '==', this.editingUserId)
+            );
+            const snapshot = await getDocs(holidaysQuery);
+            const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+            await Promise.all(deletePromises);
+            
+            Utils.showToast('ユーザーを削除しました');
+            document.getElementById('userFormModal').classList.remove('show');
+            document.getElementById('userModal').classList.add('show');
+        } catch (error) {
+            console.error('ユーザー削除エラー:', error);
+            alert('削除に失敗しました');
+        }
+    }
+
+    // 休日編集
+    showHolidayEdit() {
+        if (this.users.length === 0) {
+            alert('ユーザーが登録されていません。\n先にユーザー編集から登録してください。');
+            return;
+        }
+        
+        this.renderHolidayUserList();
+        document.getElementById('holidayUserSelectModal').classList.add('show');
+    }
+
+    closeHolidayUserSelect() {
+        document.getElementById('holidayUserSelectModal').classList.remove('show');
+    }
+
+    renderHolidayUserList() {
+        const list = document.getElementById('holidayUserList');
+        
+        let html = '';
+        this.users.forEach(user => {
+            html += `
+                <button class="holiday-user-btn" onclick="app.holidayCalendar.startHolidayEdit('${user.id}')">
+                    <div class="user-color-dot" style="background-color: ${user.color}"></div>
+                    <span>${user.name}</span>
+                </button>
+            `;
+        });
+        
+        list.innerHTML = html;
+    }
+
+    startHolidayEdit(userId) {
+        this.selectedUser = this.users.find(u => u.id === userId);
+        this.editYear = this.currentYear;
+        this.editMonth = this.currentMonth;
+        
+        // 現在の休日データをコピー
+        this.tempHolidays = this.holidays
+            .filter(h => h.userId === userId)
+            .map(h => h.date);
+        
+        document.getElementById('holidayEditTitle').textContent = 
+            '📅 ' + this.selectedUser.name + 'の休日編集';
+        
+        document.getElementById('holidayUserSelectModal').classList.remove('show');
+        this.renderEditCalendar();
+        document.getElementById('holidayEditModal').classList.add('show');
+    }
+
+    renderEditCalendar() {
+        document.getElementById('editCalendarMonth').textContent = 
+            this.editYear + '年' + this.editMonth + '月';
+
+        const firstDay = new Date(this.editYear, this.editMonth - 1, 1);
+        const lastDay = new Date(this.editYear, this.editMonth, 0);
+        const daysInMonth = lastDay.getDate();
+        const startDayOfWeek = firstDay.getDay();
+
+        let html = '';
+        
+        // 曜日ヘッダー
+        ['日', '月', '火', '水', '木', '金', '土'].forEach(day => {
+            html += '<div class="calendar-weekday">' + day + '</div>';
+        });
+
+        // 前月の日付
+        const prevMonthDays = new Date(this.editYear, this.editMonth - 1, 0).getDate();
+        for (let i = startDayOfWeek - 1; i >= 0; i--) {
+            html += '<div class="edit-date-cell other-month">' + (prevMonthDays - i) + '</div>';
+        }
+
+        // 当月の日付
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = this.editYear + '-' + 
+                          String(this.editMonth).padStart(2, '0') + '-' +
+                          String(day).padStart(2, '0');
+            
+            const isHoliday = this.tempHolidays.includes(dateStr);
+            const style = isHoliday ? `background-color: ${this.selectedUser.color}` : '';
+            
+            html += `
+                <div class="edit-date-cell ${isHoliday ? 'holiday' : ''}" 
+                     style="${style}"
+                     onclick="app.holidayCalendar.toggleHoliday('${dateStr}')">
+                    ${day}
+                </div>
+            `;
+        }
+
+        // 次月の日付
+        const remainingDays = 42 - (startDayOfWeek + daysInMonth);
+        for (let i = 1; i <= remainingDays; i++) {
+            html += '<div class="edit-date-cell other-month">' + i + '</div>';
+        }
+
+        document.getElementById('holidayEditCalendar').innerHTML = html;
+    }
+
+    toggleHoliday(dateStr) {
+        const index = this.tempHolidays.indexOf(dateStr);
+        if (index > -1) {
+            this.tempHolidays.splice(index, 1);
+        } else {
+            this.tempHolidays.push(dateStr);
+        }
+        this.renderEditCalendar();
+    }
+
+    async completeHolidayEdit() {
+        try {
+            // 既存の休日データを削除
+            const existingQuery = query(
+                collection(db, 'holidays'),
+                where('userId', '==', this.selectedUser.id)
+            );
+            const snapshot = await getDocs(existingQuery);
+            const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+            await Promise.all(deletePromises);
+            
+            // 新しい休日データを追加
+            const addPromises = this.tempHolidays.map(date => 
+                addDoc(collection(db, 'holidays'), {
+                    userId: this.selectedUser.id,
+                    date: date,
+                    createdAt: new Date().toISOString()
+                })
+            );
+            await Promise.all(addPromises);
+            
+            Utils.showToast('休日を保存しました');
+            document.getElementById('holidayEditModal').classList.remove('show');
+        } catch (error) {
+            console.error('休日保存エラー:', error);
+            alert('保存に失敗しました');
+        }
+    }
+
+    cancelHolidayEdit() {
+        document.getElementById('holidayEditModal').classList.remove('show');
     }
 }
 
@@ -695,6 +1191,7 @@ class KakeiboApp {
         this.budget = new BudgetManager();
         this.calculator = new Calculator();
         this.csv = new CSVExporter(this.budget);
+        this.holidayCalendar = new HolidayCalendar();
     }
 
     toggleMenu() {
@@ -707,16 +1204,48 @@ class KakeiboApp {
         document.getElementById('menuOverlay').classList.remove('show');
     }
 
+    showBudget() {
+        // カレンダーページを非表示
+        document.getElementById('calendarSection').style.display = 'none';
+        // 家計簿ページを表示
+        document.getElementById('budgetSection').style.display = 'block';
+        // フッターを表示
+        document.querySelector('.footer').style.display = 'block';
+        // メニュー項目を切り替え
+        document.getElementById('menuCalendar').style.display = 'block';
+        document.getElementById('menuBudget').style.display = 'none';
+        
+        const jstDate = Utils.getJSTDate();
+        this.budget.currentYear = jstDate.getFullYear();
+        this.budget.currentMonth = jstDate.getMonth() + 1;
+        this.budget.updateDisplay();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    showCalendar() {
+        // 家計簿ページを非表示
+        document.getElementById('budgetSection').style.display = 'none';
+        // カレンダーページを表示
+        document.getElementById('calendarSection').style.display = 'block';
+        // フッターを非表示
+        document.querySelector('.footer').style.display = 'none';
+        // メニュー項目を切り替え
+        document.getElementById('menuCalendar').style.display = 'none';
+        document.getElementById('menuBudget').style.display = 'block';
+        
+        const jstDate = Utils.getJSTDate();
+        this.holidayCalendar.currentYear = jstDate.getFullYear();
+        this.holidayCalendar.currentMonth = jstDate.getMonth() + 1;
+        this.holidayCalendar.renderCalendar();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
     showSection(section) {
         document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
         event.target.classList.add('active');
         
         if (section === 'budget') {
-            const jstDate = Utils.getJSTDate();
-            this.budget.currentYear = jstDate.getFullYear();
-            this.budget.currentMonth = jstDate.getMonth() + 1;
-            this.budget.updateDisplay();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            this.showBudget();
         }
     }
 
@@ -724,6 +1253,7 @@ class KakeiboApp {
         this.budget.showSyncStatus('syncing', '接続中...');
         this.budget.loadFromFirestore();
         this.budget.updateDisplay();
+        this.holidayCalendar.loadData();
     }
 }
 

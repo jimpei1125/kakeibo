@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>家計簿</title>
-    <link rel="stylesheet" href="styles.css?v=10">
+    <link rel="stylesheet" href="styles.css?v=11">
 </head>
 <body>
     <!-- 右上メニューボタン -->
@@ -14,7 +14,8 @@
     <div class="side-menu" id="sideMenu">
         <button class="close-menu" onclick="app.closeMenu()">✕</button>
         <div class="menu-items">
-            <div class="menu-item" onclick="app.closeMenu();">📅 カレンダー（実装予定）</div>
+            <div class="menu-item" id="menuCalendar" onclick="app.showCalendar(); app.closeMenu();">📅 カレンダー</div>
+            <div class="menu-item" id="menuBudget" onclick="app.showBudget(); app.closeMenu();" style="display: none;">📊 家計簿</div>
         </div>
     </div>
     <div class="menu-overlay" id="menuOverlay" onclick="app.closeMenu()"></div>
@@ -108,7 +109,8 @@
 
     <!-- メインコンテンツ -->
     <div class="container">
-        <div class="content-section">
+        <!-- 家計簿セクション -->
+        <div class="content-section" id="budgetSection">
             <div class="sync-status" id="syncStatus">接続中...</div>
 
             <div class="month-selector">
@@ -150,6 +152,116 @@
                 </button>
             </div>
         </div>
+
+        <!-- カレンダーセクション -->
+        <div class="content-section calendar-page" id="calendarSection" style="display: none;">
+            <!-- 登録ユーザー表示 -->
+            <div class="registered-users" id="registeredUsers">
+                <div class="users-label">登録ユーザー:</div>
+                <div class="users-list" id="usersList">
+                    <span class="no-users">ユーザーが登録されていません</span>
+                </div>
+            </div>
+
+            <!-- 月切り替え -->
+            <div class="calendar-month-selector">
+                <button class="calendar-month-btn" onclick="app.holidayCalendar.changeMonth(-1)">◀</button>
+                <div class="calendar-current-month" id="calendarCurrentMonth">2024年12月</div>
+                <button class="calendar-month-btn" onclick="app.holidayCalendar.changeMonth(1)">▶</button>
+            </div>
+
+            <!-- カレンダー表示 -->
+            <div class="holiday-calendar" id="holidayCalendar">
+                <!-- カレンダーがここに表示される -->
+            </div>
+
+            <!-- ボタンエリア -->
+            <div class="calendar-actions">
+                <button class="action-btn user-edit-btn" onclick="app.holidayCalendar.showUserManagement()">
+                    👥 ユーザー編集
+                </button>
+                <button class="action-btn holiday-edit-btn" onclick="app.holidayCalendar.showHolidayEdit()">
+                    📅 休日編集
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ユーザー管理モーダル -->
+    <div class="user-modal" id="userModal">
+        <div class="modal-header">
+            <h2>👥 ユーザー管理</h2>
+            <button class="modal-close" onclick="app.holidayCalendar.closeUserModal()">✕</button>
+        </div>
+        
+        <div class="user-list-container">
+            <button class="new-user-btn" onclick="app.holidayCalendar.showUserForm()">➕ 新規登録</button>
+            <div class="user-list" id="userListModal">
+                <!-- ユーザー一覧がここに表示される -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ユーザー登録/編集フォームモーダル -->
+    <div class="user-form-modal" id="userFormModal">
+        <div class="modal-header">
+            <h2 id="userFormTitle">✨ ユーザー新規登録</h2>
+            <button class="modal-close" onclick="app.holidayCalendar.closeUserForm()">✕</button>
+        </div>
+        
+        <div class="user-form">
+            <label>名前:</label>
+            <input type="text" id="userName" placeholder="例: 田中太郎" maxlength="15">
+            
+            <label>カラー:</label>
+            <div class="color-palette" id="colorPalette">
+                <!-- カラーパレットがここに表示される -->
+            </div>
+            
+            <div class="form-actions">
+                <button class="save-btn" onclick="app.holidayCalendar.saveUser()">保存</button>
+                <button class="cancel-btn" onclick="app.holidayCalendar.closeUserForm()">キャンセル</button>
+                <button class="delete-user-btn" id="deleteUserBtn" onclick="app.holidayCalendar.deleteUser()" style="display: none;">削除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 休日編集：ユーザー選択モーダル -->
+    <div class="holiday-user-select-modal" id="holidayUserSelectModal">
+        <div class="modal-header">
+            <h2>📅 休日を編集するユーザー</h2>
+            <button class="modal-close" onclick="app.holidayCalendar.closeHolidayUserSelect()">✕</button>
+        </div>
+        
+        <div class="holiday-user-select">
+            <p>誰の休日を編集しますか？</p>
+            <div class="holiday-user-list" id="holidayUserList">
+                <!-- ユーザー選択ボタンがここに表示される -->
+            </div>
+            <button class="cancel-btn" onclick="app.holidayCalendar.closeHolidayUserSelect()">キャンセル</button>
+        </div>
+    </div>
+
+    <!-- 休日編集モードモーダル -->
+    <div class="holiday-edit-modal" id="holidayEditModal">
+        <div class="modal-header">
+            <h2 id="holidayEditTitle">📅 休日編集</h2>
+        </div>
+        
+        <div class="holiday-edit-month-selector">
+            <button class="calendar-month-btn" onclick="app.holidayCalendar.changeEditMonth(-1)">◀</button>
+            <div class="calendar-current-month" id="editCalendarMonth">2024年12月</div>
+            <button class="calendar-month-btn" onclick="app.holidayCalendar.changeEditMonth(1)">▶</button>
+        </div>
+
+        <div class="holiday-edit-calendar" id="holidayEditCalendar">
+            <!-- 編集用カレンダーがここに表示される -->
+        </div>
+        
+        <div class="holiday-edit-actions">
+            <button class="complete-btn" onclick="app.holidayCalendar.completeHolidayEdit()">✓ 完了</button>
+            <button class="cancel-btn" onclick="app.holidayCalendar.cancelHolidayEdit()">✕ キャンセル</button>
+        </div>
     </div>
 
     <!-- フッター -->
@@ -161,6 +273,6 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=10"></script>
+    <script type="module" src="app.js?v=11"></script>
 </body>
 </html>
