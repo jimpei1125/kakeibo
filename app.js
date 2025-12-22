@@ -1,5 +1,5 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, updateDoc, deleteDoc, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, updateDoc, deleteDoc, query, where, getDocs, orderBy } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
 // Firebase設定
 const firebaseConfig = {
@@ -1253,7 +1253,7 @@ class KakeiboApp {
         this.budget.showSyncStatus('syncing', '接続中...');
         this.budget.loadFromFirestore();
         this.budget.updateDisplay();
-        this.holidayCalendar.loadData();
+        this.holidayCalendar.init();
     }
 }
 
