@@ -1161,14 +1161,15 @@ button.edit-btn:hover {
     background: rgba(15, 12, 41, 0.98);
     backdrop-filter: blur(10px);
     border-radius: 20px;
-    padding: 30px;
+    padding: 20px;
     z-index: 1500;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    max-width: 500px;
-    width: 90%;
-    max-height: 80vh;
+    width: 95%;
+    max-width: 600px;
+    max-height: 90vh;
     overflow-y: auto;
+    box-sizing: border-box;
 }
 
 .user-modal.show,
@@ -1405,8 +1406,8 @@ button.edit-btn:hover {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
-    padding: 15px;
+    margin-bottom: 15px;
+    padding: 10px;
     background: rgba(255, 255, 255, 0.08);
     border-radius: 12px;
 }
@@ -1414,11 +1415,11 @@ button.edit-btn:hover {
 .holiday-edit-calendar {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 4px;
+    gap: 3px;
     background: rgba(255, 255, 255, 0.05);
-    padding: 10px;
+    padding: 8px;
     border-radius: 12px;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
     width: 100%;
     box-sizing: border-box;
 }
@@ -1428,14 +1429,14 @@ button.edit-btn:hover {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 8px;
+    padding: 4px;
     background: rgba(255, 255, 255, 0.05);
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.3s ease;
     font-weight: 700;
-    min-height: 45px;
-    font-size: 14px;
+    min-height: 40px;
+    font-size: 13px;
     box-sizing: border-box;
 }
 
@@ -1461,28 +1462,48 @@ button.edit-btn:hover {
 }
 
 @media (max-width: 768px) {
-    .holiday-calendar,
-    .holiday-edit-calendar {
-        gap: 4px;
-        padding: 10px;
+    .holiday-calendar {
+        gap: 3px;
+        padding: 8px;
     }
 
-    .calendar-date-cell,
-    .edit-date-cell {
+    .holiday-edit-calendar {
+        gap: 2px;
+        padding: 6px;
+    }
+
+    .calendar-date-cell {
         min-height: 55px;
         padding: 3px;
     }
 
-    .calendar-date-number {
+    .edit-date-cell {
+        min-height: 35px;
+        padding: 2px;
         font-size: 12px;
     }
 
+    .calendar-date-number {
+        font-size: 11px;
+    }
+
     .calendar-holiday-user {
-        font-size: 9px;
+        font-size: 8px;
     }
 
     .calendar-holiday-dot {
-        width: 6px;
-        height: 6px;
+        width: 5px;
+        height: 5px;
+    }
+
+    .holiday-edit-modal {
+        width: 98%;
+        padding: 15px;
+        max-height: 95vh;
+    }
+
+    .holiday-edit-month-selector {
+        padding: 8px;
+        margin-bottom: 10px;
     }
 }

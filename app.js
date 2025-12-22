@@ -549,8 +549,9 @@ class HolidayCalendar {
                 Utils.showToast('ユーザーを登録しました');
             }
             
+            // モーダルを閉じる
             document.getElementById('userFormModal').classList.remove('show');
-            document.getElementById('userModal').classList.add('show');
+            document.getElementById('userModal').classList.remove('show');
         } catch (error) {
             console.error('ユーザー保存エラー:', error);
             alert('保存に失敗しました');
@@ -576,8 +577,9 @@ class HolidayCalendar {
             await Promise.all(deletePromises);
             
             Utils.showToast('ユーザーを削除しました');
+            // モーダルを閉じる
             document.getElementById('userFormModal').classList.remove('show');
-            document.getElementById('userModal').classList.add('show');
+            document.getElementById('userModal').classList.remove('show');
         } catch (error) {
             console.error('ユーザー削除エラー:', error);
             alert('削除に失敗しました');
