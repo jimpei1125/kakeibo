@@ -1507,3 +1507,542 @@ button.edit-btn:hover {
         margin-bottom: 10px;
     }
 }
+
+/* テンプレートボタン */
+.shopping-template-buttons {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.template-btn {
+    flex: 1;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.template-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.template-btn.secondary {
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: none;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.template-btn.secondary:hover {
+    background: rgba(255, 255, 255, 0.2);
+    box-shadow: none;
+}
+
+/* 買い物リストコンテナ */
+.shopping-list-container {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 15px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.shopping-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.shopping-count {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.shopping-filter select {
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    color: #e0e0e0;
+    font-size: 13px;
+    font-family: 'Noto Sans JP', sans-serif;
+}
+
+/* 買い物リストアイテム */
+.shopping-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.shopping-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+}
+
+.shopping-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.shopping-item.high-priority {
+    border-left: 4px solid #f5576c;
+    background: rgba(245, 87, 108, 0.1);
+}
+
+.shopping-item.low-priority {
+    opacity: 0.7;
+}
+
+.shopping-item.completed {
+    opacity: 0.5;
+    text-decoration: line-through;
+}
+
+.shopping-checkbox {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.shopping-checkbox:hover {
+    border-color: #38ef7d;
+}
+
+.shopping-checkbox.checked {
+    background: linear-gradient(135deg, #38ef7d 0%, #11998e 100%);
+    border-color: transparent;
+}
+
+.shopping-checkbox.checked::after {
+    content: '✓';
+    color: white;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.shopping-item-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.shopping-item-name {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.shopping-item-name .priority-badge {
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: #f5576c;
+    color: white;
+}
+
+.shopping-item-meta {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+    display: flex;
+    gap: 10px;
+}
+
+.shopping-item-quantity {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 4px 10px;
+    border-radius: 15px;
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.shopping-item-delete {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(245, 87, 108, 0.2);
+    border: none;
+    color: #f5576c;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.shopping-item-delete:hover {
+    background: rgba(245, 87, 108, 0.4);
+    transform: scale(1.1);
+}
+
+/* カテゴリグループ */
+.shopping-category-group {
+    margin-bottom: 15px;
+}
+
+.shopping-category-header {
+    font-size: 14px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.7);
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 10px;
+}
+
+/* 完了セクション */
+.shopping-completed-section {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.completed-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.6);
+    transition: all 0.3s ease;
+}
+
+.completed-header:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.completed-toggle {
+    transition: transform 0.3s ease;
+}
+
+.completed-toggle.open {
+    transform: rotate(180deg);
+}
+
+.completed-list {
+    padding: 0 15px 15px;
+}
+
+/* 一括操作ボタン */
+.shopping-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.clear-completed-btn {
+    flex: 1;
+    padding: 12px;
+    background: rgba(245, 87, 108, 0.2);
+    color: #f5576c;
+    border: 1px solid rgba(245, 87, 108, 0.3);
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.clear-completed-btn:hover {
+    background: rgba(245, 87, 108, 0.3);
+}
+
+/* テンプレート選択モーダル */
+.template-select-modal,
+.template-manager-modal,
+.template-form-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 500px;
+    max-height: 80vh;
+    background: rgba(15, 12, 41, 0.98);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    padding: 25px;
+    z-index: 1300;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    overflow-y: auto;
+}
+
+.template-select-modal.show,
+.template-manager-modal.show,
+.template-form-modal.show {
+    display: block;
+}
+
+.template-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.template-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.template-list-item:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateX(5px);
+}
+
+.template-list-item .template-info {
+    flex: 1;
+}
+
+.template-list-item .template-name {
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.template-list-item .template-count {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.template-list-item .template-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.template-list-item .template-actions button {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: none;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.template-edit-btn {
+    background: rgba(102, 126, 234, 0.3);
+    color: #667eea;
+}
+
+.template-delete-btn {
+    background: rgba(245, 87, 108, 0.3);
+    color: #f5576c;
+}
+
+/* テンプレートフォーム */
+.template-form {
+    margin-top: 15px;
+}
+
+.template-form label {
+    display: block;
+    margin-bottom: 8px;
+    color: #e0e0e0;
+    font-weight: 700;
+}
+
+.template-form input[type="text"] {
+    width: 100%;
+    padding: 12px 15px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #e0e0e0;
+    font-size: 15px;
+    font-family: 'Noto Sans JP', sans-serif;
+    margin-bottom: 15px;
+}
+
+.template-form input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.template-items-list {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 15px;
+    min-height: 100px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.template-item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    margin-bottom: 5px;
+}
+
+.template-item-row:last-child {
+    margin-bottom: 0;
+}
+
+.template-item-row .item-name {
+    flex: 1;
+}
+
+.template-item-row .item-category {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-right: 10px;
+}
+
+.template-item-row .remove-item {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(245, 87, 108, 0.3);
+    border: none;
+    color: #f5576c;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.template-item-add {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.template-item-add input,
+.template-item-add select {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #e0e0e0;
+    font-size: 13px;
+    font-family: 'Noto Sans JP', sans-serif;
+}
+
+.template-item-add button {
+    padding: 10px 16px;
+    background: linear-gradient(135deg, #38ef7d 0%, #11998e 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.template-form-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.template-form-actions .save-btn {
+    flex: 1;
+    padding: 12px;
+    background: linear-gradient(135deg, #38ef7d 0%, #11998e 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.template-form-actions .cancel-btn {
+    flex: 1;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #e0e0e0;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.template-form-actions .delete-template-btn {
+    width: 100%;
+    padding: 12px;
+    background: rgba(245, 87, 108, 0.2);
+    color: #f5576c;
+    border: 1px solid rgba(245, 87, 108, 0.3);
+    border-radius: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+.new-template-btn {
+    width: 100%;
+    padding: 15px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 15px;
+}
+
+/* 空の状態 */
+.shopping-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.shopping-empty-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+}
+
+.shopping-empty-text {
+    font-size: 16px;
+}
+
+/* 同期ステータス（買い物リスト用） */
+#shoppingSyncStatus {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    z-index: 1050;
+    background: rgba(255, 193, 7, 0.2);
+    color: #ffc107;
+}
