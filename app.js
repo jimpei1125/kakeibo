@@ -1935,7 +1935,7 @@ class SmartHome {
             options.body = JSON.stringify(body);
         }
         
-        const response = await fetch(`https://api.switch-bot.com/v1.1${endpoint}`, options);
+        const response = await fetch(`https://switchbot-proxy.zinnpei11251818.workers.dev/v1.1${endpoint}`, options);
         return await response.json();
     }
 
