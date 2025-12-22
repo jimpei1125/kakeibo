@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>家族アプリ</title>
-    <link rel="stylesheet" href="styles.css?v=14">
+    <link rel="stylesheet" href="styles.css?v=15">
 </head>
 <body>
     <!-- 右上メニューボタン -->
@@ -17,6 +17,7 @@
             <div class="menu-item" id="menuCalendar" onclick="app.showCalendar(); app.closeMenu();">📅 カレンダー</div>
             <div class="menu-item" id="menuBudget" onclick="app.showBudget(); app.closeMenu();" style="display: none;">📊 家計簿</div>
             <div class="menu-item" id="menuShopping" onclick="app.showShopping(); app.closeMenu();">🛒 買い物リスト</div>
+            <div class="menu-item" id="menuSmartHome" onclick="app.showSmartHome(); app.closeMenu();">🏠 スマートホーム</div>
         </div>
     </div>
     <div class="menu-overlay" id="menuOverlay" onclick="app.closeMenu()"></div>
@@ -262,6 +263,65 @@
                 <button class="action-btn clear-completed-btn" onclick="app.shopping.clearCompleted()">🗑️ 購入済みを削除</button>
             </div>
         </div>
+
+        <!-- スマートホームセクション -->
+        <div class="content-section smarthome-page" id="smartHomeSection" style="display: none;">
+            <h1 class="smarthome-title">🏠 スマートホーム</h1>
+
+            <!-- トークン未設定時の表示 -->
+            <div class="smarthome-setup" id="smartHomeSetup">
+                <div class="setup-card">
+                    <h3>🔑 SwitchBot API設定</h3>
+                    <p>SwitchBotアプリから取得したトークンを入力してください</p>
+                    <div class="setup-form">
+                        <input type="password" id="switchbotToken" placeholder="トークン">
+                        <input type="password" id="switchbotSecret" placeholder="シークレット">
+                        <button onclick="app.smartHome.saveToken()">保存して接続</button>
+                    </div>
+                    <div class="setup-help">
+                        <details>
+                            <summary>トークンの取得方法</summary>
+                            <ol>
+                                <li>SwitchBotアプリを開く</li>
+                                <li>プロフィール → 設定</li>
+                                <li>アプリバージョンを10回タップ</li>
+                                <li>開発者向けオプションが表示される</li>
+                                <li>トークンを取得をタップ</li>
+                            </ol>
+                        </details>
+                    </div>
+                </div>
+            </div>
+
+            <!-- デバイス一覧（トークン設定後に表示） -->
+            <div class="smarthome-devices" id="smartHomeDevices" style="display: none;">
+                <div class="devices-header">
+                    <span class="devices-status" id="devicesStatus">読み込み中...</span>
+                    <button class="refresh-btn" onclick="app.smartHome.loadDevices()">🔄 更新</button>
+                </div>
+
+                <!-- 赤外線リモコンデバイス -->
+                <div class="device-section">
+                    <h3>📡 赤外線リモコン</h3>
+                    <div class="device-grid" id="irDeviceList">
+                        <!-- デバイスがここに表示される -->
+                    </div>
+                </div>
+
+                <!-- 物理デバイス -->
+                <div class="device-section">
+                    <h3>🔌 SwitchBotデバイス</h3>
+                    <div class="device-grid" id="physicalDeviceList">
+                        <!-- デバイスがここに表示される -->
+                    </div>
+                </div>
+
+                <!-- 設定ボタン -->
+                <div class="smarthome-settings">
+                    <button class="settings-btn" onclick="app.smartHome.showSettings()">⚙️ API設定</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- ユーザー管理モーダル -->
@@ -404,6 +464,80 @@
         </div>
     </div>
 
+    <!-- エアコン操作モーダル -->
+    <div class="ac-control-modal" id="acControlModal">
+        <div class="modal-header">
+            <h2 id="acControlTitle">❄️ エアコン操作</h2>
+            <button class="modal-close" onclick="app.smartHome.closeAcControl()">✕</button>
+        </div>
+        <div class="ac-control-content">
+            <div class="ac-power-section">
+                <button class="ac-power-btn on" onclick="app.smartHome.acCommand('turnOn')">
+                    <span class="power-icon">⏻</span>
+                    <span>ON</span>
+                </button>
+                <button class="ac-power-btn off" onclick="app.smartHome.acCommand('turnOff')">
+                    <span class="power-icon">⏻</span>
+                    <span>OFF</span>
+                </button>
+            </div>
+            
+            <div class="ac-temp-section">
+                <label>温度設定</label>
+                <div class="ac-temp-controls">
+                    <button class="temp-btn" onclick="app.smartHome.adjustTemp(-1)">−</button>
+                    <span class="temp-display" id="acTempDisplay">26°C</span>
+                    <button class="temp-btn" onclick="app.smartHome.adjustTemp(1)">+</button>
+                </div>
+            </div>
+            
+            <div class="ac-mode-section">
+                <label>モード</label>
+                <div class="ac-mode-buttons">
+                    <button class="mode-btn" data-mode="1" onclick="app.smartHome.setAcMode(1)">🔥 暖房</button>
+                    <button class="mode-btn active" data-mode="2" onclick="app.smartHome.setAcMode(2)">❄️ 冷房</button>
+                    <button class="mode-btn" data-mode="3" onclick="app.smartHome.setAcMode(3)">💨 送風</button>
+                    <button class="mode-btn" data-mode="5" onclick="app.smartHome.setAcMode(5)">💧 除湿</button>
+                </div>
+            </div>
+            
+            <div class="ac-fan-section">
+                <label>風量</label>
+                <div class="ac-fan-buttons">
+                    <button class="fan-btn" data-fan="1" onclick="app.smartHome.setAcFan(1)">自動</button>
+                    <button class="fan-btn" data-fan="2" onclick="app.smartHome.setAcFan(2)">弱</button>
+                    <button class="fan-btn" data-fan="3" onclick="app.smartHome.setAcFan(3)">中</button>
+                    <button class="fan-btn" data-fan="4" onclick="app.smartHome.setAcFan(4)">強</button>
+                </div>
+            </div>
+            
+            <button class="ac-apply-btn" onclick="app.smartHome.applyAcSettings()">設定を送信</button>
+        </div>
+    </div>
+
+    <!-- スマートホームAPI設定モーダル -->
+    <div class="smarthome-settings-modal" id="smartHomeSettingsModal">
+        <div class="modal-header">
+            <h2>⚙️ API設定</h2>
+            <button class="modal-close" onclick="app.smartHome.closeSettings()">✕</button>
+        </div>
+        <div class="settings-content">
+            <div class="settings-section">
+                <h3>SwitchBot API</h3>
+                <div class="settings-form">
+                    <label>トークン</label>
+                    <input type="password" id="settingsSwitchbotToken" placeholder="トークン">
+                    <label>シークレット</label>
+                    <input type="password" id="settingsSwitchbotSecret" placeholder="シークレット">
+                </div>
+            </div>
+            <div class="settings-actions">
+                <button class="save-btn" onclick="app.smartHome.updateToken()">保存</button>
+                <button class="danger-btn" onclick="app.smartHome.clearToken()">トークンを削除</button>
+            </div>
+        </div>
+    </div>
+
     <!-- フッター -->
     <div class="footer">
         <div class="footer-nav">
@@ -413,6 +547,6 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=14"></script>
+    <script type="module" src="app.js?v=15"></script>
 </body>
 </html>

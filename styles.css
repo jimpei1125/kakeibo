@@ -2046,3 +2046,500 @@ button.edit-btn:hover {
     background: rgba(255, 193, 7, 0.2);
     color: #ffc107;
 }
+
+/* =====================================================
+   スマートホームセクション
+   ===================================================== */
+
+.smarthome-page {
+    padding-bottom: 20px;
+}
+
+.smarthome-title {
+    text-align: center;
+    font-size: 28px;
+    font-weight: 900;
+    margin-bottom: 25px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* セットアップカード */
+.smarthome-setup {
+    padding: 20px 0;
+}
+
+.setup-card {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 25px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.setup-card h3 {
+    font-size: 18px;
+    margin-bottom: 10px;
+    color: #e0e0e0;
+}
+
+.setup-card p {
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 20px;
+    font-size: 14px;
+}
+
+.setup-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.setup-form input {
+    padding: 14px 16px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #e0e0e0;
+    font-size: 15px;
+    font-family: 'Noto Sans JP', sans-serif;
+}
+
+.setup-form input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.setup-form button {
+    padding: 14px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.setup-form button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.setup-help {
+    margin-top: 20px;
+}
+
+.setup-help details {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    padding: 12px 15px;
+}
+
+.setup-help summary {
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 14px;
+}
+
+.setup-help ol {
+    margin-top: 12px;
+    padding-left: 20px;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 13px;
+    line-height: 1.8;
+}
+
+/* デバイス一覧 */
+.smarthome-devices {
+    padding: 10px 0;
+}
+
+.devices-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.devices-status {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.refresh-btn {
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    color: #e0e0e0;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.refresh-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.device-section {
+    margin-bottom: 25px;
+}
+
+.device-section h3 {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 15px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.device-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+}
+
+.device-card {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 20px 15px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.device-card:hover {
+    background: rgba(255, 255, 255, 0.12);
+    transform: translateY(-3px);
+}
+
+.device-card.active {
+    border-color: #38ef7d;
+    background: rgba(56, 239, 125, 0.1);
+}
+
+.device-icon {
+    font-size: 36px;
+    margin-bottom: 10px;
+}
+
+.device-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: #e0e0e0;
+    margin-bottom: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.device-type {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.device-status {
+    margin-top: 8px;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 10px;
+    display: inline-block;
+}
+
+.device-status.on {
+    background: rgba(56, 239, 125, 0.2);
+    color: #38ef7d;
+}
+
+.device-status.off {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* 設定ボタン */
+.smarthome-settings {
+    margin-top: 30px;
+    text-align: center;
+}
+
+.settings-btn {
+    padding: 12px 24px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    color: #e0e0e0;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.settings-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* エアコン操作モーダル */
+.ac-control-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 400px;
+    background: rgba(15, 12, 41, 0.98);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    padding: 25px;
+    z-index: 1300;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.ac-control-modal.show {
+    display: block;
+}
+
+.ac-control-content {
+    margin-top: 15px;
+}
+
+.ac-power-section {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.ac-power-btn {
+    flex: 1;
+    padding: 20px;
+    border-radius: 16px;
+    border: none;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.ac-power-btn .power-icon {
+    font-size: 28px;
+}
+
+.ac-power-btn.on {
+    background: linear-gradient(135deg, #38ef7d 0%, #11998e 100%);
+    color: white;
+}
+
+.ac-power-btn.off {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e0e0e0;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.ac-power-btn:hover {
+    transform: scale(1.02);
+}
+
+.ac-temp-section,
+.ac-mode-section,
+.ac-fan-section {
+    margin-bottom: 20px;
+}
+
+.ac-temp-section label,
+.ac-mode-section label,
+.ac-fan-section label {
+    display: block;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 10px;
+}
+
+.ac-temp-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+}
+
+.temp-btn {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    color: #e0e0e0;
+    font-size: 24px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.temp-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.temp-display {
+    font-size: 36px;
+    font-weight: 900;
+    color: #e0e0e0;
+    min-width: 100px;
+    text-align: center;
+}
+
+.ac-mode-buttons,
+.ac-fan-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.mode-btn,
+.fan-btn {
+    flex: 1;
+    min-width: 70px;
+    padding: 12px 8px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #e0e0e0;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.mode-btn:hover,
+.fan-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.mode-btn.active,
+.fan-btn.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-color: transparent;
+    color: white;
+}
+
+.ac-apply-btn {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 10px;
+}
+
+.ac-apply-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(240, 147, 251, 0.4);
+}
+
+/* スマートホーム設定モーダル */
+.smarthome-settings-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 400px;
+    background: rgba(15, 12, 41, 0.98);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    padding: 25px;
+    z-index: 1300;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.smarthome-settings-modal.show {
+    display: block;
+}
+
+.settings-content {
+    margin-top: 15px;
+}
+
+.settings-section {
+    margin-bottom: 20px;
+}
+
+.settings-section h3 {
+    font-size: 16px;
+    color: #e0e0e0;
+    margin-bottom: 15px;
+}
+
+.settings-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.settings-form label {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.settings-form input {
+    padding: 12px 14px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #e0e0e0;
+    font-size: 14px;
+    font-family: 'Noto Sans JP', sans-serif;
+}
+
+.settings-form input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.settings-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.settings-actions .save-btn {
+    padding: 14px;
+    background: linear-gradient(135deg, #38ef7d 0%, #11998e 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.settings-actions .danger-btn {
+    padding: 12px;
+    background: rgba(245, 87, 108, 0.2);
+    color: #f5576c;
+    border: 1px solid rgba(245, 87, 108, 0.3);
+    border-radius: 10px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+/* 空デバイス表示 */
+.no-devices {
+    text-align: center;
+    padding: 30px;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 14px;
+}
