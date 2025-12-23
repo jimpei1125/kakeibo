@@ -1050,32 +1050,38 @@ class BudgetManager {
         const monthKey = this.getCurrentMonthKey();
         const parts = monthKey.split('-');
         const year = parts[0];
-        const month = parts[1];
+        const month = parseInt(parts[1]);
         
-        let output = '【' + year + '/' + month + '】\n';
+        let output = '━━━━━━━━━━━━━━━━\n';
+        output += '📅 ' + year + '年' + month + '月 家計簿\n';
+        output += '━━━━━━━━━━━━━━━━\n\n';
         
-        monthData.categories.forEach(category => {
+        monthData.categories.forEach((category, index) => {
             if (category.subcategories.length === 0) {
-                const half = Math.round(category.amount / 2);
-                output += category.name + ' ' + category.amount.toLocaleString() + '円（折半: ' + half.toLocaleString() + '円）\n';
+                output += '■ ' + category.name + '：' + category.amount.toLocaleString() + '円\n';
             } else {
                 const subTotal = category.subcategories.reduce((sum, sub) => sum + (sub.amount || 0), 0);
-                const subHalf = Math.round(subTotal / 2);
-                const subDetails = category.subcategories
-                    .map(sub => {
-                        const half = Math.round(sub.amount / 2);
-                        return sub.name + ' ' + sub.amount.toLocaleString() + '円（折半: ' + half.toLocaleString() + '円）';
-                    })
-                    .join(' / ');
-                output += category.name + ' ' + subTotal.toLocaleString() + '円（折半: ' + subHalf.toLocaleString() + '円）\n';
-                output += '  (' + subDetails + ')\n';
+                output += '■ ' + category.name + '：' + subTotal.toLocaleString() + '円\n';
+                
+                category.subcategories.forEach((sub, subIndex) => {
+                    const isLast = subIndex === category.subcategories.length - 1;
+                    const prefix = isLast ? '  └ ' : '  ├ ';
+                    output += prefix + sub.name + '：' + sub.amount.toLocaleString() + '円\n';
+                });
+            }
+            
+            // カテゴリ間に空行を追加（最後以外）
+            if (index < monthData.categories.length - 1) {
+                output += '\n';
             }
         });
         
         const total = this.calculateTotal();
         const halfTotal = Math.round(total / 2);
-        output += '\nTotal: ' + total.toLocaleString() + '円\n';
-        output += '折半Total: ' + halfTotal.toLocaleString() + '円';
+        output += '\n━━━━━━━━━━━━━━━━\n';
+        output += '💰 Total：' + total.toLocaleString() + '円\n';
+        output += '👥 折半：' + halfTotal.toLocaleString() + '円\n';
+        output += '━━━━━━━━━━━━━━━━';
         
         return output;
     }
