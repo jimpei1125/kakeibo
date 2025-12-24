@@ -2262,6 +2262,7 @@ class PhilipsHue {
         this.bridgeIp = '192.168.0.62';
         this.apiKey = 'dKT4W4ky7azJD0qLVsa1YPhYRBvA9lhx2xTm5k6j';
         this.groups = {};
+        this.lights = {};
         this.currentGroupId = null;
         this.isConnected = false;
     }
@@ -2272,6 +2273,18 @@ class PhilipsHue {
 
     async init() {
         await this.loadGroups();
+        await this.loadLights();
+    }
+
+    async loadLights() {
+        try {
+            const response = await fetch(`${this.baseUrl}/lights`);
+            if (response.ok) {
+                this.lights = await response.json();
+            }
+        } catch (error) {
+            console.error('ライト取得エラー:', error);
+        }
     }
 
     async loadGroups() {
@@ -2362,7 +2375,93 @@ class PhilipsHue {
         document.getElementById('hueBrightnessSlider').value = brightness;
         document.getElementById('hueBrightnessValue').textContent = brightness;
         
+        // 個別ライト一覧を表示
+        this.renderIndividualLights(group.lights || []);
+        
         document.getElementById('hueControlModal').classList.add('show');
+    }
+
+    renderIndividualLights(lightIds) {
+        const container = document.getElementById('hueIndividualLights');
+        if (!container) return;
+        
+        if (lightIds.length === 0) {
+            container.innerHTML = '<div style="color: rgba(255,255,255,0.5); text-align: center; padding: 10px;">ライトがありません</div>';
+            return;
+        }
+        
+        let html = '';
+        lightIds.forEach(id => {
+            const light = this.lights[id];
+            if (!light) return;
+            
+            const isOn = light.state && light.state.on;
+            const brightness = light.state && light.state.bri ? Math.round((light.state.bri / 254) * 100) : 100;
+            
+            html += `
+                <div class="hue-individual-light ${isOn ? 'on' : 'off'}">
+                    <button class="hue-individual-toggle ${isOn ? 'on' : 'off'}" onclick="app.hue.toggleIndividualLight('${id}')">
+                        ${isOn ? '💡' : '🌙'}
+                    </button>
+                    <div class="hue-individual-info">
+                        <div class="hue-individual-name">${light.name}</div>
+                        <input type="range" class="hue-individual-slider" 
+                            min="1" max="100" value="${brightness}" 
+                            onchange="app.hue.setIndividualBrightness('${id}', this.value)"
+                            oninput="this.nextElementSibling ? this.parentElement.nextElementSibling.textContent = this.value + '%' : null">
+                    </div>
+                    <div class="hue-individual-brightness">${brightness}%</div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+
+    async toggleIndividualLight(lightId) {
+        const light = this.lights[lightId];
+        if (!light) return;
+        
+        const newState = !light.state.on;
+        
+        try {
+            const response = await fetch(`${this.baseUrl}/lights/${lightId}/state`, {
+                method: 'PUT',
+                body: JSON.stringify({ on: newState })
+            });
+            
+            if (response.ok) {
+                light.state.on = newState;
+                // 個別ライト一覧を再描画
+                const group = this.groups[this.currentGroupId];
+                this.renderIndividualLights(group.lights || []);
+                // グループ一覧も更新
+                await this.loadGroups();
+                Utils.showToast(newState ? `${light.name}を点灯` : `${light.name}を消灯`);
+            }
+        } catch (error) {
+            console.error('ライト操作エラー:', error);
+            Utils.showToast('操作に失敗しました');
+        }
+    }
+
+    async setIndividualBrightness(lightId, brightness) {
+        const light = this.lights[lightId];
+        if (!light) return;
+        
+        const bri = Math.round((parseInt(brightness) / 100) * 254);
+        
+        try {
+            await fetch(`${this.baseUrl}/lights/${lightId}/state`, {
+                method: 'PUT',
+                body: JSON.stringify({ on: true, bri: bri })
+            });
+            
+            light.state.on = true;
+            light.state.bri = bri;
+        } catch (error) {
+            console.error('明るさ変更エラー:', error);
+        }
     }
 
     closeControl() {

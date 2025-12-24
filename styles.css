@@ -2844,3 +2844,169 @@ button.edit-btn:hover {
 .hue-light-card.on .hue-light-brightness {
     color: #38ef7d;
 }
+
+/* スマートホーム専用追従フッター */
+.smarthome-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    gap: 12px;
+    padding: 12px 20px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    background: rgba(15, 12, 41, 0.95);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    z-index: 100;
+}
+
+.app-link-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 700;
+    transition: all 0.3s ease;
+}
+
+.app-link-btn .app-icon {
+    font-size: 20px;
+}
+
+.app-link-btn.switchbot {
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    color: white;
+}
+
+.app-link-btn.hue {
+    background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+    color: white;
+}
+
+.app-link-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+/* スマートホームページのパディング調整（フッター分） */
+.smarthome-page {
+    padding-bottom: 100px !important;
+}
+
+/* 個別ライト調整セクション */
+.hue-individual-section {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.hue-individual-section > label {
+    display: block;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 12px;
+}
+
+.hue-individual-lights {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.hue-individual-light {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+
+.hue-individual-light.off {
+    opacity: 0.5;
+}
+
+.hue-individual-toggle {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.hue-individual-toggle.on {
+    background: linear-gradient(135deg, #38ef7d 0%, #11998e 100%);
+}
+
+.hue-individual-toggle.off {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.hue-individual-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.hue-individual-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #e0e0e0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 6px;
+}
+
+.hue-individual-slider {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: rgba(255, 255, 255, 0.2);
+    outline: none;
+}
+
+.hue-individual-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    cursor: pointer;
+}
+
+.hue-individual-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    cursor: pointer;
+    border: none;
+}
+
+.hue-individual-brightness {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+    min-width: 40px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+/* モーダルの高さ調整 */
+.hue-control-modal {
+    max-height: 85vh;
+    overflow-y: auto;
+}

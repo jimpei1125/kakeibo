@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>家族アプリ</title>
-    <link rel="stylesheet" href="styles.css?v=19">
+    <link rel="stylesheet" href="styles.css?v=20">
 </head>
 <body>
     <!-- 右上メニューボタン -->
@@ -339,6 +339,18 @@
                     <button class="hue-all-btn off" onclick="app.hue.allLightsOff()">🌙 全てOFF</button>
                 </div>
             </div>
+
+            <!-- スマートホーム専用フッター -->
+            <div class="smarthome-footer" id="smartHomeFooter">
+                <a href="switchbot://" class="app-link-btn switchbot">
+                    <span class="app-icon">🤖</span>
+                    <span>SwitchBot</span>
+                </a>
+                <a href="hue://" class="app-link-btn hue">
+                    <span class="app-icon">💡</span>
+                    <span>Philips Hue</span>
+                </a>
+            </div>
         </div>
     </div>
 
@@ -575,15 +587,16 @@
             </div>
             
             <div class="hue-brightness-section">
-                <label>明るさ: <span id="hueBrightnessValue">100</span>%</label>
+                <label>グループ明るさ: <span id="hueBrightnessValue">100</span>%</label>
                 <input type="range" id="hueBrightnessSlider" min="1" max="100" value="100" oninput="app.hue.updateBrightnessLabel()">
                 <button class="hue-apply-btn" onclick="app.hue.applyBrightness()">明るさを適用</button>
             </div>
             
-            <div class="hue-scene-section" id="hueSceneSection" style="display: none;">
-                <label>シーン</label>
-                <div class="hue-scene-buttons" id="hueSceneButtons">
-                    <!-- シーンボタンがここに表示される -->
+            <!-- 個別ライト操作セクション -->
+            <div class="hue-individual-section">
+                <label>個別ライト調整</label>
+                <div class="hue-individual-lights" id="hueIndividualLights">
+                    <!-- 個別ライトがここに表示される -->
                 </div>
             </div>
         </div>
@@ -598,6 +611,6 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=19"></script>
+    <script type="module" src="app.js?v=20"></script>
 </body>
 </html>
