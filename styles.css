@@ -2828,3 +2828,19 @@ button.edit-btn:hover {
     background: rgba(245, 87, 108, 0.1);
     border-radius: 10px;
 }
+
+/* Hueグループ用追加スタイル */
+.hue-light-count {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.4);
+    margin-top: 4px;
+}
+
+.hue-light-status.all-on {
+    background: #38ef7d;
+    box-shadow: 0 0 8px rgba(56, 239, 125, 0.6);
+}
+
+.hue-light-card.on .hue-light-brightness {
+    color: #38ef7d;
+}
