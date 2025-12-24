@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>家族アプリ</title>
-    <link rel="stylesheet" href="styles.css?v=17">
+    <link rel="stylesheet" href="styles.css?v=18">
 </head>
 <body>
     <!-- 右上メニューボタン -->
@@ -321,6 +321,24 @@
                     <button class="settings-btn" onclick="app.smartHome.showSettings()">⚙️ API設定</button>
                 </div>
             </div>
+
+            <!-- Philips Hue セクション -->
+            <div class="hue-section">
+                <h2 class="hue-title">💡 Philips Hue</h2>
+                <p class="hue-note">※ 自宅WiFi接続時のみ操作可能</p>
+                
+                <div class="hue-devices" id="hueDevices">
+                    <div class="hue-loading" id="hueLoading">読み込み中...</div>
+                    <div class="device-grid" id="hueLightList">
+                        <!-- Hueライトがここに表示される -->
+                    </div>
+                </div>
+
+                <div class="hue-actions">
+                    <button class="hue-all-btn on" onclick="app.hue.allLightsOn()">💡 全てON</button>
+                    <button class="hue-all-btn off" onclick="app.hue.allLightsOff()">🌙 全てOFF</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -538,6 +556,39 @@
         </div>
     </div>
 
+    <!-- Hueライト操作モーダル -->
+    <div class="hue-control-modal" id="hueControlModal">
+        <div class="modal-header">
+            <h2 id="hueControlTitle">💡 ライト操作</h2>
+            <button class="modal-close" onclick="app.hue.closeControl()">✕</button>
+        </div>
+        <div class="hue-control-content">
+            <div class="hue-power-section">
+                <button class="hue-power-btn on" onclick="app.hue.setPower(true)">
+                    <span class="power-icon">💡</span>
+                    <span>ON</span>
+                </button>
+                <button class="hue-power-btn off" onclick="app.hue.setPower(false)">
+                    <span class="power-icon">🌙</span>
+                    <span>OFF</span>
+                </button>
+            </div>
+            
+            <div class="hue-brightness-section">
+                <label>明るさ: <span id="hueBrightnessValue">100</span>%</label>
+                <input type="range" id="hueBrightnessSlider" min="1" max="100" value="100" oninput="app.hue.updateBrightnessLabel()">
+                <button class="hue-apply-btn" onclick="app.hue.applyBrightness()">明るさを適用</button>
+            </div>
+            
+            <div class="hue-scene-section" id="hueSceneSection" style="display: none;">
+                <label>シーン</label>
+                <div class="hue-scene-buttons" id="hueSceneButtons">
+                    <!-- シーンボタンがここに表示される -->
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- フッター -->
     <div class="footer">
         <div class="footer-nav">
@@ -547,6 +598,6 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=17"></script>
+    <script type="module" src="app.js?v=18"></script>
 </body>
 </html>

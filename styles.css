@@ -2543,3 +2543,288 @@ button.edit-btn:hover {
     color: rgba(255, 255, 255, 0.5);
     font-size: 14px;
 }
+
+/* =====================================================
+   Philips Hue セクション
+   ===================================================== */
+
+.hue-section {
+    margin-top: 30px;
+    padding-top: 25px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.hue-title {
+    font-size: 20px;
+    font-weight: 900;
+    margin-bottom: 5px;
+    color: #e0e0e0;
+}
+
+.hue-note {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 20px;
+}
+
+.hue-devices {
+    margin-bottom: 20px;
+}
+
+.hue-loading {
+    text-align: center;
+    padding: 20px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.hue-light-card {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 20px 15px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+    position: relative;
+}
+
+.hue-light-card:hover {
+    background: rgba(255, 255, 255, 0.12);
+    transform: translateY(-3px);
+}
+
+.hue-light-card.on {
+    border-color: #ffd700;
+    background: rgba(255, 215, 0, 0.15);
+}
+
+.hue-light-card.off {
+    opacity: 0.6;
+}
+
+.hue-light-icon {
+    font-size: 36px;
+    margin-bottom: 10px;
+}
+
+.hue-light-card.on .hue-light-icon {
+    filter: drop-shadow(0 0 10px #ffd700);
+}
+
+.hue-light-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: #e0e0e0;
+    margin-bottom: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.hue-light-brightness {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.hue-light-status {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #38ef7d;
+}
+
+.hue-light-card.off .hue-light-status {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* 全ON/OFFボタン */
+.hue-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.hue-all-btn {
+    flex: 1;
+    padding: 14px;
+    border-radius: 12px;
+    border: none;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.hue-all-btn.on {
+    background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%);
+    color: #333;
+}
+
+.hue-all-btn.off {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e0e0e0;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.hue-all-btn:hover {
+    transform: translateY(-2px);
+}
+
+/* Hue操作モーダル */
+.hue-control-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 400px;
+    background: rgba(15, 12, 41, 0.98);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    padding: 25px;
+    z-index: 1300;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.hue-control-modal.show {
+    display: block;
+}
+
+.hue-control-content {
+    margin-top: 15px;
+}
+
+.hue-power-section {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.hue-power-btn {
+    flex: 1;
+    padding: 20px;
+    border-radius: 16px;
+    border: none;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.hue-power-btn .power-icon {
+    font-size: 28px;
+}
+
+.hue-power-btn.on {
+    background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%);
+    color: #333;
+}
+
+.hue-power-btn.off {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e0e0e0;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.hue-power-btn:hover {
+    transform: scale(1.02);
+}
+
+.hue-brightness-section {
+    margin-bottom: 25px;
+}
+
+.hue-brightness-section label {
+    display: block;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 12px;
+}
+
+.hue-brightness-section input[type="range"] {
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.2);
+    outline: none;
+    -webkit-appearance: none;
+    margin-bottom: 15px;
+}
+
+.hue-brightness-section input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%);
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(255, 215, 0, 0.5);
+}
+
+.hue-apply-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%);
+    color: #333;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.hue-apply-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 215, 0, 0.4);
+}
+
+.hue-scene-section {
+    margin-top: 20px;
+}
+
+.hue-scene-section label {
+    display: block;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 12px;
+}
+
+.hue-scene-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.hue-scene-btn {
+    padding: 10px 16px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    color: #e0e0e0;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.hue-scene-btn:hover {
+    background: rgba(255, 215, 0, 0.2);
+    border-color: #ffd700;
+}
+
+/* 接続エラー表示 */
+.hue-error {
+    text-align: center;
+    padding: 20px;
+    color: #f5576c;
+    background: rgba(245, 87, 108, 0.1);
+    border-radius: 10px;
+}

@@ -2256,6 +2256,211 @@ class SmartHome {
     }
 }
 
+// Philips Hueクラス
+class PhilipsHue {
+    constructor() {
+        this.bridgeIp = '192.168.0.62';
+        this.apiKey = 'dKT4W4ky7azJD0qLVsa1YPhYRBvA9lhx2xTm5k6j';
+        this.lights = {};
+        this.currentLightId = null;
+        this.isConnected = false;
+    }
+
+    get baseUrl() {
+        return `http://${this.bridgeIp}/api/${this.apiKey}`;
+    }
+
+    async init() {
+        await this.loadLights();
+    }
+
+    async loadLights() {
+        const loadingEl = document.getElementById('hueLoading');
+        const listEl = document.getElementById('hueLightList');
+        
+        if (loadingEl) loadingEl.style.display = 'block';
+        if (listEl) listEl.innerHTML = '';
+        
+        try {
+            const response = await fetch(`${this.baseUrl}/lights`);
+            
+            if (!response.ok) {
+                throw new Error('接続失敗');
+            }
+            
+            this.lights = await response.json();
+            this.isConnected = true;
+            
+            if (loadingEl) loadingEl.style.display = 'none';
+            this.renderLights();
+            
+        } catch (error) {
+            console.error('Hue接続エラー:', error);
+            this.isConnected = false;
+            
+            if (loadingEl) loadingEl.style.display = 'none';
+            if (listEl) {
+                listEl.innerHTML = `
+                    <div class="hue-error" style="grid-column: 1 / -1;">
+                        <p>😢 Hue Bridgeに接続できません</p>
+                        <p style="font-size: 12px; margin-top: 8px; opacity: 0.7;">自宅WiFiに接続しているか確認してください</p>
+                    </div>
+                `;
+            }
+        }
+    }
+
+    renderLights() {
+        const listEl = document.getElementById('hueLightList');
+        if (!listEl) return;
+        
+        const lightIds = Object.keys(this.lights);
+        
+        if (lightIds.length === 0) {
+            listEl.innerHTML = '<div class="no-devices">ライトが見つかりません</div>';
+            return;
+        }
+        
+        let html = '';
+        lightIds.forEach(id => {
+            const light = this.lights[id];
+            const isOn = light.state.on;
+            const brightness = Math.round((light.state.bri / 254) * 100);
+            
+            html += `
+                <div class="hue-light-card ${isOn ? 'on' : 'off'}" onclick="app.hue.showControl('${id}')">
+                    <div class="hue-light-status"></div>
+                    <div class="hue-light-icon">💡</div>
+                    <div class="hue-light-name">${light.name}</div>
+                    <div class="hue-light-brightness">${isOn ? brightness + '%' : 'OFF'}</div>
+                </div>
+            `;
+        });
+        
+        listEl.innerHTML = html;
+    }
+
+    showControl(lightId) {
+        this.currentLightId = lightId;
+        const light = this.lights[lightId];
+        
+        document.getElementById('hueControlTitle').textContent = `💡 ${light.name}`;
+        
+        // 明るさスライダーを現在の値に設定
+        const brightness = Math.round((light.state.bri / 254) * 100);
+        document.getElementById('hueBrightnessSlider').value = brightness;
+        document.getElementById('hueBrightnessValue').textContent = brightness;
+        
+        document.getElementById('hueControlModal').classList.add('show');
+    }
+
+    closeControl() {
+        document.getElementById('hueControlModal').classList.remove('show');
+        this.currentLightId = null;
+    }
+
+    updateBrightnessLabel() {
+        const value = document.getElementById('hueBrightnessSlider').value;
+        document.getElementById('hueBrightnessValue').textContent = value;
+    }
+
+    async setPower(on) {
+        if (!this.currentLightId) return;
+        
+        Utils.showToast(on ? '点灯中...' : '消灯中...');
+        
+        try {
+            const response = await fetch(`${this.baseUrl}/lights/${this.currentLightId}/state`, {
+                method: 'PUT',
+                body: JSON.stringify({ on: on })
+            });
+            
+            if (response.ok) {
+                this.lights[this.currentLightId].state.on = on;
+                this.renderLights();
+                Utils.showToast(on ? '点灯しました' : '消灯しました');
+            } else {
+                Utils.showToast('操作に失敗しました');
+            }
+        } catch (error) {
+            console.error('Hue操作エラー:', error);
+            Utils.showToast('接続エラー');
+        }
+    }
+
+    async applyBrightness() {
+        if (!this.currentLightId) return;
+        
+        const brightness = parseInt(document.getElementById('hueBrightnessSlider').value);
+        const bri = Math.round((brightness / 100) * 254);
+        
+        Utils.showToast('明るさを変更中...');
+        
+        try {
+            const response = await fetch(`${this.baseUrl}/lights/${this.currentLightId}/state`, {
+                method: 'PUT',
+                body: JSON.stringify({ on: true, bri: bri })
+            });
+            
+            if (response.ok) {
+                this.lights[this.currentLightId].state.on = true;
+                this.lights[this.currentLightId].state.bri = bri;
+                this.renderLights();
+                Utils.showToast('明るさを変更しました');
+            } else {
+                Utils.showToast('操作に失敗しました');
+            }
+        } catch (error) {
+            console.error('Hue操作エラー:', error);
+            Utils.showToast('接続エラー');
+        }
+    }
+
+    async allLightsOn() {
+        Utils.showToast('全て点灯中...');
+        
+        try {
+            const lightIds = Object.keys(this.lights);
+            
+            for (const id of lightIds) {
+                await fetch(`${this.baseUrl}/lights/${id}/state`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ on: true })
+                });
+                this.lights[id].state.on = true;
+            }
+            
+            this.renderLights();
+            Utils.showToast('全て点灯しました');
+        } catch (error) {
+            console.error('Hue操作エラー:', error);
+            Utils.showToast('接続エラー');
+        }
+    }
+
+    async allLightsOff() {
+        Utils.showToast('全て消灯中...');
+        
+        try {
+            const lightIds = Object.keys(this.lights);
+            
+            for (const id of lightIds) {
+                await fetch(`${this.baseUrl}/lights/${id}/state`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ on: false })
+                });
+                this.lights[id].state.on = false;
+            }
+            
+            this.renderLights();
+            Utils.showToast('全て消灯しました');
+        } catch (error) {
+            console.error('Hue操作エラー:', error);
+            Utils.showToast('接続エラー');
+        }
+    }
+}
+
 // アプリケーションクラス
 class KakeiboApp {
     constructor() {
@@ -2265,6 +2470,7 @@ class KakeiboApp {
         this.holidayCalendar = new HolidayCalendar();
         this.shopping = new ShoppingList(this.budget);
         this.smartHome = new SmartHome();
+        this.hue = new PhilipsHue();
     }
 
     toggleMenu() {
@@ -2356,6 +2562,7 @@ class KakeiboApp {
         document.getElementById('menuSmartHome').style.display = 'none';
         
         this.smartHome.init();
+        this.hue.init();
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
