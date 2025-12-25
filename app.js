@@ -1191,6 +1191,18 @@ class BudgetManager {
             }, 2000);
         });
     }
+
+    copyHalfAmount() {
+        const total = this.calculateTotal();
+        const halfTotal = Math.round(total / 2);
+        const text = halfTotal.toLocaleString();
+        
+        navigator.clipboard.writeText(text).then(() => {
+            Utils.showToast('コピーしました！');
+        }).catch(() => {
+            Utils.showToast('コピーに失敗しました');
+        });
+    }
 }
 
 // 買い物リストクラス
@@ -2321,7 +2333,14 @@ class PhilipsHue {
 
     startAuth() {
         const authUrl = `https://api.meethue.com/v2/oauth2/authorize?client_id=${this.clientId}&response_type=code&redirect_uri=${encodeURIComponent(this.callbackUrl)}`;
-        window.location.href = authUrl;
+        
+        // 新しいウィンドウ/タブで開く（アプリのディープリンクを回避）
+        const authWindow = window.open(authUrl, '_blank', 'noopener,noreferrer');
+        
+        // ポップアップがブロックされた場合は直接遷移
+        if (!authWindow) {
+            window.location.href = authUrl;
+        }
     }
 
     async refreshAccessToken() {

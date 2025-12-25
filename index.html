@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>家族アプリ</title>
-    <link rel="stylesheet" href="styles.css?v=22">
+    <link rel="stylesheet" href="styles.css?v=25">
 </head>
 <body>
     <!-- 右上メニューボタン -->
@@ -135,10 +135,11 @@
 
             <div class="category-list simple-mode" id="categoryList"></div>
 
-            <div class="total-section">
+            <div class="total-section" onclick="app.budget.copyHalfAmount()">
                 <h2>合計金額</h2>
                 <div class="total-amount" id="totalAmount">¥0</div>
                 <div class="half-amount" id="halfAmount">折半: ¥0</div>
+                <div class="copy-hint">タップで折半金額をコピー</div>
             </div>
 
             <div class="output-section">
@@ -599,6 +600,6 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=22"></script>
+    <script type="module" src="app.js?v=25"></script>
 </body>
 </html>
