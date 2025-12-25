@@ -2261,7 +2261,7 @@ class PhilipsHue {
     constructor() {
         this.clientId = '1dadb03c-47a7-40f6-af51-bf8ccde0fb1b';
         this.proxyUrl = 'https://hue-proxy.zinnpei11251818.workers.dev';
-        this.callbackUrl = 'https://zinnpei.github.io/family-and-and/callback.html';
+        this.callbackUrl = 'https://jimpei1125.github.io/kakeibo/callback.html';
         this.groups = {};
         this.lights = {};
         this.currentGroupId = null;
