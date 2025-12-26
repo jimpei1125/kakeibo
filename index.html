@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>家族アプリ</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/budget.css">
+    <link rel="stylesheet" href="css/calendar.css">
+    <link rel="stylesheet" href="css/shopping.css">
+    <link rel="stylesheet" href="css/smarthome.css">
+</head>
+<body>
+    <!-- 右上メニューボタン -->
+    <button class="menu-btn" onclick="app.toggleMenu()">☰</button>
+
+    <!-- サイドメニュー -->
+    <div class="side-menu" id="sideMenu">
+        <button class="close-menu" onclick="app.closeMenu()">✕</button>
+        <div class="menu-items">
+            <div class="menu-item" id="menuCalendar" onclick="app.showCalendar(); app.closeMenu();">📅 カレンダー</div>
+            <div class="menu-item" id="menuBudget" onclick="app.showBudget(); app.closeMenu();" style="display: none;">📊 家計簿</div>
+            <div class="menu-item" id="menuShopping" onclick="app.showShopping(); app.closeMenu();">🛒 買い物リスト</div>
+            <div class="menu-item" id="menuSmartHome" onclick="app.showSmartHome(); app.closeMenu();">🏠 スマートホーム</div>
+        </div>
+    </div>
+    <div class="menu-overlay" id="menuOverlay" onclick="app.closeMenu()"></div>
+
+    <!-- トーストメッセージ -->
+    <div class="toast" id="toast"></div>
+
+    <!-- 計算機モーダル -->
+    <div class="calculator-modal" id="calculatorModal">
+        <div class="calc-header">
+            <h2>🔢 計算機</h2>
+            <button class="calc-close" onclick="app.calculator.close()">✕</button>
+        </div>
+        <div class="calc-display" id="calcDisplay" onclick="app.calculator.copyResult()">0</div>
+        <div class="calc-buttons">
+            <button class="calc-btn clear" onclick="app.calculator.clear()">C</button>
+            <button class="calc-btn" onclick="app.calculator.append('(')">(</button>
+            <button class="calc-btn" onclick="app.calculator.append(')')">)</button>
+            <button class="calc-btn operator" onclick="app.calculator.append('÷')">÷</button>
+            
+            <button class="calc-btn" onclick="app.calculator.append('7')">7</button>
+            <button class="calc-btn" onclick="app.calculator.append('8')">8</button>
+            <button class="calc-btn" onclick="app.calculator.append('9')">9</button>
+            <button class="calc-btn operator" onclick="app.calculator.append('×')">×</button>
+            
+            <button class="calc-btn" onclick="app.calculator.append('4')">4</button>
+            <button class="calc-btn" onclick="app.calculator.append('5')">5</button>
+            <button class="calc-btn" onclick="app.calculator.append('6')">6</button>
+            <button class="calc-btn operator" onclick="app.calculator.append('-')">-</button>
+            
+            <button class="calc-btn" onclick="app.calculator.append('1')">1</button>
+            <button class="calc-btn" onclick="app.calculator.append('2')">2</button>
+            <button class="calc-btn" onclick="app.calculator.append('3')">3</button>
+            <button class="calc-btn operator" onclick="app.calculator.append('+')">+</button>
+            
+            <button class="calc-btn" onclick="app.calculator.append('0')">0</button>
+            <button class="calc-btn" onclick="app.calculator.append('.')">.</button>
+            <button class="calc-btn equals" onclick="app.calculator.calculate()">=</button>
+        </div>
+    </div>
+
+    <!-- CSV出力モーダル -->
+    <div class="csv-modal" id="csvModal">
+        <div class="modal-header">
+            <h2>📥 CSV出力</h2>
+            <button class="modal-close" onclick="app.csv.closeModal()">✕</button>
+        </div>
+        
+        <div style="background: rgba(255, 255, 255, 0.08); padding: 20px; border-radius: 12px; margin-bottom: 15px;">
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 8px; color: #e0e0e0; font-weight: 700;">出力範囲</label>
+                <select id="csvRangeType" onchange="app.csv.toggleDateRange()" style="width: 100%;">
+                    <option value="current">今月のみ</option>
+                    <option value="range">期間を指定</option>
+                    <option value="all">全期間</option>
+                </select>
+            </div>
+
+            <div id="dateRangeInputs" style="display: none;">
+                <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-direction: column;">
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; color: #e0e0e0; font-weight: 700;">開始年月</label>
+                        <input type="month" id="csvStartDate" style="width: 100%;">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; color: #e0e0e0; font-weight: 700;">終了年月</label>
+                        <input type="month" id="csvEndDate" style="width: 100%;">
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 8px; color: #e0e0e0; font-weight: 700;">
+                    <input type="checkbox" id="csvIncludeNotes" checked style="margin-right: 8px;">
+                    備考を含める
+                </label>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 8px; color: #e0e0e0; font-weight: 700;">
+                    <input type="checkbox" id="csvIncludeHalf" checked style="margin-right: 8px;">
+                    折半金額を含める
+                </label>
+            </div>
+        </div>
+
+        <button onclick="app.csv.export()" style="width: 100%; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); box-shadow: 0 4px 15px rgba(240, 147, 251, 0.4);">
+            📥 CSVダウンロード
+        </button>
+    </div>
+
+    <!-- メインコンテンツ -->
+    <div class="container">
+        <!-- 家計簿セクション -->
+        <div class="content-section" id="budgetSection">
+            <div class="sync-status" id="syncStatus">接続中...</div>
+
+            <div class="month-selector">
+                <div class="month-nav">
+                    <button onclick="app.budget.changeMonth(-1)">◀</button>
+                    <div class="month-display" id="currentMonth"></div>
+                    <button onclick="app.budget.changeMonth(1)">▶</button>
+                </div>
+                <button onclick="app.budget.copyFromPreviousMonth()" style="width: 100%; background: #ffc107; color: #333;">📋 先月分をコピー</button>
+            </div>
+
+            <div class="add-category">
+                <div class="input-group">
+                    <input type="text" id="newCategoryName" placeholder="大カテゴリー名（例：光熱費）">
+                    <input type="number" id="newCategoryAmount" placeholder="金額">
+                    <input type="text" id="newCategoryNote" placeholder="備考（任意）">
+                    <button onclick="app.budget.addCategory()">追加</button>
+                </div>
+            </div>
+
+            <div class="category-list simple-mode" id="categoryList"></div>
+
+            <div class="total-section" onclick="app.budget.copyHalfAmount()">
+                <h2>合計金額</h2>
+                <div class="total-amount" id="totalAmount">¥0</div>
+                <div class="half-amount" id="halfAmount">折半: ¥0</div>
+                <div class="copy-hint">タップで折半金額をコピー</div>
+            </div>
+
+            <div class="output-section">
+                <h2 style="margin-bottom: 15px;">テキスト出力</h2>
+                <div class="output-text" id="outputText"></div>
+                <button class="copy-btn" onclick="app.budget.copyOutput()">📋 コピー</button>
+                <div class="copy-success" id="copySuccess" style="display: none;">コピーしました！</div>
+                <button class="discord-btn" onclick="window.open('https://discord.com/channels/1360206899278118972/1366013675051159564', '_blank')">
+                    <svg class="discord-icon" viewBox="0 0 71 55" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M60.1045 4.8978C55.5792 2.8214 50.7265 1.2916 45.6527 0.41542C45.5603 0.39851 45.468 0.440769 45.4204 0.525289C44.7963 1.6353 44.105 3.0834 43.6209 4.2216C38.1637 3.4046 32.7345 3.4046 27.3892 4.2216C26.905 3.0581 26.1886 1.6353 25.5617 0.525289C25.5141 0.443589 25.4218 0.40133 25.3294 0.41542C20.2584 1.2888 15.4057 2.8186 10.8776 4.8978C10.8384 4.9147 10.8048 4.9429 10.7825 4.9795C1.57795 18.7309 -0.943561 32.1443 0.293408 45.3914C0.299005 45.4562 0.335386 45.5182 0.385761 45.5576C6.45866 50.0174 12.3413 52.7249 18.1147 54.5195C18.2071 54.5477 18.305 54.5139 18.3638 54.4378C19.7295 52.5728 20.9469 50.6063 21.9907 48.5383C22.0523 48.4172 21.9935 48.2735 21.8676 48.2256C19.9366 47.4931 18.0979 46.6 16.3292 45.5858C16.1893 45.5041 16.1781 45.304 16.3068 45.2082C16.679 44.9293 17.0513 44.6391 17.4067 44.3461C17.471 44.2926 17.5606 44.2813 17.6362 44.3151C29.2558 49.6202 41.8354 49.6202 53.3179 44.3151C53.3## 44.2785 53.4831 44.287 53.5502 44.3433C53.9057 44.6363 54.2779 44.9293 54.6529 45.2082C54.7816 45.304 54.7732 45.5041 54.6333 45.5858C52.8646 46.6197 51.0259 47.4931 49.0921 48.2228C48.9662 48.2707 48.9102 48.4172 48.9718 48.5383C50.0384 50.6034 51.2558 52.5699 52.5959 54.435C52.6519 54.5139 52.7526 54.5477 52.845 54.5195C58.6464 52.7249 64.529 50.0174 70.6019 45.5576C70.6551 45.5182 70.6887 45.459 70.6943 45.3942C72.1747 30.0791 68.2147 16.7757 60.1968 4.9823C60.1772 4.9429 60.1437 4.9147 60.1045 4.8978ZM23.7259 37.3253C20.2276 37.3253 17.3451 34.1136 17.3451 30.1693C17.3451 26.225 20.1717 23.0133 23.7259 23.0133C27.308 23.0133 30.1626 26.2532 30.1099 30.1693C30.1099 34.1136 27.2739 37.3253 23.7259 37.3253ZM47.3178 37.3253C43.8196 37.3253 40.9371 34.1136 40.9371 30.1693C40.9371 26.225 43.7636 23.0133 47.3178 23.0133C50.9 23.0133 53.7545 26.2532 53.7018 30.1693C53.7018 34.1136 50.9 37.3253 47.3178 37.3253Z" fill="white"/>
+                    </svg>
+                    Discordに送る
+                </button>
+            </div>
+        </div>
+
+        <!-- カレンダーセクション -->
+        <div class="content-section" id="calendarSection" style="display: none;">
+            <h2 style="text-align: center; margin-bottom: 15px;">📅 休日カレンダー</h2>
+            
+            <div class="users-list" id="usersList"></div>
+
+            <div class="calendar-month-selector">
+                <button class="calendar-month-btn" onclick="app.holidayCalendar.changeMonth(-1)">◀</button>
+                <span class="calendar-current-month" id="calendarCurrentMonth"></span>
+                <button class="calendar-month-btn" onclick="app.holidayCalendar.changeMonth(1)">▶</button>
+            </div>
+
+            <div class="holiday-calendar" id="holidayCalendar"></div>
+
+            <div class="calendar-actions">
+                <button class="action-btn user-edit-btn" onclick="app.holidayCalendar.showUserManagement()">👥 ユーザー管理</button>
+                <button class="action-btn holiday-edit-btn" onclick="app.holidayCalendar.showHolidayUserSelect()">📅 休日編集</button>
+            </div>
+        </div>
+
+        <!-- 買い物リストセクション -->
+        <div class="content-section" id="shoppingSection" style="display: none;">
+            <h2 style="text-align: center; margin-bottom: 15px;">🛒 買い物リスト</h2>
+            
+            <div class="sync-status" id="shoppingSyncStatus" style="display: none;">接続中...</div>
+
+            <div class="shopping-header">
+                <div class="shopping-count">
+                    <span>買い物リスト</span>
+                    <span class="count-badge" id="shoppingCount">0件</span>
+                </div>
+                <select id="shoppingFilter" onchange="app.shopping.filterItems()">
+                    <option value="all">すべて</option>
+                    <option value="high">急ぎのみ</option>
+                </select>
+            </div>
+
+            <div class="shopping-add-form">
+                <div class="shopping-input-row">
+                    <input type="text" id="newItemName" placeholder="商品名" autocomplete="off">
+                    <div class="shopping-suggestions" id="shoppingSuggestions" style="display: none;"></div>
+                </div>
+                <div class="shopping-input-row">
+                    <select id="newItemCategory">
+                        <option value="野菜・果物">🥬 野菜・果物</option>
+                        <option value="肉・魚">🍖 肉・魚</option>
+                        <option value="乳製品・卵">🥛 乳製品・卵</option>
+                        <option value="調味料">🧂 調味料</option>
+                        <option value="飲料">🥤 飲料</option>
+                        <option value="お菓子">🍪 お菓子</option>
+                        <option value="日用品">🧴 日用品</option>
+                        <option value="その他">📦 その他</option>
+                    </select>
+                    <select id="newItemPriority">
+                        <option value="normal">普通</option>
+                        <option value="high">急ぎ</option>
+                        <option value="low">後で</option>
+                    </select>
+                    <input type="number" id="newItemQuantity" value="1" min="1" style="width: 60px;">
+                </div>
+                <button class="shopping-add-btn" onclick="app.shopping.addItem()">➕ 追加</button>
+            </div>
+
+            <div class="shopping-template-actions">
+                <button class="template-btn" onclick="app.shopping.showTemplates()">📋 テンプレートから追加</button>
+                <button class="template-btn" onclick="app.shopping.showTemplateManager()">⚙️ テンプレート管理</button>
+            </div>
+
+            <div class="shopping-list" id="shoppingList"></div>
+
+            <div class="shopping-completed-section" id="completedSection" style="display: none;">
+                <div class="completed-header" onclick="app.shopping.toggleCompleted()">
+                    <span>✅ 購入済み (<span id="completedCount">0</span>)</span>
+                    <span class="completed-toggle" id="completedToggle">▼</span>
+                </div>
+                <div class="completed-list" id="completedList" style="display: none;"></div>
+            </div>
+
+            <div class="shopping-actions">
+                <button class="clear-completed-btn" onclick="app.shopping.clearCompleted()">🗑️ 購入済みを削除</button>
+            </div>
+        </div>
+
+        <!-- スマートホームセクション -->
+        <div class="content-section smarthome-page" id="smartHomeSection" style="display: none;">
+            <h2 style="text-align: center; margin-bottom: 20px;">🏠 スマートホーム</h2>
+
+            <!-- SwitchBotセットアップ -->
+            <div class="smarthome-setup" id="smartHomeSetup">
+                <div class="setup-card">
+                    <h3>🤖 SwitchBot API設定</h3>
+                    <p>SwitchBotデバイスを操作するには、APIトークンとシークレットが必要です。</p>
+                    <div class="setup-form">
+                        <input type="password" id="switchbotToken" placeholder="トークン">
+                        <input type="password" id="switchbotSecret" placeholder="シークレット">
+                        <button onclick="app.smartHome.saveToken()">保存して接続</button>
+                    </div>
+                    <div class="setup-help">
+                        <details>
+                            <summary>トークンの取得方法</summary>
+                            <ol>
+                                <li>SwitchBotアプリを開く</li>
+                                <li>プロフィール → 設定 → アプリバージョンを10回タップ</li>
+                                <li>開発者向けオプション → トークンを取得</li>
+                            </ol>
+                        </details>
+                    </div>
+                </div>
+            </div>
+
+            <!-- デバイス一覧 -->
+            <div class="smarthome-devices" id="smartHomeDevices" style="display: none;">
+                <div class="devices-header">
+                    <span class="devices-status" id="devicesStatus">読み込み中...</span>
+                    <button class="refresh-btn" onclick="app.smartHome.loadDevices()">🔄 更新</button>
+                </div>
+
+                <div class="device-section">
+                    <h3>📡 赤外線リモコン</h3>
+                    <div class="device-grid" id="irDeviceList"></div>
+                </div>
+
+                <div class="device-section">
+                    <h3>🤖 SwitchBotデバイス</h3>
+                    <div class="device-grid" id="physicalDeviceList"></div>
+                </div>
+
+                <div class="smarthome-settings">
+                    <button class="settings-btn" onclick="app.smartHome.showSettings()">⚙️ API設定</button>
+                </div>
+            </div>
+
+            <!-- Philips Hue -->
+            <div class="hue-section">
+                <h3 style="margin-bottom: 15px;">💡 Philips Hue</h3>
+                <div class="hue-loading" id="hueLoading">読み込み中...</div>
+                <div class="hue-light-grid" id="hueLightList"></div>
+                <div class="hue-actions" style="margin-top: 15px;">
+                    <button class="hue-all-btn on" onclick="app.hue.allLightsOn()">💡 全ON</button>
+                    <button class="hue-all-btn off" onclick="app.hue.allLightsOff()">🌙 全OFF</button>
+                </div>
+            </div>
+
+            <!-- スマートホーム専用フッター -->
+            <div class="smarthome-footer">
+                <a href="switchbot://" class="app-link-btn switchbot">
+                    <span class="app-icon">🤖</span>
+                    <span>SwitchBotアプリ</span>
+                </a>
+                <a href="hue://" class="app-link-btn hue">
+                    <span class="app-icon">💡</span>
+                    <span>Hueアプリ</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ユーザー管理モーダル -->
+    <div class="user-modal" id="userModal">
+        <div class="modal-header">
+            <h2>👥 ユーザー管理</h2>
+            <button class="modal-close" onclick="app.holidayCalendar.closeUserModal()">✕</button>
+        </div>
+        <button class="new-user-btn" onclick="app.holidayCalendar.showUserForm()">✨ 新規登録</button>
+        <div class="user-list-container">
+            <div class="user-list" id="userListModal"></div>
+        </div>
+    </div>
+
+    <!-- ユーザーフォームモーダル -->
+    <div class="user-form-modal" id="userFormModal">
+        <div class="modal-header">
+            <h2 id="userFormTitle">✨ ユーザー新規登録</h2>
+            <button class="modal-close" onclick="app.holidayCalendar.closeUserForm()">✕</button>
+        </div>
+        <div class="user-form">
+            <label>名前</label>
+            <input type="text" id="userName" placeholder="名前を入力">
+            
+            <label>カラー</label>
+            <div class="color-palette" id="colorPalette"></div>
+            
+            <div class="form-actions">
+                <button class="save-btn" onclick="app.holidayCalendar.saveUser()">保存</button>
+                <button class="cancel-btn" onclick="app.holidayCalendar.closeUserForm()">キャンセル</button>
+                <button class="delete-user-btn" id="deleteUserBtn" onclick="app.holidayCalendar.deleteUser()" style="display: none;">削除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 休日ユーザー選択モーダル -->
+    <div class="holiday-user-select-modal" id="holidayUserSelectModal">
+        <div class="modal-header">
+            <h2>👤 ユーザーを選択</h2>
+            <button class="modal-close" onclick="app.holidayCalendar.closeHolidayUserSelect()">✕</button>
+        </div>
+        <div class="holiday-user-select">
+            <p>休日を編集するユーザーを選択してください</p>
+            <div class="holiday-user-list" id="holidayUserSelectList"></div>
+        </div>
+    </div>
+
+    <!-- 休日編集モーダル -->
+    <div class="holiday-edit-modal" id="holidayEditModal">
+        <div class="modal-header">
+            <h2 id="holidayEditTitle">📅 休日編集</h2>
+            <button class="modal-close" onclick="app.holidayCalendar.cancelHolidayEdit()">✕</button>
+        </div>
+        <div class="edit-calendar-nav">
+            <button onclick="app.holidayCalendar.changeEditMonth(-1)">◀</button>
+            <span id="editCalendarMonth"></span>
+            <button onclick="app.holidayCalendar.changeEditMonth(1)">▶</button>
+        </div>
+        <div class="edit-calendar" id="editCalendar"></div>
+        <div class="edit-calendar-actions">
+            <button class="complete-btn" onclick="app.holidayCalendar.saveHolidays()">✓ 保存</button>
+            <button class="cancel-btn" onclick="app.holidayCalendar.cancelHolidayEdit()">キャンセル</button>
+        </div>
+    </div>
+
+    <!-- テンプレート選択モーダル -->
+    <div class="template-select-modal" id="templateSelectModal">
+        <div class="modal-header">
+            <h2>📋 テンプレートから追加</h2>
+            <button class="modal-close" onclick="app.shopping.closeTemplateSelect()">✕</button>
+        </div>
+        <div class="template-list" id="templateList"></div>
+    </div>
+
+    <!-- テンプレート管理モーダル -->
+    <div class="template-manager-modal" id="templateManagerModal">
+        <div class="modal-header">
+            <h2>⚙️ テンプレート管理</h2>
+            <button class="modal-close" onclick="app.shopping.closeTemplateManager()">✕</button>
+        </div>
+        <button class="new-user-btn" onclick="app.shopping.showTemplateForm()">➕ 新規作成</button>
+        <div class="template-list" id="templateManagerList"></div>
+    </div>
+
+    <!-- テンプレートフォームモーダル -->
+    <div class="template-form-modal" id="templateFormModal">
+        <div class="modal-header">
+            <h2 id="templateFormTitle">➕ 新規テンプレート作成</h2>
+            <button class="modal-close" onclick="app.shopping.closeTemplateForm()">✕</button>
+        </div>
+        <div class="template-form">
+            <label>テンプレート名:</label>
+            <input type="text" id="templateName" placeholder="例: 週末の買い出し">
+            
+            <label>アイテム:</label>
+            <div class="template-items-list" id="templateItemsList"></div>
+            
+            <div class="template-item-add">
+                <input type="text" id="templateItemName" placeholder="商品名">
+                <select id="templateItemCategory">
+                    <option value="野菜・果物">🥬 野菜・果物</option>
+                    <option value="肉・魚">🍖 肉・魚</option>
+                    <option value="乳製品・卵">🥛 乳製品・卵</option>
+                    <option value="調味料">🧂 調味料</option>
+                    <option value="飲料">🥤 飲料</option>
+                    <option value="お菓子">🍪 お菓子</option>
+                    <option value="日用品">🧴 日用品</option>
+                    <option value="その他">📦 その他</option>
+                </select>
+                <button onclick="app.shopping.addTemplateItem()">追加</button>
+            </div>
+            
+            <div class="template-form-actions">
+                <button class="save-btn" onclick="app.shopping.saveTemplate()">保存</button>
+                <button class="cancel-btn" onclick="app.shopping.closeTemplateForm()">キャンセル</button>
+                <button class="delete-template-btn" id="deleteTemplateBtn" onclick="app.shopping.deleteTemplate()" style="display: none;">削除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- エアコン操作モーダル -->
+    <div class="ac-control-modal" id="acControlModal">
+        <div class="modal-header">
+            <h2 id="acControlTitle">❄️ エアコン操作</h2>
+            <button class="modal-close" onclick="app.smartHome.closeAcControl()">✕</button>
+        </div>
+        <div class="ac-control-content">
+            <div class="ac-power-section">
+                <button class="ac-power-btn on" onclick="app.smartHome.acCommand('turnOn')">
+                    <span class="power-icon">⏻</span>
+                    <span>ON</span>
+                </button>
+                <button class="ac-power-btn off" onclick="app.smartHome.acCommand('turnOff')">
+                    <span class="power-icon">⏻</span>
+                    <span>OFF</span>
+                </button>
+            </div>
+            
+            <div class="ac-temp-section">
+                <label>温度設定</label>
+                <div class="ac-temp-controls">
+                    <button class="temp-btn" onclick="app.smartHome.adjustTemp(-1)">−</button>
+                    <span class="temp-display" id="acTempDisplay">26°C</span>
+                    <button class="temp-btn" onclick="app.smartHome.adjustTemp(1)">+</button>
+                </div>
+            </div>
+            
+            <div class="ac-mode-section">
+                <label>モード</label>
+                <div class="ac-mode-buttons">
+                    <button class="mode-btn" data-mode="1" onclick="app.smartHome.setAcMode(1)">🔥 暖房</button>
+                    <button class="mode-btn active" data-mode="2" onclick="app.smartHome.setAcMode(2)">❄️ 冷房</button>
+                    <button class="mode-btn" data-mode="3" onclick="app.smartHome.setAcMode(3)">💨 送風</button>
+                    <button class="mode-btn" data-mode="5" onclick="app.smartHome.setAcMode(5)">💧 除湿</button>
+                </div>
+            </div>
+            
+            <div class="ac-fan-section">
+                <label>風量</label>
+                <div class="ac-fan-buttons">
+                    <button class="fan-btn" data-fan="1" onclick="app.smartHome.setAcFan(1)">自動</button>
+                    <button class="fan-btn" data-fan="2" onclick="app.smartHome.setAcFan(2)">弱</button>
+                    <button class="fan-btn" data-fan="3" onclick="app.smartHome.setAcFan(3)">中</button>
+                    <button class="fan-btn" data-fan="4" onclick="app.smartHome.setAcFan(4)">強</button>
+                </div>
+            </div>
+            
+            <button class="ac-apply-btn" onclick="app.smartHome.applyAcSettings()">設定を送信</button>
+        </div>
+    </div>
+
+    <!-- スマートホームAPI設定モーダル -->
+    <div class="smarthome-settings-modal" id="smartHomeSettingsModal">
+        <div class="modal-header">
+            <h2>⚙️ API設定</h2>
+            <button class="modal-close" onclick="app.smartHome.closeSettings()">✕</button>
+        </div>
+        <div class="settings-content">
+            <div class="settings-section">
+                <h3>SwitchBot API</h3>
+                <div class="settings-form">
+                    <label>トークン</label>
+                    <input type="password" id="settingsSwitchbotToken" placeholder="トークン">
+                    <label>シークレット</label>
+                    <input type="password" id="settingsSwitchbotSecret" placeholder="シークレット">
+                </div>
+            </div>
+            <div class="settings-actions">
+                <button class="save-btn" onclick="app.smartHome.updateToken()">保存</button>
+                <button class="danger-btn" onclick="app.smartHome.clearToken()">トークンを削除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hueライト操作モーダル -->
+    <div class="hue-control-modal" id="hueControlModal">
+        <div class="modal-header">
+            <h2 id="hueControlTitle">💡 ライト操作</h2>
+            <button class="modal-close" onclick="app.hue.closeControl()">✕</button>
+        </div>
+        <div class="hue-control-content">
+            <div class="hue-power-section">
+                <button class="hue-power-btn on" onclick="app.hue.setPower(true)">
+                    <span class="power-icon">💡</span>
+                    <span>ON</span>
+                </button>
+                <button class="hue-power-btn off" onclick="app.hue.setPower(false)">
+                    <span class="power-icon">🌙</span>
+                    <span>OFF</span>
+                </button>
+            </div>
+            
+            <div class="hue-brightness-section">
+                <label>グループ明るさ: <span id="hueBrightnessValue">100</span>%</label>
+                <input type="range" id="hueBrightnessSlider" min="1" max="100" value="100" oninput="app.hue.updateBrightnessLabel()">
+                <button class="hue-apply-btn" onclick="app.hue.applyBrightness()">明るさを適用</button>
+            </div>
+            
+            <div class="hue-individual-section">
+                <label>個別ライト調整</label>
+                <div class="hue-individual-lights" id="hueIndividualLights"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- フッター -->
+    <div class="footer">
+        <div class="footer-nav">
+            <button class="nav-btn active" onclick="app.showSection('budget')">📊 家計簿</button>
+            <button class="nav-btn" onclick="app.calculator.show()">🔢 計算機</button>
+            <button class="nav-btn" onclick="app.csv.showModal()">📥 CSV出力</button>
+        </div>
+    </div>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>
