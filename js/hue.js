@@ -1,6 +1,6 @@
 import { Utils } from './utils.js';
 
-// Philips Hueã‚¯ãƒ©ã‚¹ï¼ˆRemote APIå¯¾å¿œï¼‰
+// Philips Hueクラス（Remote API対応）
 export class PhilipsHue {
     constructor() {
         this.clientId = '1dadb03c-47a7-40f6-af51-bf8ccde0fb1b';
@@ -38,9 +38,9 @@ export class PhilipsHue {
             if (listEl) {
                 listEl.innerHTML = `
                     <div class="hue-auth-prompt" style="grid-column: 1 / -1; text-align: center; padding: 30px;">
-                        <p style="margin-bottom: 15px; color: rgba(255,255,255,0.7);">Philips Hueã‚¢ã‚«ã‚¦ãƒ³ãƒˆã¨ã®é€£æºãŒå¿…è¦ã§ã™</p>
+                        <p style="margin-bottom: 15px; color: rgba(255,255,255,0.7);">Philips Hueアカウントとの連携が必要です</p>
                         <button onclick="app.hue.startAuth()" style="padding: 14px 28px; background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: bold; cursor: pointer;">
-                            ðŸ”— Hueã‚¢ã‚«ã‚¦ãƒ³ãƒˆã‚’é€£æº
+                            🔗 Hueアカウントを連携
                         </button>
                     </div>
                 `;
@@ -139,7 +139,7 @@ export class PhilipsHue {
         localStorage.removeItem('hue_username');
         this.username = null;
         this.isConnected = false;
-        Utils.showToast('Hueã‹ã‚‰ãƒ­ã‚°ã‚¢ã‚¦ãƒˆã—ã¾ã—ãŸ');
+        Utils.showToast('Hueからログアウトしました');
         this.init();
     }
 
@@ -192,7 +192,7 @@ export class PhilipsHue {
                 this.lights = data;
             }
         } catch (error) {
-            console.error('ãƒ©ã‚¤ãƒˆå–å¾—ã‚¨ãƒ©ãƒ¼:', error);
+            console.error('ライト取得エラー:', error);
         }
     }
 
@@ -213,20 +213,20 @@ export class PhilipsHue {
                 if (loadingEl) loadingEl.style.display = 'none';
                 this.renderGroups();
             } else {
-                throw new Error(data?.error?.description || 'æŽ¥ç¶šå¤±æ•—');
+                throw new Error(data?.error?.description || '接続失敗');
             }
         } catch (error) {
-            console.error('HueæŽ¥ç¶šã‚¨ãƒ©ãƒ¼:', error);
+            console.error('Hue接続エラー:', error);
             this.isConnected = false;
             
             if (loadingEl) loadingEl.style.display = 'none';
             if (listEl) {
                 listEl.innerHTML = `
                     <div class="hue-error" style="grid-column: 1 / -1; text-align: center;">
-                        <p>ðŸ˜¢ Hueã«æŽ¥ç¶šã§ãã¾ã›ã‚“</p>
+                        <p>😢 Hueに接続できません</p>
                         <p style="font-size: 12px; margin-top: 8px; opacity: 0.7;">${error.message}</p>
                         <button onclick="app.hue.logout()" style="margin-top: 15px; padding: 10px 20px; background: rgba(255,255,255,0.1); color: #e0e0e0; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; cursor: pointer;">
-                            å†èªè¨¼ã™ã‚‹
+                            再認証する
                         </button>
                     </div>
                 `;
@@ -246,7 +246,7 @@ export class PhilipsHue {
         });
         
         if (roomGroups.length === 0) {
-            listEl.innerHTML = '<div class="no-devices">ã‚°ãƒ«ãƒ¼ãƒ—ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“</div>';
+            listEl.innerHTML = '<div class="no-devices">グループが見つかりません</div>';
             return;
         }
         
@@ -257,15 +257,15 @@ export class PhilipsHue {
             const allOn = group.state && group.state.all_on;
             const lightCount = group.lights ? group.lights.length : 0;
             
-            const icon = group.type === 'Zone' ? 'ðŸ·ï¸' : 'ðŸ ';
+            const icon = group.type === 'Zone' ? '🏷️' : '🏠';
             
             html += `
                 <div class="hue-light-card ${isOn ? 'on' : 'off'}" onclick="app.hue.showControl('${id}')">
                     <div class="hue-light-status ${allOn ? 'all-on' : ''}"></div>
                     <div class="hue-light-icon">${icon}</div>
                     <div class="hue-light-name">${group.name}</div>
-                    <div class="hue-light-brightness">${isOn ? (allOn ? 'å…¨ç‚¹ç¯' : 'ä¸€éƒ¨ç‚¹ç¯') : 'OFF'}</div>
-                    <div class="hue-light-count">${lightCount}å°</div>
+                    <div class="hue-light-brightness">${isOn ? (allOn ? '全点灯' : '一部点灯') : 'OFF'}</div>
+                    <div class="hue-light-count">${lightCount}台</div>
                 </div>
             `;
         });
@@ -277,7 +277,7 @@ export class PhilipsHue {
         this.currentGroupId = groupId;
         const group = this.groups[groupId];
         
-        document.getElementById('hueControlTitle').textContent = `ðŸ’¡ ${group.name}`;
+        document.getElementById('hueControlTitle').textContent = `💡 ${group.name}`;
         
         const brightness = group.action && group.action.bri ? Math.round((group.action.bri / 254) * 100) : 100;
         document.getElementById('hueBrightnessSlider').value = brightness;
@@ -293,7 +293,7 @@ export class PhilipsHue {
         if (!container) return;
         
         if (lightIds.length === 0) {
-            container.innerHTML = '<div style="color: rgba(255,255,255,0.5); text-align: center; padding: 10px;">ãƒ©ã‚¤ãƒˆãŒã‚ã‚Šã¾ã›ã‚“</div>';
+            container.innerHTML = '<div style="color: rgba(255,255,255,0.5); text-align: center; padding: 10px;">ライトがありません</div>';
             return;
         }
         
@@ -308,7 +308,7 @@ export class PhilipsHue {
             html += `
                 <div class="hue-individual-light ${isOn ? 'on' : 'off'}">
                     <button class="hue-individual-toggle ${isOn ? 'on' : 'off'}" onclick="app.hue.toggleIndividualLight('${id}')">
-                        ${isOn ? 'ðŸ’¡' : 'ðŸŒ™'}
+                        ${isOn ? '💡' : '🌙'}
                     </button>
                     <div class="hue-individual-info">
                         <div class="hue-individual-name">${light.name}</div>
@@ -337,10 +337,10 @@ export class PhilipsHue {
             const group = this.groups[this.currentGroupId];
             this.renderIndividualLights(group.lights || []);
             await this.loadGroups();
-            Utils.showToast(newState ? `${light.name}ã‚’ç‚¹ç¯` : `${light.name}ã‚’æ¶ˆç¯`);
+            Utils.showToast(newState ? `${light.name}を点灯` : `${light.name}を消灯`);
         } catch (error) {
-            console.error('ãƒ©ã‚¤ãƒˆæ“ä½œã‚¨ãƒ©ãƒ¼:', error);
-            Utils.showToast('æ“ä½œã«å¤±æ•—ã—ã¾ã—ãŸ');
+            console.error('ライト操作エラー:', error);
+            Utils.showToast('操作に失敗しました');
         }
     }
 
@@ -355,7 +355,7 @@ export class PhilipsHue {
             light.state.on = true;
             light.state.bri = bri;
         } catch (error) {
-            console.error('æ˜Žã‚‹ã•å¤‰æ›´ã‚¨ãƒ©ãƒ¼:', error);
+            console.error('明るさ変更エラー:', error);
         }
     }
 
@@ -373,7 +373,7 @@ export class PhilipsHue {
         if (!this.currentGroupId) return;
         
         const group = this.groups[this.currentGroupId];
-        Utils.showToast(on ? `${group.name}ã‚’ç‚¹ç¯ä¸­...` : `${group.name}ã‚’æ¶ˆç¯ä¸­...`);
+        Utils.showToast(on ? `${group.name}を点灯中...` : `${group.name}を消灯中...`);
         
         try {
             await this.apiRequestV1(`/groups/${this.currentGroupId}/action`, 'PUT', { on: on });
@@ -383,11 +383,10 @@ export class PhilipsHue {
                 this.groups[this.currentGroupId].state.all_on = on;
             }
             this.renderGroups();
-            Utils.showToast(on ? 'ç‚¹ç¯ã—ã¾ã—ãŸ' : 'æ¶ˆç¯ã—ã¾ã—ãŸ');
-            this.closeControl();
+            Utils.showToast(on ? '点灯しました' : '消灯しました');
         } catch (error) {
-            console.error('Hueæ“ä½œã‚¨ãƒ©ãƒ¼:', error);
-            Utils.showToast('æŽ¥ç¶šã‚¨ãƒ©ãƒ¼');
+            console.error('Hue操作エラー:', error);
+            Utils.showToast('接続エラー');
         }
     }
 
@@ -397,7 +396,7 @@ export class PhilipsHue {
         const brightness = parseInt(document.getElementById('hueBrightnessSlider').value);
         const bri = Math.round((brightness / 100) * 254);
         
-        Utils.showToast('æ˜Žã‚‹ã•ã‚’å¤‰æ›´ä¸­...');
+        Utils.showToast('明るさを変更中...');
         
         try {
             await this.apiRequestV1(`/groups/${this.currentGroupId}/action`, 'PUT', { on: true, bri: bri });
@@ -410,16 +409,15 @@ export class PhilipsHue {
                 this.groups[this.currentGroupId].state.all_on = true;
             }
             this.renderGroups();
-            this.closeControl();
-            Utils.showToast('æ˜Žã‚‹ã•ã‚’å¤‰æ›´ã—ã¾ã—ãŸ');
+            Utils.showToast('明るさを変更しました');
         } catch (error) {
-            console.error('Hueæ“ä½œã‚¨ãƒ©ãƒ¼:', error);
-            Utils.showToast('æŽ¥ç¶šã‚¨ãƒ©ãƒ¼');
+            console.error('Hue操作エラー:', error);
+            Utils.showToast('接続エラー');
         }
     }
 
     async allLightsOn() {
-        Utils.showToast('å…¨ã‚°ãƒ«ãƒ¼ãƒ—ç‚¹ç¯ä¸­...');
+        Utils.showToast('全グループ点灯中...');
         
         try {
             const groupIds = Object.keys(this.groups).filter(id => {
@@ -436,15 +434,15 @@ export class PhilipsHue {
             }
             
             this.renderGroups();
-            Utils.showToast('å…¨ã‚°ãƒ«ãƒ¼ãƒ—ç‚¹ç¯ã—ã¾ã—ãŸ');
+            Utils.showToast('全グループ点灯しました');
         } catch (error) {
-            console.error('Hueæ“ä½œã‚¨ãƒ©ãƒ¼:', error);
-            Utils.showToast('æŽ¥ç¶šã‚¨ãƒ©ãƒ¼');
+            console.error('Hue操作エラー:', error);
+            Utils.showToast('接続エラー');
         }
     }
 
     async allLightsOff() {
-        Utils.showToast('å…¨ã‚°ãƒ«ãƒ¼ãƒ—æ¶ˆç¯ä¸­...');
+        Utils.showToast('全グループ消灯中...');
         
         try {
             const groupIds = Object.keys(this.groups).filter(id => {
@@ -461,10 +459,10 @@ export class PhilipsHue {
             }
             
             this.renderGroups();
-            Utils.showToast('å…¨ã‚°ãƒ«ãƒ¼ãƒ—æ¶ˆç¯ã—ã¾ã—ãŸ');
+            Utils.showToast('全グループ消灯しました');
         } catch (error) {
-            console.error('Hueæ“ä½œã‚¨ãƒ©ãƒ¼:', error);
-            Utils.showToast('æŽ¥ç¶šã‚¨ãƒ©ãƒ¼');
+            console.error('Hue操作エラー:', error);
+            Utils.showToast('接続エラー');
         }
     }
 }
