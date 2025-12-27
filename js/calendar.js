@@ -414,7 +414,7 @@ export class HolidayCalendar {
                 html += '</div>';
             }
             
-            const displayUsers = dayHolidays.slice(0, 2);
+            const displayUsers = dayHolidays.slice(0, 3);
             displayUsers.forEach(holiday => {
                 const user = this.users.find(u => u.id === holiday.userId);
                 if (user) {
@@ -427,8 +427,8 @@ export class HolidayCalendar {
                 }
             });
             
-            if (dayHolidays.length > 2) {
-                html += '<div class="calendar-more-users">+' + (dayHolidays.length - 2) + '</div>';
+            if (dayHolidays.length > 3) {
+                html += '<div class="calendar-more-users">+' + (dayHolidays.length - 3) + '</div>';
             }
             
             html += '</div></div>';
