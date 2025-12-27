@@ -1,0 +1,756 @@
+/* カレンダー月選択 */
+.calendar-month-selector {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+}
+
+.calendar-month-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 700;
+    transition: all 0.3s ease;
+}
+
+.calendar-month-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.5);
+}
+
+.calendar-current-month {
+    font-size: 20px;
+    font-weight: 900;
+    color: #ffffff;
+}
+
+/* カレンダーグリッド */
+.holiday-calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 10px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.calendar-weekday {
+    text-align: center;
+    padding: 8px 2px;
+    font-weight: 700;
+    color: #888;
+    font-size: 11px;
+}
+
+.calendar-date-cell {
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    min-height: 60px;
+    position: relative;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.calendar-date-cell.other-month {
+    opacity: 0.3;
+}
+
+.calendar-date-cell.today {
+    background: linear-gradient(135deg, #667eea20 0%, #764ba240 100%);
+    border: 2px solid #667eea;
+}
+
+.calendar-date-number {
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 2px;
+    color: #ffffff;
+}
+
+.calendar-holiday-users {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex: 1;
+    overflow: hidden;
+}
+
+.calendar-holiday-user {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 8px;
+    padding: 1px 2px;
+    border-radius: 3px;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.calendar-holiday-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.calendar-holiday-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 8px;
+}
+
+.calendar-more-users {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.7);
+    text-align: center;
+    margin-top: 2px;
+}
+
+/* カレンダーアクション */
+.calendar-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.action-btn {
+    flex: 1;
+    max-width: 200px;
+    padding: 15px 20px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 700;
+    transition: all 0.3s ease;
+}
+
+.user-edit-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.user-edit-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+}
+
+.holiday-edit-btn {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(56, 239, 125, 0.4);
+}
+
+.holiday-edit-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(56, 239, 125, 0.6);
+}
+
+/* モーダル共通 */
+.user-modal,
+.user-form-modal,
+.holiday-user-select-modal,
+.holiday-edit-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(15, 12, 41, 0.98);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    padding: 20px;
+    z-index: 1500;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    width: 95%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+
+.user-modal.show,
+.user-form-modal.show,
+.holiday-user-select-modal.show,
+.holiday-edit-modal.show {
+    display: block;
+    animation: modalFadeIn 0.3s ease-out;
+}
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -60%);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%);
+    }
+}
+
+/* ユーザー管理モーダル */
+.user-list-container {
+    margin-top: 20px;
+}
+
+.new-user-btn {
+    width: 100%;
+    padding: 15px;
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    transition: all 0.3s ease;
+}
+
+.new-user-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(56, 239, 125, 0.6);
+}
+
+.user-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.user-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.user-item:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateX(5px);
+}
+
+/* ユーザーフォーム */
+.user-form {
+    margin-top: 20px;
+}
+
+.user-form label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 700;
+    color: #e0e0e0;
+}
+
+.user-form input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    font-size: 16px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #ffffff;
+    margin-bottom: 20px;
+    transition: all 0.3s ease;
+}
+
+.user-form input:focus {
+    outline: none;
+    border-color: #667eea;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.color-palette {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.color-option {
+    aspect-ratio: 1;
+    border-radius: 10px;
+    cursor: pointer;
+    border: 3px solid transparent;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+}
+
+.color-option:hover {
+    transform: scale(1.1);
+}
+
+.color-option.selected {
+    border-color: #ffffff;
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+}
+
+.color-option.disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.form-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.save-btn,
+.complete-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 700;
+    transition: all 0.3s ease;
+}
+
+.save-btn:hover,
+.complete-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+}
+
+.cancel-btn {
+    width: 100%;
+    padding: 14px;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 700;
+    transition: all 0.3s ease;
+}
+
+.cancel-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.delete-user-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 700;
+    transition: all 0.3s ease;
+}
+
+.delete-user-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(245, 87, 108, 0.6);
+}
+
+/* 休日ユーザー選択 */
+.holiday-user-select p {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #e0e0e0;
+    font-size: 16px;
+}
+
+.holiday-user-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.holiday-user-btn {
+    width: 100%;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 700;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.holiday-user-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateX(5px);
+}
+
+/* 休日編集モード */
+.holiday-edit-modal {
+    max-width: 600px;
+}
+
+.holiday-edit-month-selector {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+}
+
+.holiday-edit-calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 8px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.edit-date-cell {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 700;
+    min-height: 40px;
+    font-size: 13px;
+    box-sizing: border-box;
+}
+
+.edit-date-cell:hover:not(.other-month) {
+    background: rgba(255, 255, 255, 0.15);
+    transform: scale(1.05);
+}
+
+.edit-date-cell.other-month {
+    opacity: 0.3;
+    cursor: default;
+}
+
+.edit-date-cell.holiday {
+    color: white;
+    font-weight: 900;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.holiday-edit-actions {
+    display: flex;
+    gap: 10px;
+}
+
+@media (max-width: 768px) {
+    .holiday-calendar {
+        gap: 3px;
+        padding: 8px;
+    }
+
+    .holiday-edit-calendar {
+        gap: 2px;
+        padding: 6px;
+    }
+
+    .calendar-date-cell {
+        min-height: 55px;
+        padding: 3px;
+    }
+
+    .edit-date-cell {
+        min-height: 35px;
+        padding: 2px;
+        font-size: 12px;
+    }
+
+    .calendar-date-number {
+        font-size: 11px;
+    }
+
+    .calendar-holiday-user {
+        font-size: 8px;
+    }
+
+    .calendar-holiday-dot {
+        width: 5px;
+        height: 5px;
+    }
+
+    .holiday-edit-modal {
+        width: 98%;
+        padding: 15px;
+        max-height: 95vh;
+    }
+
+    .holiday-edit-month-selector {
+        padding: 8px;
+        margin-bottom: 10px;
+    }
+}
+
+/* テンプレートボタン */
+.shopping-template-buttons {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.template-btn {
+    flex: 1;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.template-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.template-btn.secondary {
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: none;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.template-btn.secondary:hover {
+    background: rgba(255, 255, 255, 0.2);
+    box-shadow: none;
+}
+
+/* 買い物リストコンテナ */
+.shopping-list-container {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 15px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.shopping-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.shopping-count {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.shopping-filter select {
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    color: #e0e0e0;
+    font-size: 13px;
+    font-family: 'Noto Sans JP', sans-serif;
+}
+
+/* 買い物リストアイテム */
+.shopping-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.shopping-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+}
+
+.shopping-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.shopping-item.high-priority {
+    border-left: 4px solid #f5576c;
+    background: rgba(245, 87, 108, 0.1);
+}
+
+/* ========================================
+   休日編集モーダル用の追加スタイル
+   ======================================== */
+
+/* 編集カレンダーのナビゲーション */
+.edit-calendar-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+}
+
+.edit-calendar-nav button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 700;
+    transition: all 0.3s ease;
+}
+
+.edit-calendar-nav button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.5);
+}
+
+.edit-calendar-nav span {
+    font-size: 18px;
+    font-weight: 900;
+    color: #ffffff;
+}
+
+/* 編集カレンダーグリッド */
+.edit-calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 8px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* 編集カレンダーの曜日ヘッダー */
+.edit-calendar-weekday {
+    text-align: center;
+    padding: 8px 2px;
+    font-weight: 700;
+    color: #888;
+    font-size: 12px;
+}
+
+/* 編集カレンダーの日付セル */
+.edit-calendar-cell {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 700;
+    min-height: 40px;
+    font-size: 13px;
+    box-sizing: border-box;
+    color: #ffffff;
+}
+
+.edit-calendar-cell:hover:not(.empty) {
+    background: rgba(255, 255, 255, 0.15);
+    transform: scale(1.05);
+}
+
+.edit-calendar-cell.empty {
+    background: transparent;
+    cursor: default;
+}
+
+.edit-calendar-cell.selected {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    color: white;
+    font-weight: 900;
+    box-shadow: 0 4px 15px rgba(56, 239, 125, 0.4);
+}
+
+/* 編集カレンダーのアクションボタン */
+.edit-calendar-actions {
+    display: flex;
+    gap: 10px;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+    .edit-calendar {
+        gap: 2px;
+        padding: 6px;
+    }
+
+    .edit-calendar-cell {
+        min-height: 35px;
+        padding: 2px;
+        font-size: 12px;
+    }
+
+    .edit-calendar-weekday {
+        font-size: 11px;
+        padding: 6px 2px;
+    }
+
+    .edit-calendar-nav {
+        padding: 8px;
+        margin-bottom: 10px;
+    }
+
+    .edit-calendar-nav button {
+        padding: 8px 15px;
+        font-size: 14px;
+    }
+
+    .edit-calendar-nav span {
+        font-size: 16px;
+    }
+}
