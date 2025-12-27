@@ -176,7 +176,16 @@
 
             <div class="calendar-actions">
                 <button class="action-btn user-edit-btn" onclick="app.holidayCalendar.showUserManagement()">👥 ユーザー管理</button>
+                <button class="action-btn memo-add-btn" onclick="app.holidayCalendar.showMemoForm()">📝 メモ記入</button>
+            </div>
+            <div class="calendar-actions" style="margin-top: 10px;">
                 <button class="action-btn holiday-edit-btn" onclick="app.holidayCalendar.showHolidayUserSelect()">📅 休日編集</button>
+                <button class="action-btn memo-view-btn" onclick="app.holidayCalendar.toggleMemoList()">📋 メモ確認</button>
+            </div>
+
+            <!-- メモ一覧エリア -->
+            <div class="memo-list-container" id="memoListContainer" style="display: none;">
+                <div class="memo-list" id="memoList"></div>
             </div>
         </div>
 
@@ -365,6 +374,66 @@
         <div class="edit-calendar-actions">
             <button class="complete-btn" onclick="app.holidayCalendar.saveHolidays()">✓ 保存</button>
             <button class="cancel-btn" onclick="app.holidayCalendar.cancelHolidayEdit()">キャンセル</button>
+        </div>
+    </div>
+
+    <!-- メモ記入モーダル -->
+    <div class="memo-form-modal" id="memoFormModal">
+        <div class="modal-header">
+            <h2>📝 メモ記入</h2>
+            <button class="modal-close" onclick="app.holidayCalendar.closeMemoForm()">✕</button>
+        </div>
+        <div class="memo-form">
+            <label>種類</label>
+            <div class="memo-type-selector">
+                <button class="memo-type-btn active" data-type="task" onclick="app.holidayCalendar.selectMemoType('task')">📌 タスク</button>
+                <button class="memo-type-btn" data-type="schedule" onclick="app.holidayCalendar.selectMemoType('schedule')">🗓️ 予定</button>
+            </div>
+
+            <label>日付</label>
+            <input type="date" id="memoDate">
+
+            <div class="memo-time-section" id="memoTimeSection" style="display: none;">
+                <label>開始時刻</label>
+                <input type="time" id="memoStartTime">
+                <label>終了時刻</label>
+                <input type="time" id="memoEndTime">
+            </div>
+
+            <label>内容</label>
+            <textarea id="memoContent" placeholder="メモ内容を入力" rows="3"></textarea>
+
+            <div class="memo-notification-section">
+                <label>
+                    <input type="checkbox" id="memoNotification" onchange="app.holidayCalendar.toggleNotificationTime()">
+                    🔔 通知を設定する
+                </label>
+                <div class="notification-time-input" id="notificationTimeInput" style="display: none;">
+                    <label>通知時刻</label>
+                    <input type="time" id="memoNotificationTime">
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button class="save-btn" onclick="app.holidayCalendar.saveMemo()">保存</button>
+                <button class="cancel-btn" onclick="app.holidayCalendar.closeMemoForm()">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 日付詳細モーダル -->
+    <div class="date-detail-modal" id="dateDetailModal">
+        <div class="modal-header">
+            <h2 id="dateDetailTitle">📅 日付詳細</h2>
+            <button class="modal-close" onclick="app.holidayCalendar.closeDateDetail()">✕</button>
+        </div>
+        <div class="date-detail-content">
+            <div class="date-detail-holidays" id="dateDetailHolidays"></div>
+            <div class="date-detail-memos" id="dateDetailMemos"></div>
+        </div>
+        <div class="form-actions">
+            <button class="save-btn" onclick="app.holidayCalendar.showMemoFormForDate()">📝 メモを追加</button>
+            <button class="cancel-btn" onclick="app.holidayCalendar.closeDateDetail()">閉じる</button>
         </div>
     </div>
 
