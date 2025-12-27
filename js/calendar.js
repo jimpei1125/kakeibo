@@ -19,6 +19,13 @@ export class HolidayCalendar {
         this.selectedDateForMemo = null;
         this.memoListVisible = false;
         
+        // Googleカレンダー設定
+        this.gcalClientId = '120845540864-apujs76kfni95rndqsueaupi48ccfetd.apps.googleusercontent.com';
+        this.gcalScopes = 'https://www.googleapis.com/auth/calendar.events';
+        this.gcalConnected = false;
+        this.gcalTokenClient = null;
+        this.gcalAccessToken = null;
+        
         this.colors = [
             { name: '赤', value: '#FF5733', emoji: '🔴' },
             { name: 'オレンジ', value: '#FF8C42', emoji: '🟠' },
@@ -29,77 +36,6 @@ export class HolidayCalendar {
             { name: 'ピンク', value: '#FF69B4', emoji: '💗' },
             { name: '茶', value: '#8B4513', emoji: '🟤' }
         ];
-
-        // 通知の許可を確認
-        this.initNotifications();
-    }
-
-    async initNotifications() {
-        if ('Notification' in window && 'serviceWorker' in navigator) {
-            if (Notification.permission === 'default') {
-                // 後で許可を求める
-            }
-            this.checkScheduledNotifications();
-        }
-    }
-
-    async requestNotificationPermission() {
-        if ('Notification' in window) {
-            const permission = await Notification.requestPermission();
-            return permission === 'granted';
-        }
-        return false;
-    }
-
-    checkScheduledNotifications() {
-        // 1分ごとに通知をチェック
-        setInterval(() => {
-            this.triggerDueNotifications();
-        }, 60000);
-        // 初回チェック
-        this.triggerDueNotifications();
-    }
-
-    triggerDueNotifications() {
-        const now = new Date();
-        const currentTime = now.getHours().toString().padStart(2, '0') + ':' + 
-                          now.getMinutes().toString().padStart(2, '0');
-        const currentDate = now.getFullYear() + '-' + 
-                          String(now.getMonth() + 1).padStart(2, '0') + '-' +
-                          String(now.getDate()).padStart(2, '0');
-
-        this.memos.forEach(memo => {
-            if (memo.notification && memo.notificationTime && memo.date === currentDate) {
-                if (memo.notificationTime === currentTime && !memo.notified) {
-                    this.showNotification(memo);
-                    this.markAsNotified(memo.id);
-                }
-            }
-        });
-    }
-
-    async showNotification(memo) {
-        if ('Notification' in window && Notification.permission === 'granted') {
-            const icon = memo.type === 'task' ? '📌' : '🗓️';
-            const title = memo.type === 'task' ? 'タスクのリマインド' : '予定のリマインド';
-            
-            new Notification(title, {
-                body: `${icon} ${memo.content}`,
-                icon: '/favicon.ico',
-                tag: memo.id
-            });
-        }
-    }
-
-    async markAsNotified(memoId) {
-        try {
-            const { updateDoc, doc } = await import('./firebase-config.js');
-            await updateDoc(doc(db, 'calendarMemos', memoId), {
-                notified: true
-            });
-        } catch (error) {
-            console.error('通知済みマーク失敗:', error);
-        }
     }
 
     async init() {
@@ -107,7 +43,227 @@ export class HolidayCalendar {
         await this.loadHolidays();
         await this.loadMemos();
         this.renderCalendar();
+        this.initGoogleCalendar();
     }
+
+    // ========== Googleカレンダー連携 ==========
+
+    initGoogleCalendar() {
+        // Google Identity Services ライブラリを読み込み
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        script.onload = () => {
+            this.setupGoogleAuth();
+        };
+        document.head.appendChild(script);
+
+        // Google API クライアントライブラリを読み込み
+        const gapiScript = document.createElement('script');
+        gapiScript.src = 'https://apis.google.com/js/api.js';
+        gapiScript.async = true;
+        gapiScript.defer = true;
+        gapiScript.onload = () => {
+            gapi.load('client', () => {
+                gapi.client.init({}).then(() => {
+                    gapi.client.load('calendar', 'v3');
+                });
+            });
+        };
+        document.head.appendChild(gapiScript);
+
+        // 保存されたトークンがあればチェック
+        const savedToken = localStorage.getItem('gcal_access_token');
+        const savedExpiry = localStorage.getItem('gcal_token_expiry');
+        
+        if (savedToken && savedExpiry && Date.now() < parseInt(savedExpiry)) {
+            this.gcalAccessToken = savedToken;
+            this.gcalConnected = true;
+            this.updateGcalStatus();
+        }
+    }
+
+    setupGoogleAuth() {
+        this.gcalTokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: this.gcalClientId,
+            scope: this.gcalScopes,
+            callback: (response) => {
+                if (response.access_token) {
+                    this.gcalAccessToken = response.access_token;
+                    this.gcalConnected = true;
+                    
+                    // トークンを保存（1時間有効）
+                    localStorage.setItem('gcal_access_token', response.access_token);
+                    localStorage.setItem('gcal_token_expiry', Date.now() + (response.expires_in * 1000));
+                    
+                    this.updateGcalStatus();
+                    Utils.showToast('Googleカレンダーと連携しました');
+                }
+            },
+            error_callback: (error) => {
+                console.error('Google認証エラー:', error);
+                Utils.showToast('認証に失敗しました');
+            }
+        });
+        
+        this.updateGcalStatus();
+    }
+
+    toggleGoogleCalendar() {
+        if (this.gcalConnected) {
+            // 連携解除
+            this.gcalAccessToken = null;
+            this.gcalConnected = false;
+            localStorage.removeItem('gcal_access_token');
+            localStorage.removeItem('gcal_token_expiry');
+            this.updateGcalStatus();
+            Utils.showToast('Googleカレンダーの連携を解除しました');
+        } else {
+            // 連携開始
+            if (this.gcalTokenClient) {
+                this.gcalTokenClient.requestAccessToken();
+            } else {
+                Utils.showToast('認証の準備中です。少々お待ちください');
+            }
+        }
+    }
+
+    updateGcalStatus() {
+        const statusText = document.getElementById('gcalStatusText');
+        const linkBtn = document.getElementById('gcalLinkBtn');
+        
+        if (statusText && linkBtn) {
+            if (this.gcalConnected) {
+                statusText.textContent = 'Googleカレンダー: 連携中 ✓';
+                statusText.style.color = '#38EF7D';
+                linkBtn.textContent = '🔓 解除';
+                linkBtn.classList.add('connected');
+            } else {
+                statusText.textContent = 'Googleカレンダー: 未連携';
+                statusText.style.color = 'rgba(255,255,255,0.6)';
+                linkBtn.textContent = '🔗 連携';
+                linkBtn.classList.remove('connected');
+            }
+        }
+    }
+
+    async createGoogleCalendarEvent(memo) {
+        if (!this.gcalConnected || !this.gcalAccessToken) {
+            return null;
+        }
+
+        try {
+            let event;
+            
+            if (memo.type === 'schedule') {
+                // 予定の場合
+                const startDateTime = `${memo.date}T${memo.startTime || '09:00'}:00`;
+                const endDateTime = `${memo.date}T${memo.endTime || '10:00'}:00`;
+                
+                event = {
+                    summary: memo.content,
+                    description: '家計簿アプリから登録',
+                    start: {
+                        dateTime: startDateTime,
+                        timeZone: 'Asia/Tokyo'
+                    },
+                    end: {
+                        dateTime: endDateTime,
+                        timeZone: 'Asia/Tokyo'
+                    },
+                    reminders: {
+                        useDefault: false,
+                        overrides: [
+                            { method: 'popup', minutes: 60 }  // 1時間前に通知
+                        ]
+                    }
+                };
+            } else {
+                // タスクの場合
+                const taskTime = memo.taskTime || '09:00';
+                const startDateTime = `${memo.date}T${taskTime}:00`;
+                const endDateTime = `${memo.date}T${taskTime}:00`;
+                
+                event = {
+                    summary: `📌 ${memo.content}`,
+                    description: 'タスク - 家計簿アプリから登録',
+                    start: {
+                        dateTime: startDateTime,
+                        timeZone: 'Asia/Tokyo'
+                    },
+                    end: {
+                        dateTime: endDateTime,
+                        timeZone: 'Asia/Tokyo'
+                    },
+                    reminders: {
+                        useDefault: false,
+                        overrides: [
+                            { method: 'popup', minutes: 0 }  // 時刻丁度に通知
+                        ]
+                    }
+                };
+            }
+
+            const response = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.gcalAccessToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(event)
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                return data.id;  // GoogleカレンダーのイベントIDを返す
+            } else {
+                const error = await response.json();
+                console.error('Googleカレンダー登録エラー:', error);
+                
+                // トークン期限切れの場合
+                if (response.status === 401) {
+                    this.gcalConnected = false;
+                    this.gcalAccessToken = null;
+                    localStorage.removeItem('gcal_access_token');
+                    localStorage.removeItem('gcal_token_expiry');
+                    this.updateGcalStatus();
+                    Utils.showToast('Googleカレンダーの認証が切れました。再連携してください');
+                }
+                return null;
+            }
+        } catch (error) {
+            console.error('Googleカレンダー連携エラー:', error);
+            return null;
+        }
+    }
+
+    async deleteGoogleCalendarEvent(eventId) {
+        if (!this.gcalConnected || !this.gcalAccessToken || !eventId) {
+            return false;
+        }
+
+        try {
+            const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${this.gcalAccessToken}`
+                }
+            });
+
+            if (response.ok || response.status === 204) {
+                return true;
+            } else {
+                console.error('Googleカレンダー削除エラー:', response.status);
+                return false;
+            }
+        } catch (error) {
+            console.error('Googleカレンダー削除エラー:', error);
+            return false;
+        }
+    }
+
+    // ========== データ読み込み ==========
 
     async loadUsers() {
         const usersCol = collection(db, 'holidayUsers');
@@ -299,16 +455,19 @@ export class HolidayCalendar {
         document.getElementById('memoContent').value = '';
         document.getElementById('memoStartTime').value = '';
         document.getElementById('memoEndTime').value = '';
-        document.getElementById('memoNotification').checked = false;
-        document.getElementById('memoNotificationTime').value = '';
-        document.getElementById('notificationTimeInput').style.display = 'none';
+        document.getElementById('memoTaskTime').value = '09:00';
+        document.getElementById('memoNotification').checked = true;
         document.getElementById('memoTimeSection').style.display = 'none';
+        document.getElementById('memoTaskTimeSection').style.display = 'block';
         
         // タイプボタンをリセット
         document.querySelectorAll('.memo-type-btn').forEach(btn => {
             btn.classList.remove('active');
             if (btn.dataset.type === 'task') btn.classList.add('active');
         });
+
+        // 通知説明を更新
+        this.updateNotificationNote();
         
         document.getElementById('memoFormModal').classList.add('show');
     }
@@ -330,18 +489,29 @@ export class HolidayCalendar {
             if (btn.dataset.type === type) btn.classList.add('active');
         });
         
-        // 予定の場合は時刻入力を表示
+        // 予定の場合は時刻入力を表示、タスクの場合は通知時刻を表示
         const timeSection = document.getElementById('memoTimeSection');
-        timeSection.style.display = type === 'schedule' ? 'block' : 'none';
+        const taskTimeSection = document.getElementById('memoTaskTimeSection');
+        
+        if (type === 'schedule') {
+            timeSection.style.display = 'block';
+            taskTimeSection.style.display = 'none';
+        } else {
+            timeSection.style.display = 'none';
+            taskTimeSection.style.display = 'block';
+        }
+
+        this.updateNotificationNote();
     }
 
-    toggleNotificationTime() {
-        const checkbox = document.getElementById('memoNotification');
-        const timeInput = document.getElementById('notificationTimeInput');
-        timeInput.style.display = checkbox.checked ? 'block' : 'none';
-        
-        if (checkbox.checked && Notification.permission === 'default') {
-            this.requestNotificationPermission();
+    updateNotificationNote() {
+        const note = document.getElementById('gcalNotificationNote');
+        if (note) {
+            if (this.selectedMemoType === 'schedule') {
+                note.textContent = '※ 予定の1時間前に通知されます';
+            } else {
+                note.textContent = '※ 設定時刻ちょうどに通知されます';
+            }
         }
     }
 
@@ -356,7 +526,6 @@ export class HolidayCalendar {
         const date = document.getElementById('memoDate').value;
         const content = document.getElementById('memoContent').value.trim();
         const notification = document.getElementById('memoNotification').checked;
-        const notificationTime = document.getElementById('memoNotificationTime').value;
         
         if (!date) {
             Utils.showToast('日付を選択してください');
@@ -373,19 +542,46 @@ export class HolidayCalendar {
             date: date,
             content: content,
             notification: notification,
-            notificationTime: notification ? notificationTime : null,
-            notified: false,
             createdAt: new Date().toISOString()
         };
 
         if (this.selectedMemoType === 'schedule') {
             memoData.startTime = document.getElementById('memoStartTime').value;
             memoData.endTime = document.getElementById('memoEndTime').value;
+            
+            if (!memoData.startTime) {
+                Utils.showToast('開始時刻を入力してください');
+                return;
+            }
+        } else {
+            memoData.taskTime = document.getElementById('memoTaskTime').value;
+            
+            if (notification && !memoData.taskTime) {
+                Utils.showToast('通知時刻を入力してください');
+                return;
+            }
         }
 
         try {
+            // Googleカレンダーに登録（通知ONかつ連携中の場合）
+            let gcalEventId = null;
+            if (notification && this.gcalConnected) {
+                gcalEventId = await this.createGoogleCalendarEvent(memoData);
+                if (gcalEventId) {
+                    memoData.gcalEventId = gcalEventId;
+                    Utils.showToast('Googleカレンダーにも登録しました');
+                }
+            }
+
+            // Firestoreに保存
             await addDoc(collection(db, 'calendarMemos'), memoData);
-            Utils.showToast('メモを保存しました');
+            
+            if (!gcalEventId && notification) {
+                Utils.showToast('メモを保存しました（Googleカレンダー未連携）');
+            } else if (!notification) {
+                Utils.showToast('メモを保存しました');
+            }
+            
             this.closeMemoForm();
         } catch (error) {
             console.error('メモ保存エラー:', error);
@@ -446,9 +642,11 @@ export class HolidayCalendar {
             
             if (memo.type === 'schedule' && memo.startTime) {
                 timeStr = `<span class="memo-time">${memo.startTime}${memo.endTime ? ' - ' + memo.endTime : ''}</span>`;
+            } else if (memo.type === 'task' && memo.taskTime) {
+                timeStr = `<span class="memo-time">🔔 ${memo.taskTime}</span>`;
             }
 
-            const notificationIcon = memo.notification ? '🔔' : '';
+            const gcalIcon = memo.gcalEventId ? '📅' : '';
 
             html += `
                 <div class="memo-item ${typeClass}">
@@ -458,7 +656,7 @@ export class HolidayCalendar {
                             <span class="memo-text">${memo.content}</span>
                             ${timeStr}
                         </div>
-                        ${notificationIcon ? `<span class="memo-notification-icon">${notificationIcon}</span>` : ''}
+                        ${gcalIcon ? `<span class="memo-gcal-icon">${gcalIcon}</span>` : ''}
                     </div>
                     <button class="memo-delete-btn" onclick="app.holidayCalendar.deleteMemo('${memo.id}')">❌</button>
                 </div>
@@ -470,9 +668,24 @@ export class HolidayCalendar {
 
     async deleteMemo(memoId) {
         try {
+            // メモ情報を取得
+            const memo = this.memos.find(m => m.id === memoId);
+            
+            // Googleカレンダーからも削除
+            if (memo && memo.gcalEventId) {
+                const deleted = await this.deleteGoogleCalendarEvent(memo.gcalEventId);
+                if (deleted) {
+                    Utils.showToast('Googleカレンダーからも削除しました');
+                }
+            }
+            
+            // Firestoreから削除
             const { doc } = await import('./firebase-config.js');
             await deleteDoc(doc(db, 'calendarMemos', memoId));
-            Utils.showToast('メモを削除しました');
+            
+            if (!memo?.gcalEventId) {
+                Utils.showToast('メモを削除しました');
+            }
         } catch (error) {
             console.error('メモ削除エラー:', error);
             Utils.showToast('削除に失敗しました');
@@ -525,14 +738,16 @@ export class HolidayCalendar {
                 let timeStr = '';
                 if (memo.type === 'schedule' && memo.startTime) {
                     timeStr = `<div class="detail-memo-time">${memo.startTime}${memo.endTime ? ' - ' + memo.endTime : ''}</div>`;
+                } else if (memo.type === 'task' && memo.taskTime) {
+                    timeStr = `<div class="detail-memo-time">🔔 ${memo.taskTime}</div>`;
                 }
-                const notificationIcon = memo.notification ? ' 🔔' : '';
+                const gcalIcon = memo.gcalEventId ? ' 📅' : '';
                 
                 memosHtml += `
                     <div class="detail-memo-item ${memo.type}">
                         <div class="detail-memo-main">
                             <span class="memo-icon">${icon}</span>
-                            <span class="detail-memo-content">${memo.content}${notificationIcon}</span>
+                            <span class="detail-memo-content">${memo.content}${gcalIcon}</span>
                         </div>
                         ${timeStr}
                         <button class="memo-delete-btn small" onclick="app.holidayCalendar.deleteMemoFromDetail('${memo.id}')">❌</button>
