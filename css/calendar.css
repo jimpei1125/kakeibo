@@ -754,3 +754,395 @@
         font-size: 16px;
     }
 }
+
+/* ========================================
+   メモ機能用スタイル
+   ======================================== */
+
+/* メモボタン */
+.memo-add-btn {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
+}
+
+.memo-add-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(245, 87, 108, 0.6);
+}
+
+.memo-view-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.memo-view-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+}
+
+/* カレンダー日付セルのメモインジケーター */
+.calendar-date-cell.has-memo {
+    border: 1px solid rgba(240, 147, 251, 0.5);
+}
+
+.calendar-memo-indicator {
+    display: flex;
+    gap: 2px;
+    flex-wrap: wrap;
+    margin-bottom: 2px;
+}
+
+.memo-badge {
+    font-size: 7px;
+    padding: 1px 2px;
+    border-radius: 3px;
+    background: rgba(0, 0, 0, 0.4);
+}
+
+.memo-badge.task {
+    color: #f5576c;
+}
+
+.memo-badge.schedule {
+    color: #4FACFE;
+}
+
+/* メモ一覧コンテナ */
+.memo-list-container {
+    margin-top: 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 15px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.memo-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.memo-date-header {
+    font-weight: 700;
+    color: #4FACFE;
+    padding: 8px 0 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-top: 10px;
+}
+
+.memo-date-header:first-child {
+    margin-top: 0;
+}
+
+.memo-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    border-left: 3px solid;
+}
+
+.memo-item.task {
+    border-left-color: #f5576c;
+}
+
+.memo-item.schedule {
+    border-left-color: #4FACFE;
+}
+
+.memo-item-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+
+.memo-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.memo-details {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.memo-text {
+    font-size: 13px;
+    color: #ffffff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.memo-time {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.memo-notification-icon {
+    font-size: 12px;
+    margin-left: 5px;
+}
+
+.memo-delete-btn {
+    background: transparent;
+    border: none;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 5px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.memo-delete-btn:hover {
+    opacity: 1;
+}
+
+.memo-delete-btn.small {
+    font-size: 12px;
+    padding: 3px;
+}
+
+.no-memos {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.5);
+    padding: 20px;
+}
+
+/* メモフォームモーダル */
+.memo-form-modal,
+.date-detail-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(15, 12, 41, 0.98);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    padding: 20px;
+    z-index: 1500;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    width: 95%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+
+.memo-form-modal.show,
+.date-detail-modal.show {
+    display: block;
+    animation: modalFadeIn 0.3s ease-out;
+}
+
+.memo-form {
+    margin-top: 15px;
+}
+
+.memo-form label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 700;
+    color: #e0e0e0;
+    margin-top: 15px;
+}
+
+.memo-form label:first-of-type {
+    margin-top: 0;
+}
+
+.memo-type-selector {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.memo-type-btn {
+    flex: 1;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 2px solid transparent;
+    border-radius: 10px;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.memo-type-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.memo-type-btn.active {
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.2);
+}
+
+.memo-form input[type="date"],
+.memo-form input[type="time"],
+.memo-form textarea {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    font-size: 16px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #ffffff;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+    font-family: 'Noto Sans JP', sans-serif;
+}
+
+.memo-form input[type="date"]:focus,
+.memo-form input[type="time"]:focus,
+.memo-form textarea:focus {
+    outline: none;
+    border-color: #667eea;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.memo-form textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.memo-time-section {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 15px;
+    border-radius: 10px;
+    margin-top: 10px;
+}
+
+.memo-time-section label {
+    margin-top: 10px;
+}
+
+.memo-time-section label:first-child {
+    margin-top: 0;
+}
+
+.memo-notification-section {
+    margin-top: 15px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+
+.memo-notification-section label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    cursor: pointer;
+}
+
+.memo-notification-section input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.notification-time-input {
+    margin-top: 10px;
+}
+
+.notification-time-input label {
+    margin-top: 0;
+    margin-bottom: 5px;
+}
+
+/* 日付詳細モーダル */
+.date-detail-content {
+    margin-top: 15px;
+}
+
+.detail-section-title {
+    font-weight: 700;
+    color: #4FACFE;
+    padding: 10px 0 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 10px;
+}
+
+.detail-holiday-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    margin-bottom: 8px;
+}
+
+.detail-memo-item {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    border-left: 3px solid;
+    margin-bottom: 8px;
+}
+
+.detail-memo-item.task {
+    border-left-color: #f5576c;
+}
+
+.detail-memo-item.schedule {
+    border-left-color: #4FACFE;
+}
+
+.detail-memo-main {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    flex: 1;
+}
+
+.detail-memo-content {
+    font-size: 14px;
+    color: #ffffff;
+    word-break: break-word;
+}
+
+.detail-memo-time {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 4px;
+    margin-left: 22px;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+    .memo-list-container {
+        max-height: 300px;
+    }
+
+    .memo-form-modal,
+    .date-detail-modal {
+        width: 98%;
+        padding: 15px;
+        max-height: 95vh;
+    }
+
+    .memo-type-btn {
+        padding: 10px;
+        font-size: 13px;
+    }
+
+    .memo-badge {
+        font-size: 6px;
+    }
+}
