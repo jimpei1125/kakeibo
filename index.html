@@ -164,6 +164,12 @@
         <div class="content-section" id="calendarSection" style="display: none;">
             <h2 style="text-align: center; margin-bottom: 15px;">📅 休日カレンダー</h2>
             
+            <!-- Googleカレンダー連携ステータス -->
+            <div class="gcal-status" id="gcalStatus">
+                <span id="gcalStatusText">Googleカレンダー: 未連携</span>
+                <button class="gcal-link-btn" id="gcalLinkBtn" onclick="app.holidayCalendar.toggleGoogleCalendar()">🔗 連携</button>
+            </div>
+            
             <div class="users-list" id="usersList"></div>
 
             <div class="calendar-month-selector">
@@ -400,18 +406,22 @@
                 <input type="time" id="memoEndTime">
             </div>
 
+            <div class="memo-time-section" id="memoTaskTimeSection" style="display: none;">
+                <label>通知時刻（タスク）</label>
+                <input type="time" id="memoTaskTime">
+            </div>
+
             <label>内容</label>
             <textarea id="memoContent" placeholder="メモ内容を入力" rows="3"></textarea>
 
             <div class="memo-notification-section">
                 <label>
-                    <input type="checkbox" id="memoNotification" onchange="app.holidayCalendar.toggleNotificationTime()">
-                    🔔 通知を設定する
+                    <input type="checkbox" id="memoNotification" checked>
+                    🔔 Googleカレンダーに登録して通知する
                 </label>
-                <div class="notification-time-input" id="notificationTimeInput" style="display: none;">
-                    <label>通知時刻</label>
-                    <input type="time" id="memoNotificationTime">
-                </div>
+                <p class="gcal-notification-note" id="gcalNotificationNote">
+                    ※ 予定: 1時間前に通知 / タスク: 設定時刻に通知
+                </p>
             </div>
 
             <div class="form-actions">
