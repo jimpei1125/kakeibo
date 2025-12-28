@@ -1,92 +1,174 @@
+/**
+ * 家計簿モジュール
+ * 予算管理、計算機、CSV出力の機能を提供
+ */
+
 import { db, doc, setDoc, onSnapshot } from './firebase-config.js';
 import { Utils } from './utils.js';
 
+// ============================================================
+// 定数定義
+// ============================================================
+
+/** 同期ステータスの自動非表示時間（ミリ秒） */
+const SYNC_STATUS_HIDE_DELAY = 2000;
+
+/** 同期ステータスの種類 */
+const SYNC_STATUS = {
+    SYNCING: 'syncing',
+    SYNCED: 'synced',
+    ERROR: 'error'
+};
+
+// ============================================================
 // 計算機クラス
+// ============================================================
+
+/**
+ * 電卓機能を提供するクラス
+ */
 export class Calculator {
     constructor() {
+        /** @type {string} 現在の計算式 */
         this.expression = '';
     }
 
+    /**
+     * 計算機モーダルを表示
+     */
     show() {
-        document.getElementById('calculatorModal').classList.add('show');
+        Utils.showModal('calculatorModal');
         this.clear();
     }
 
+    /**
+     * 計算機モーダルを閉じる
+     */
     close() {
-        document.getElementById('calculatorModal').classList.remove('show');
+        Utils.closeModal('calculatorModal');
     }
 
+    /**
+     * 計算式をクリア
+     */
     clear() {
         this.expression = '';
-        document.getElementById('calcDisplay').textContent = '0';
+        this._updateDisplay('0');
     }
 
+    /**
+     * 数字または演算子を追加
+     * @param {string} value - 追加する値
+     */
     append(value) {
-        if (this.expression === '0' || this.expression === 'エラー') {
-            this.expression = value;
-        } else {
-            this.expression += value;
-        }
-        document.getElementById('calcDisplay').textContent = this.expression;
+        // 初期状態またはエラー時は入力値で置換
+        this.expression = (this.expression === '0' || this.expression === 'エラー') 
+            ? value 
+            : this.expression + value;
+        this._updateDisplay(this.expression);
     }
 
+    /**
+     * 計算を実行
+     */
     calculate() {
         try {
-            let expression = this.expression.replace(/×/g, '*').replace(/÷/g, '/');
-            let result = eval(expression);
-            result = Math.round(result * 100) / 100;
+            // 全角演算子を半角に変換して計算
+            const expr = this.expression.replace(/×/g, '*').replace(/÷/g, '/');
+            const result = Math.round(eval(expr) * 100) / 100;
             this.expression = result.toString();
-            document.getElementById('calcDisplay').textContent = result;
-        } catch (error) {
-            document.getElementById('calcDisplay').textContent = 'エラー';
+            this._updateDisplay(result);
+        } catch {
+            this._updateDisplay('エラー');
             this.expression = 'エラー';
         }
     }
 
+    /**
+     * 計算結果をクリップボードにコピー
+     */
     copyResult() {
-        const result = document.getElementById('calcDisplay').textContent;
-        if (result && result !== '0' && result !== 'エラー') {
-            const textarea = document.createElement('textarea');
-            textarea.value = result;
-            textarea.style.position = 'fixed';
-            textarea.style.opacity = '0';
-            document.body.appendChild(textarea);
-            textarea.select();
-            
-            try {
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-                Utils.showToast('コピーしました！');
-            } catch (err) {
-                document.body.removeChild(textarea);
-                Utils.showToast('コピーに失敗しました');
-            }
+        const result = document.getElementById('calcDisplay')?.textContent;
+        if (!result || result === '0' || result === 'エラー') return;
+        
+        this._copyToClipboard(result)
+            .then(() => Utils.showToast('コピーしました！'))
+            .catch(() => Utils.showToast('コピーに失敗しました'));
+    }
+
+    /**
+     * ディスプレイを更新
+     * @private
+     * @param {string|number} value - 表示する値
+     */
+    _updateDisplay(value) {
+        const display = document.getElementById('calcDisplay');
+        if (display) display.textContent = value;
+    }
+
+    /**
+     * テキストをクリップボードにコピー（レガシーブラウザ対応）
+     * @private
+     * @param {string} text - コピーするテキスト
+     * @returns {Promise<void>}
+     */
+    async _copyToClipboard(text) {
+        // モダンブラウザ
+        if (navigator.clipboard?.writeText) {
+            return navigator.clipboard.writeText(text);
         }
+        // レガシーブラウザ用フォールバック
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        Object.assign(textarea.style, { position: 'fixed', opacity: '0' });
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
     }
 }
 
+// ============================================================
 // CSV出力クラス
+// ============================================================
+
+/**
+ * 家計簿データをCSV形式でエクスポートするクラス
+ */
 export class CSVExporter {
+    /**
+     * @param {BudgetManager} budgetManager - 予算管理インスタンス
+     */
     constructor(budgetManager) {
+        /** @type {BudgetManager} */
         this.budgetManager = budgetManager;
     }
 
+    /**
+     * CSV出力モーダルを表示
+     */
     showModal() {
-        document.getElementById('csvModal').classList.add('show');
+        Utils.showModal('csvModal');
     }
 
+    /**
+     * CSV出力モーダルを閉じる
+     */
     closeModal() {
-        document.getElementById('csvModal').classList.remove('show');
+        Utils.closeModal('csvModal');
     }
 
+    /**
+     * 日付範囲入力の表示を切り替え
+     */
     toggleDateRange() {
-        const rangeType = document.getElementById('csvRangeType').value;
+        const rangeType = document.getElementById('csvRangeType')?.value;
         const dateRangeInputs = document.getElementById('dateRangeInputs');
+        if (!dateRangeInputs) return;
         
         if (rangeType === 'range') {
             dateRangeInputs.style.display = 'block';
-            const today = new Date();
-            const currentMonth = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+            const currentMonth = this._getCurrentMonth();
             document.getElementById('csvStartDate').value = currentMonth;
             document.getElementById('csvEndDate').value = currentMonth;
         } else {
@@ -94,126 +176,217 @@ export class CSVExporter {
         }
     }
 
+    /**
+     * CSVファイルをエクスポート
+     */
     export() {
-        const rangeType = document.getElementById('csvRangeType').value;
-        const includeNotes = document.getElementById('csvIncludeNotes').checked;
-        const includeHalf = document.getElementById('csvIncludeHalf').checked;
+        const rangeType = document.getElementById('csvRangeType')?.value;
+        const includeNotes = document.getElementById('csvIncludeNotes')?.checked;
+        const includeHalf = document.getElementById('csvIncludeHalf')?.checked;
         
-        let monthsToExport = [];
-        const budgetData = this.budgetManager.data;
-        
-        if (rangeType === 'current') {
-            monthsToExport.push(this.budgetManager.getCurrentMonthKey());
-        } else if (rangeType === 'all') {
-            monthsToExport = Object.keys(budgetData).sort();
-        } else if (rangeType === 'range') {
-            const startDate = document.getElementById('csvStartDate').value;
-            const endDate = document.getElementById('csvEndDate').value;
-            
-            if (!startDate || !endDate) {
-                alert('開始年月と終了年月を選択してください');
-                return;
-            }
-            
-            const start = new Date(startDate + '-01');
-            const end = new Date(endDate + '-01');
-            
-            if (start > end) {
-                alert('開始年月は終了年月より前に設定してください');
-                return;
-            }
-            
-            Object.keys(budgetData).forEach(key => {
-                const date = new Date(key + '-01');
-                if (date >= start && date <= end) {
-                    monthsToExport.push(key);
-                }
-            });
-            
-            monthsToExport.sort();
-        }
+        const monthsToExport = this._getMonthsToExport(rangeType);
+        if (!monthsToExport) return;
         
         if (monthsToExport.length === 0) {
             alert('出力するデータがありません');
             return;
         }
         
-        let csvContent = '\uFEFF';
-        let headers = ['年月', '大カテゴリー', '小カテゴリー', '金額'];
-        if (includeHalf) headers.push('折半金額');
-        if (includeNotes) headers.push('備考');
-        csvContent += headers.join(',') + '\n';
-        
-        monthsToExport.forEach(monthKey => {
-            const monthData = budgetData[monthKey];
-            if (!monthData || !monthData.categories) return;
-            
-            monthData.categories.forEach(category => {
-                if (category.subcategories && category.subcategories.length > 0) {
-                    category.subcategories.forEach(sub => {
-                        let row = [
-                            monthKey,
-                            '"' + category.name + '"',
-                            '"' + sub.name + '"',
-                            sub.amount || 0
-                        ];
-                        
-                        if (includeHalf) row.push(Math.round((sub.amount || 0) / 2));
-                        if (includeNotes) row.push('"' + (sub.note || '') + '"');
-                        
-                        csvContent += row.join(',') + '\n';
-                    });
-                } else {
-                    let row = [
-                        monthKey,
-                        '"' + category.name + '"',
-                        '',
-                        category.amount || 0
-                    ];
-                    
-                    if (includeHalf) row.push(Math.round((category.amount || 0) / 2));
-                    if (includeNotes) row.push('"' + (category.note || '') + '"');
-                    
-                    csvContent += row.join(',') + '\n';
-                }
-            });
-        });
-        
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        
-        const filename = rangeType === 'current' 
-            ? '家計簿_' + this.budgetManager.getCurrentMonthKey() + '.csv'
-            : rangeType === 'all'
-            ? '家計簿_全期間.csv'
-            : '家計簿_' + document.getElementById('csvStartDate').value + '_' + document.getElementById('csvEndDate').value + '.csv';
-        
-        link.setAttribute('href', url);
-        link.setAttribute('download', filename);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        const csvContent = this._generateCSV(monthsToExport, includeNotes, includeHalf);
+        const filename = this._generateFilename(rangeType);
+        this._downloadCSV(csvContent, filename);
         
         Utils.showToast('CSVファイルをダウンロードしました');
         this.closeModal();
     }
+
+    /**
+     * 現在の年月を取得
+     * @private
+     * @returns {string} YYYY-MM形式
+     */
+    _getCurrentMonth() {
+        const today = new Date();
+        return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    /**
+     * エクスポート対象の月を取得
+     * @private
+     * @param {string} rangeType - 範囲タイプ
+     * @returns {string[]|null} 月のキー配列
+     */
+    _getMonthsToExport(rangeType) {
+        const budgetData = this.budgetManager.data;
+        
+        switch (rangeType) {
+            case 'current':
+                return [this.budgetManager.getCurrentMonthKey()];
+            case 'all':
+                return Object.keys(budgetData).sort();
+            case 'range':
+                return this._getDateRangeMonths(budgetData);
+            default:
+                return [];
+        }
+    }
+
+    /**
+     * 日付範囲から対象月を取得
+     * @private
+     * @param {Object} budgetData - 予算データ
+     * @returns {string[]|null}
+     */
+    _getDateRangeMonths(budgetData) {
+        const startDate = document.getElementById('csvStartDate')?.value;
+        const endDate = document.getElementById('csvEndDate')?.value;
+        
+        if (!startDate || !endDate) {
+            alert('開始年月と終了年月を選択してください');
+            return null;
+        }
+        
+        const start = new Date(`${startDate}-01`);
+        const end = new Date(`${endDate}-01`);
+        
+        if (start > end) {
+            alert('開始年月は終了年月より前に設定してください');
+            return null;
+        }
+        
+        return Object.keys(budgetData)
+            .filter(key => {
+                const date = new Date(`${key}-01`);
+                return date >= start && date <= end;
+            })
+            .sort();
+    }
+
+    /**
+     * CSV文字列を生成
+     * @private
+     * @param {string[]} months - 対象月
+     * @param {boolean} includeNotes - 備考を含むか
+     * @param {boolean} includeHalf - 折半金額を含むか
+     * @returns {string} CSV文字列
+     */
+    _generateCSV(months, includeNotes, includeHalf) {
+        // BOM付きUTF-8
+        let csv = '\uFEFF';
+        
+        // ヘッダー
+        const headers = ['年月', '大カテゴリー', '小カテゴリー', '金額'];
+        if (includeHalf) headers.push('折半金額');
+        if (includeNotes) headers.push('備考');
+        csv += headers.join(',') + '\n';
+        
+        // データ行
+        months.forEach(monthKey => {
+            const monthData = this.budgetManager.data[monthKey];
+            if (!monthData?.categories) return;
+            
+            monthData.categories.forEach(category => {
+                if (category.subcategories?.length > 0) {
+                    category.subcategories.forEach(sub => {
+                        csv += this._formatRow(monthKey, category.name, sub.name, sub.amount, sub.note, includeHalf, includeNotes);
+                    });
+                } else {
+                    csv += this._formatRow(monthKey, category.name, '', category.amount, category.note, includeHalf, includeNotes);
+                }
+            });
+        });
+        
+        return csv;
+    }
+
+    /**
+     * CSV行を生成
+     * @private
+     */
+    _formatRow(month, category, subcategory, amount, note, includeHalf, includeNotes) {
+        const row = [month, `"${category}"`, `"${subcategory}"`, amount || 0];
+        if (includeHalf) row.push(Math.round((amount || 0) / 2));
+        if (includeNotes) row.push(`"${note || ''}"`);
+        return row.join(',') + '\n';
+    }
+
+    /**
+     * ファイル名を生成
+     * @private
+     * @param {string} rangeType - 範囲タイプ
+     * @returns {string}
+     */
+    _generateFilename(rangeType) {
+        switch (rangeType) {
+            case 'current':
+                return `家計簿_${this.budgetManager.getCurrentMonthKey()}.csv`;
+            case 'all':
+                return '家計簿_全期間.csv';
+            case 'range':
+                const start = document.getElementById('csvStartDate')?.value;
+                const end = document.getElementById('csvEndDate')?.value;
+                return `家計簿_${start}_${end}.csv`;
+            default:
+                return '家計簿.csv';
+        }
+    }
+
+    /**
+     * CSVファイルをダウンロード
+     * @private
+     * @param {string} content - CSV内容
+     * @param {string} filename - ファイル名
+     */
+    _downloadCSV(content, filename) {
+        const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }
 }
 
+// ============================================================
 // 予算管理クラス
+// ============================================================
+
+/**
+ * 家計簿の予算管理を行うメインクラス
+ */
 export class BudgetManager {
     constructor() {
-        this.currentYear = new Date().getFullYear();
-        this.currentMonth = new Date().getMonth() + 1;
+        const now = new Date();
+        /** @type {number} 現在表示中の年 */
+        this.currentYear = now.getFullYear();
+        /** @type {number} 現在表示中の月 */
+        this.currentMonth = now.getMonth() + 1;
+        /** @type {Object} 全予算データ */
         this.data = {};
+        /** @type {boolean} 初回読み込みフラグ */
         this.isInitialLoad = true;
     }
 
+    // ----------------------------------------
+    // データアクセス
+    // ----------------------------------------
+
+    /**
+     * 現在の年月キーを取得
+     * @returns {string} YYYY-MM形式
+     */
     getCurrentMonthKey() {
-        return this.currentYear + '-' + String(this.currentMonth).padStart(2, '0');
+        return Utils.getMonthKey(this.currentYear, this.currentMonth);
     }
 
+    /**
+     * 現在の月のデータを取得（なければ初期化）
+     * @returns {Object} 月データ
+     */
     getCurrentMonthData() {
         const key = this.getCurrentMonthKey();
         if (!this.data[key]) {
@@ -222,61 +395,106 @@ export class BudgetManager {
         return this.data[key];
     }
 
+    // ----------------------------------------
+    // 同期ステータス
+    // ----------------------------------------
+
+    /**
+     * 同期ステータスを表示
+     * @param {string} status - syncing|synced|error
+     * @param {string} message - 表示メッセージ
+     */
     showSyncStatus(status, message) {
         const statusEl = document.getElementById('syncStatus');
-        statusEl.className = 'sync-status ' + status;
+        if (!statusEl) return;
+        
+        statusEl.className = `sync-status ${status}`;
         statusEl.textContent = message;
+        statusEl.style.display = 'block';
     }
 
+    /**
+     * 同期ステータスを自動で非表示に
+     * @private
+     */
+    _hideSyncStatusAfterDelay() {
+        setTimeout(() => {
+            const statusEl = document.getElementById('syncStatus');
+            if (statusEl?.textContent === '✓ 同期完了') {
+                statusEl.style.display = 'none';
+            }
+        }, SYNC_STATUS_HIDE_DELAY);
+    }
+
+    // ----------------------------------------
+    // Firestore操作
+    // ----------------------------------------
+
+    /**
+     * Firestoreにデータを保存
+     */
     async saveToFirestore() {
         try {
-            const docRef = doc(db, 'budgetData', 'data');
-            await setDoc(docRef, { data: this.data });
-            this.showSyncStatus('synced', '✓ 同期完了');
-            setTimeout(() => {
-                const statusEl = document.getElementById('syncStatus');
-                if (statusEl.textContent === '✓ 同期完了') {
-                    statusEl.style.display = 'none';
-                }
-            }, 2000);
+            await setDoc(doc(db, 'budgetData', 'data'), { data: this.data });
+            this.showSyncStatus(SYNC_STATUS.SYNCED, '✓ 同期完了');
+            this._hideSyncStatusAfterDelay();
         } catch (error) {
             console.error('Firestore保存エラー:', error);
-            this.showSyncStatus('error', '✗ 同期エラー: ' + error.message);
+            this.showSyncStatus(SYNC_STATUS.ERROR, `✗ 同期エラー: ${error.message}`);
         }
     }
 
+    /**
+     * Firestoreからデータをリアルタイム購読
+     */
     loadFromFirestore() {
-        const docRef = doc(db, 'budgetData', 'data');
-        
-        onSnapshot(docRef, (docSnap) => {
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                if (data.data) {
-                    this.data = data.data;
-                    this.updateDisplay();
-                    
-                    if (this.isInitialLoad) {
-                        this.showSyncStatus('synced', '✓ データ読み込み完了');
-                        this.isInitialLoad = false;
-                        setTimeout(() => {
-                            document.getElementById('syncStatus').style.display = 'none';
-                        }, 2000);
-                    }
-                }
-            } else {
-                this.showSyncStatus('synced', '✓ 接続完了（データなし）');
-                setTimeout(() => {
-                    document.getElementById('syncStatus').style.display = 'none';
-                }, 2000);
+        onSnapshot(
+            doc(db, 'budgetData', 'data'),
+            (docSnap) => this._handleSnapshot(docSnap),
+            (error) => {
+                console.error('Firestore読み込みエラー:', error);
+                this.showSyncStatus(SYNC_STATUS.ERROR, `✗ 接続エラー: ${error.message}`);
             }
-        }, (error) => {
-            console.error('Firestore読み込みエラー:', error);
-            this.showSyncStatus('error', '✗ 接続エラー: ' + error.message);
-        });
+        );
     }
 
+    /**
+     * スナップショット受信時の処理
+     * @private
+     * @param {Object} docSnap - Firestoreドキュメントスナップショット
+     */
+    _handleSnapshot(docSnap) {
+        if (docSnap.exists() && docSnap.data().data) {
+            this.data = docSnap.data().data;
+            this.updateDisplay();
+            
+            if (this.isInitialLoad) {
+                this.showSyncStatus(SYNC_STATUS.SYNCED, '✓ データ読み込み完了');
+                this.isInitialLoad = false;
+                setTimeout(() => {
+                    document.getElementById('syncStatus').style.display = 'none';
+                }, SYNC_STATUS_HIDE_DELAY);
+            }
+        } else {
+            this.showSyncStatus(SYNC_STATUS.SYNCED, '✓ 接続完了（データなし）');
+            setTimeout(() => {
+                document.getElementById('syncStatus').style.display = 'none';
+            }, SYNC_STATUS_HIDE_DELAY);
+        }
+    }
+
+    // ----------------------------------------
+    // 月切り替え
+    // ----------------------------------------
+
+    /**
+     * 月を変更
+     * @param {number} delta - 増減値（-1: 前月, 1: 翌月）
+     */
     changeMonth(delta) {
         this.currentMonth += delta;
+        
+        // 年をまたぐ処理
         if (this.currentMonth > 12) {
             this.currentMonth = 1;
             this.currentYear++;
@@ -285,7 +503,17 @@ export class BudgetManager {
             this.currentYear--;
         }
         
+        this._animateMonthChange();
+    }
+
+    /**
+     * 月切り替え時のアニメーション
+     * @private
+     */
+    _animateMonthChange() {
         const monthDisplay = document.getElementById('currentMonth');
+        if (!monthDisplay) return;
+        
         monthDisplay.style.opacity = '0';
         monthDisplay.style.transform = 'scale(0.9)';
         
@@ -297,182 +525,207 @@ export class BudgetManager {
         }, 150);
     }
 
+    // ----------------------------------------
+    // カテゴリ操作
+    // ----------------------------------------
+
+    /**
+     * 新規カテゴリを追加
+     */
     addCategory() {
-        const name = document.getElementById('newCategoryName').value.trim();
-        const amount = document.getElementById('newCategoryAmount').value;
-        const note = document.getElementById('newCategoryNote').value.trim();
+        const name = document.getElementById('newCategoryName')?.value.trim();
+        const amount = document.getElementById('newCategoryAmount')?.value;
+        const note = document.getElementById('newCategoryNote')?.value.trim();
 
         if (!name) {
             alert('カテゴリー名を入力してください');
             return;
         }
 
-        const monthData = this.getCurrentMonthData();
-        monthData.categories.push({
-            id: Date.now(),
-            name: name,
+        this.getCurrentMonthData().categories.push({
+            id: Utils.generateId(),
+            name,
             amount: amount ? parseFloat(amount) : 0,
-            note: note,
+            note: note || '',
             subcategories: []
         });
 
-        document.getElementById('newCategoryName').value = '';
-        document.getElementById('newCategoryAmount').value = '';
-        document.getElementById('newCategoryNote').value = '';
-        
-        this.showSyncStatus('syncing', '同期中...');
-        this.saveToFirestore();
+        // 入力フィールドをクリア
+        this._clearInputFields(['newCategoryName', 'newCategoryAmount', 'newCategoryNote']);
+        this._saveWithStatus();
     }
 
+    /**
+     * カテゴリを削除
+     * @param {number} categoryId - カテゴリID
+     */
+    deleteCategory(categoryId) {
+        if (!confirm('このカテゴリーを削除しますか？')) return;
+
+        const monthData = this.getCurrentMonthData();
+        monthData.categories = monthData.categories.filter(c => c.id !== categoryId);
+        this._saveWithStatus();
+    }
+
+    /**
+     * カテゴリ名を編集
+     * @param {number} categoryId - カテゴリID
+     */
+    editCategory(categoryId) {
+        const category = this._findCategory(categoryId);
+        if (!category) return;
+        
+        const newName = prompt('カテゴリー名を入力:', category.name);
+        if (newName?.trim()) {
+            category.name = newName.trim();
+            this._saveWithStatus();
+        }
+    }
+
+    // ----------------------------------------
+    // サブカテゴリ操作
+    // ----------------------------------------
+
+    /**
+     * サブカテゴリを追加
+     * @param {number} categoryId - 親カテゴリID
+     */
     addSubcategory(categoryId) {
-        const name = document.getElementById('subname-' + categoryId).value.trim();
-        const amount = document.getElementById('subamount-' + categoryId).value;
-        const note = document.getElementById('subnote-' + categoryId).value.trim();
+        const name = document.getElementById(`subname-${categoryId}`)?.value.trim();
+        const amount = document.getElementById(`subamount-${categoryId}`)?.value;
+        const note = document.getElementById(`subnote-${categoryId}`)?.value.trim();
 
         if (!name) {
             alert('項目名を入力してください');
             return;
         }
 
-        const monthData = this.getCurrentMonthData();
-        const category = monthData.categories.find(c => c.id === categoryId);
+        const category = this._findCategory(categoryId);
+        if (!category) return;
         
-        if (category) {
-            category.subcategories.push({
-                id: Date.now(),
-                name: name,
-                amount: amount ? parseFloat(amount) : 0,
-                note: note
-            });
+        category.subcategories.push({
+            id: Utils.generateId(),
+            name,
+            amount: amount ? parseFloat(amount) : 0,
+            note: note || ''
+        });
 
-            document.getElementById('subname-' + categoryId).value = '';
-            document.getElementById('subamount-' + categoryId).value = '';
-            document.getElementById('subnote-' + categoryId).value = '';
-            
-            this.showSyncStatus('syncing', '同期中...');
-            this.saveToFirestore();
-        }
+        this._clearInputFields([
+            `subname-${categoryId}`,
+            `subamount-${categoryId}`,
+            `subnote-${categoryId}`
+        ]);
+        this._saveWithStatus();
     }
 
-    deleteCategory(categoryId) {
-        if (!confirm('このカテゴリーを削除しますか？')) return;
-
-        const monthData = this.getCurrentMonthData();
-        monthData.categories = monthData.categories.filter(c => c.id !== categoryId);
-        
-        this.showSyncStatus('syncing', '同期中...');
-        this.saveToFirestore();
-    }
-
+    /**
+     * サブカテゴリを削除
+     * @param {number} categoryId - 親カテゴリID
+     * @param {number} subcategoryId - サブカテゴリID
+     */
     deleteSubcategory(categoryId, subcategoryId) {
         if (!confirm('この項目を削除しますか？')) return;
 
-        const monthData = this.getCurrentMonthData();
-        const category = monthData.categories.find(c => c.id === categoryId);
+        const category = this._findCategory(categoryId);
+        if (!category) return;
         
-        if (category) {
-            category.subcategories = category.subcategories.filter(s => s.id !== subcategoryId);
-            this.showSyncStatus('syncing', '同期中...');
-            this.saveToFirestore();
-        }
+        category.subcategories = category.subcategories.filter(s => s.id !== subcategoryId);
+        this._saveWithStatus();
     }
 
-    editCategory(categoryId) {
-        const monthData = this.getCurrentMonthData();
-        const category = monthData.categories.find(c => c.id === categoryId);
-        
-        if (category) {
-            const newName = prompt('カテゴリー名を入力:', category.name);
-            if (newName !== null && newName.trim()) {
-                category.name = newName.trim();
-                this.showSyncStatus('syncing', '同期中...');
-                this.saveToFirestore();
-            }
-        }
-    }
-
+    /**
+     * サブカテゴリ名を編集
+     * @param {number} categoryId - 親カテゴリID
+     * @param {number} subcategoryId - サブカテゴリID
+     */
     editSubcategory(categoryId, subcategoryId) {
-        const monthData = this.getCurrentMonthData();
-        const category = monthData.categories.find(c => c.id === categoryId);
+        const category = this._findCategory(categoryId);
+        const subcategory = category?.subcategories.find(s => s.id === subcategoryId);
+        if (!subcategory) return;
         
-        if (category) {
+        const newName = prompt('項目名を入力:', subcategory.name);
+        if (newName?.trim()) {
+            subcategory.name = newName.trim();
+            this._saveWithStatus();
+        }
+    }
+
+    // ----------------------------------------
+    // 金額・備考の更新
+    // ----------------------------------------
+
+    /**
+     * 金額を更新
+     * @param {number} categoryId - カテゴリID
+     * @param {number|null} subcategoryId - サブカテゴリID（カテゴリ直接の場合はnull）
+     */
+    updateAmount(categoryId, subcategoryId) {
+        const category = this._findCategory(categoryId);
+        if (!category) return;
+        
+        if (subcategoryId === null) {
+            const input = document.getElementById(`amount-${categoryId}`);
+            category.amount = parseFloat(input?.value) || 0;
+        } else {
             const subcategory = category.subcategories.find(s => s.id === subcategoryId);
             if (subcategory) {
-                const newName = prompt('項目名を入力:', subcategory.name);
-                if (newName !== null && newName.trim()) {
-                    subcategory.name = newName.trim();
-                    this.showSyncStatus('syncing', '同期中...');
-                    this.saveToFirestore();
-                }
+                const input = document.getElementById(`subamount-${categoryId}-${subcategoryId}`);
+                subcategory.amount = parseFloat(input?.value) || 0;
             }
         }
+        this._saveWithStatus();
     }
 
-    updateAmount(categoryId, subcategoryId) {
-        const monthData = this.getCurrentMonthData();
-        const category = monthData.categories.find(c => c.id === categoryId);
-        
-        if (category) {
-            if (subcategoryId === null) {
-                const input = document.getElementById('amount-' + categoryId);
-                category.amount = parseFloat(input.value) || 0;
-            } else {
-                const subcategory = category.subcategories.find(s => s.id === subcategoryId);
-                if (subcategory) {
-                    const input = document.getElementById('subamount-' + categoryId + '-' + subcategoryId);
-                    subcategory.amount = parseFloat(input.value) || 0;
-                }
-            }
-            this.showSyncStatus('syncing', '同期中...');
-            this.saveToFirestore();
-        }
-    }
-
+    /**
+     * 備考を更新
+     * @param {number} categoryId - カテゴリID
+     * @param {number|null} subcategoryId - サブカテゴリID
+     */
     updateNote(categoryId, subcategoryId) {
-        const monthData = this.getCurrentMonthData();
-        const category = monthData.categories.find(c => c.id === categoryId);
+        const category = this._findCategory(categoryId);
+        if (!category) return;
         
-        if (category) {
-            if (subcategoryId === null) {
-                const input = document.getElementById('note-' + categoryId);
-                category.note = input.value.trim();
-            } else {
-                const subcategory = category.subcategories.find(s => s.id === subcategoryId);
-                if (subcategory) {
-                    const input = document.getElementById('subnote-edit-' + categoryId + '-' + subcategoryId);
-                    subcategory.note = input.value.trim();
-                }
-            }
-            this.showSyncStatus('syncing', '同期中...');
-            this.saveToFirestore();
-        }
-    }
-
-    toggleAccordion(categoryId) {
-        const details = document.getElementById('details-' + categoryId);
-        const icon = document.getElementById('icon-' + categoryId);
-        
-        if (details.classList.contains('open')) {
-            details.classList.remove('open');
-            icon.classList.remove('open');
+        if (subcategoryId === null) {
+            const input = document.getElementById(`note-${categoryId}`);
+            category.note = input?.value.trim() || '';
         } else {
-            details.classList.add('open');
-            icon.classList.add('open');
+            const subcategory = category.subcategories.find(s => s.id === subcategoryId);
+            if (subcategory) {
+                const input = document.getElementById(`subnote-edit-${categoryId}-${subcategoryId}`);
+                subcategory.note = input?.value.trim() || '';
+            }
         }
+        this._saveWithStatus();
     }
 
+    // ----------------------------------------
+    // アコーディオン
+    // ----------------------------------------
+
+    /**
+     * アコーディオンの開閉を切り替え
+     * @param {number} categoryId - カテゴリID
+     */
+    toggleAccordion(categoryId) {
+        const details = document.getElementById(`details-${categoryId}`);
+        const icon = document.getElementById(`icon-${categoryId}`);
+        
+        details?.classList.toggle('open');
+        icon?.classList.toggle('open');
+    }
+
+    // ----------------------------------------
+    // 先月コピー機能
+    // ----------------------------------------
+
+    /**
+     * 先月のデータを今月にコピー
+     */
     copyFromPreviousMonth() {
-        let prevMonth = this.currentMonth - 1;
-        let prevYear = this.currentYear;
+        const { year, month, key } = this._getPreviousMonth();
+        const prevData = this.data[key];
         
-        if (prevMonth < 1) {
-            prevMonth = 12;
-            prevYear--;
-        }
-        
-        const prevKey = prevYear + '-' + String(prevMonth).padStart(2, '0');
-        
-        if (!this.data[prevKey] || !this.data[prevKey].categories || this.data[prevKey].categories.length === 0) {
+        if (!prevData?.categories?.length) {
             alert('先月のデータがありません');
             return;
         }
@@ -484,195 +737,354 @@ export class BudgetManager {
             }
         }
         
-        const prevData = this.data[prevKey];
-        const copiedCategories = JSON.parse(JSON.stringify(prevData.categories));
-        
+        // 深いコピーを作成し、新しいIDを割り当て
+        const copiedCategories = Utils.deepCopy(prevData.categories);
         copiedCategories.forEach(category => {
-            category.id = Date.now() + Math.random();
+            category.id = Utils.generateId();
             category.subcategories.forEach(sub => {
-                sub.id = Date.now() + Math.random();
+                sub.id = Utils.generateId();
             });
         });
         
         currentData.categories = copiedCategories;
-        
-        this.showSyncStatus('syncing', '同期中...');
-        this.saveToFirestore();
+        this._saveWithStatus();
         alert('先月分のデータをコピーしました');
     }
 
-    calculateTotal() {
-        const monthData = this.getCurrentMonthData();
-        let total = 0;
-
-        monthData.categories.forEach(category => {
-            if (category.subcategories.length === 0) {
-                total += category.amount || 0;
-            } else {
-                category.subcategories.forEach(sub => {
-                    total += sub.amount || 0;
-                });
-            }
-        });
-
-        return total;
+    /**
+     * 前月の情報を取得
+     * @private
+     * @returns {{year: number, month: number, key: string}}
+     */
+    _getPreviousMonth() {
+        let prevMonth = this.currentMonth - 1;
+        let prevYear = this.currentYear;
+        
+        if (prevMonth < 1) {
+            prevMonth = 12;
+            prevYear--;
+        }
+        
+        return {
+            year: prevYear,
+            month: prevMonth,
+            key: Utils.getMonthKey(prevYear, prevMonth)
+        };
     }
 
+    // ----------------------------------------
+    // 計算
+    // ----------------------------------------
+
+    /**
+     * 合計金額を計算
+     * @returns {number} 合計金額
+     */
+    calculateTotal() {
+        const monthData = this.getCurrentMonthData();
+        
+        return monthData.categories.reduce((total, category) => {
+            if (category.subcategories.length === 0) {
+                return total + (category.amount || 0);
+            }
+            return total + category.subcategories.reduce(
+                (subTotal, sub) => subTotal + (sub.amount || 0), 
+                0
+            );
+        }, 0);
+    }
+
+    // ----------------------------------------
+    // 出力テキスト生成
+    // ----------------------------------------
+
+    /**
+     * 家計簿の出力テキストを生成
+     * @returns {string} フォーマットされた出力テキスト
+     */
     generateOutput() {
         const monthData = this.getCurrentMonthData();
-        const monthKey = this.getCurrentMonthKey();
-        const parts = monthKey.split('-');
-        const year = parts[0];
-        const month = parseInt(parts[1]);
+        const { year, month } = this._parseMonthKey(this.getCurrentMonthKey());
         
         let output = '━━━━━━━━━━━━━━━━\n';
-        output += '📅 ' + year + '年' + month + '月 家計簿\n';
+        output += `📅 ${year}年${month}月 家計簿\n`;
         output += '━━━━━━━━━━━━━━━━\n\n';
         
         monthData.categories.forEach((category, index) => {
-            if (category.subcategories.length === 0) {
-                output += '■ ' + category.name + '：' + category.amount.toLocaleString() + '円\n';
-            } else {
-                const subTotal = category.subcategories.reduce((sum, sub) => sum + (sub.amount || 0), 0);
-                output += '■ ' + category.name + '：' + subTotal.toLocaleString() + '円\n';
-                
-                category.subcategories.forEach((sub, subIndex) => {
-                    const isLast = subIndex === category.subcategories.length - 1;
-                    const prefix = isLast ? '  └ ' : '  ├ ';
-                    output += prefix + sub.name + '：' + sub.amount.toLocaleString() + '円\n';
-                });
-            }
-            
-            if (index < monthData.categories.length - 1) {
-                output += '\n';
-            }
+            output += this._formatCategoryOutput(category);
+            if (index < monthData.categories.length - 1) output += '\n';
         });
         
         const total = this.calculateTotal();
         const halfTotal = Math.round(total / 2);
         output += '\n━━━━━━━━━━━━━━━━\n';
-        output += '💰 Total：' + total.toLocaleString() + '円\n';
-        output += '👥 折半：' + halfTotal.toLocaleString() + '円\n';
+        output += `💰 Total：${Utils.formatCurrency(total)}円\n`;
+        output += `👥 折半：${Utils.formatCurrency(halfTotal)}円\n`;
         output += '━━━━━━━━━━━━━━━━';
         
         return output;
     }
 
-    updateDisplay() {
-        document.getElementById('currentMonth').textContent = this.currentYear + '年 ' + this.currentMonth + '月';
+    /**
+     * 年月キーをパース
+     * @private
+     * @param {string} monthKey - YYYY-MM形式
+     * @returns {{year: string, month: number}}
+     */
+    _parseMonthKey(monthKey) {
+        const [year, month] = monthKey.split('-');
+        return { year, month: parseInt(month) };
+    }
 
-        const monthData = this.getCurrentMonthData();
-        let listHtml = '';
+    /**
+     * カテゴリの出力文字列を生成
+     * @private
+     * @param {Object} category - カテゴリデータ
+     * @returns {string}
+     */
+    _formatCategoryOutput(category) {
+        if (category.subcategories.length === 0) {
+            return `■ ${category.name}：${Utils.formatCurrency(category.amount)}円\n`;
+        }
         
-        monthData.categories.forEach(category => {
-            let subcategoriesHtml = '';
-            
-            category.subcategories.forEach(sub => {
-                subcategoriesHtml += '<div class="subcategory-item">';
-                subcategoriesHtml += '<div class="sub-row">';
-                subcategoriesHtml += '<div>';
-                subcategoriesHtml += '<span class="subcategory-name">' + sub.name + '</span>';
-                if (sub.note) {
-                    subcategoriesHtml += '<div class="note-text">備考: ' + sub.note + '</div>';
-                }
-                subcategoriesHtml += '</div>';
-                subcategoriesHtml += '<div class="category-amount">';
-                subcategoriesHtml += '<input type="number" id="subamount-' + category.id + '-' + sub.id + '" value="' + sub.amount + '" onchange="app.budget.updateAmount(' + category.id + ', ' + sub.id + ')">';
-                subcategoriesHtml += '<span>円</span>';
-                subcategoriesHtml += '<div class="category-actions">';
-                subcategoriesHtml += '<button class="edit-btn" onclick="app.budget.editSubcategory(' + category.id + ', ' + sub.id + ')">編集</button>';
-                subcategoriesHtml += '<button class="delete-btn" onclick="app.budget.deleteSubcategory(' + category.id + ', ' + sub.id + ')">削除</button>';
-                subcategoriesHtml += '</div></div></div>';
-                subcategoriesHtml += '<input type="text" class="note-input" id="subnote-edit-' + category.id + '-' + sub.id + '" value="' + (sub.note || '') + '" placeholder="備考を入力..." onchange="app.budget.updateNote(' + category.id + ', ' + sub.id + ')">';
-                subcategoriesHtml += '</div>';
-            });
-
-            const subTotal = category.subcategories.reduce((sum, sub) => sum + (sub.amount || 0), 0);
-            const displayAmount = category.subcategories.length > 0 ? subTotal : category.amount;
-
-            listHtml += '<div class="category-item">';
-            
-            listHtml += '<div class="category-summary" onclick="app.budget.toggleAccordion(' + category.id + ')">';
-            listHtml += '<div class="category-summary-left">';
-            listHtml += '<span class="accordion-icon" id="icon-' + category.id + '">▶</span>';
-            listHtml += '<span class="category-summary-name">' + category.name + '</span>';
-            listHtml += '</div>';
-            listHtml += '<span class="category-summary-amount">' + displayAmount.toLocaleString() + '円</span>';
-            listHtml += '</div>';
-            
-            listHtml += '<div class="category-details" id="details-' + category.id + '">';
-            listHtml += '<div class="category-header">';
-            listHtml += '<div>';
-            listHtml += '<span class="category-name">' + category.name + '</span>';
-            if (category.note) {
-                listHtml += '<div class="note-text">備考: ' + category.note + '</div>';
-            }
-            listHtml += '</div>';
-            listHtml += '<div class="category-amount">';
-            
-            if (category.subcategories.length === 0) {
-                listHtml += '<input type="number" id="amount-' + category.id + '" value="' + category.amount + '" onchange="app.budget.updateAmount(' + category.id + ', null)">';
-                listHtml += '<span>円</span>';
-            } else {
-                listHtml += '<span style="font-size: 18px; font-weight: bold;">合計: ' + displayAmount.toLocaleString() + '円</span>';
-            }
-            
-            listHtml += '<div class="category-actions">';
-            listHtml += '<button class="edit-btn" onclick="app.budget.editCategory(' + category.id + ')">編集</button>';
-            listHtml += '<button class="delete-btn" onclick="app.budget.deleteCategory(' + category.id + ')">削除</button>';
-            listHtml += '</div></div></div>';
-            
-            if (category.subcategories.length === 0) {
-                listHtml += '<div style="margin-top: 10px;">';
-                listHtml += '<input type="text" class="note-input" id="note-' + category.id + '" value="' + (category.note || '') + '" placeholder="備考を入力..." onchange="app.budget.updateNote(' + category.id + ', null)">';
-                listHtml += '</div>';
-            }
-            
-            if (category.subcategories.length > 0) {
-                listHtml += '<div class="subcategory-list">' + subcategoriesHtml + '</div>';
-            }
-            
-            listHtml += '<div class="add-subcategory">';
-            listHtml += '<div class="input-group">';
-            listHtml += '<input type="text" id="subname-' + category.id + '" placeholder="小カテゴリー（例：電気）">';
-            listHtml += '<input type="number" id="subamount-' + category.id + '" placeholder="金額">';
-            listHtml += '<input type="text" id="subnote-' + category.id + '" placeholder="備考（任意）">';
-            listHtml += '<button onclick="app.budget.addSubcategory(' + category.id + ')">追加</button>';
-            listHtml += '</div></div>';
-            
-            listHtml += '</div>';
-            listHtml += '</div>';
+        const subTotal = category.subcategories.reduce((sum, sub) => sum + (sub.amount || 0), 0);
+        let output = `■ ${category.name}：${Utils.formatCurrency(subTotal)}円\n`;
+        
+        category.subcategories.forEach((sub, index) => {
+            const isLast = index === category.subcategories.length - 1;
+            const prefix = isLast ? '  └ ' : '  ├ ';
+            output += `${prefix}${sub.name}：${Utils.formatCurrency(sub.amount)}円\n`;
         });
+        
+        return output;
+    }
 
-        document.getElementById('categoryList').innerHTML = listHtml;
+    // ----------------------------------------
+    // 表示更新
+    // ----------------------------------------
 
+    /**
+     * 画面表示を更新
+     */
+    updateDisplay() {
+        // 月表示
+        document.getElementById('currentMonth').textContent = 
+            `${this.currentYear}年 ${this.currentMonth}月`;
+
+        // カテゴリリスト
+        const monthData = this.getCurrentMonthData();
+        document.getElementById('categoryList').innerHTML = 
+            monthData.categories.map(cat => this._renderCategory(cat)).join('');
+
+        // 合計表示
         const total = this.calculateTotal();
         const half = Math.round(total / 2);
-        document.getElementById('totalAmount').textContent = '¥' + total.toLocaleString();
-        document.getElementById('halfAmount').textContent = '折半: ¥' + half.toLocaleString();
+        document.getElementById('totalAmount').textContent = `¥${Utils.formatCurrency(total)}`;
+        document.getElementById('halfAmount').textContent = `折半: ¥${Utils.formatCurrency(half)}`;
         document.getElementById('outputText').textContent = this.generateOutput();
     }
 
+    /**
+     * カテゴリのHTMLを生成
+     * @private
+     * @param {Object} category - カテゴリデータ
+     * @returns {string} HTML文字列
+     */
+    _renderCategory(category) {
+        const subTotal = category.subcategories.reduce((sum, sub) => sum + (sub.amount || 0), 0);
+        const displayAmount = category.subcategories.length > 0 ? subTotal : category.amount;
+
+        return `
+            <div class="category-item">
+                ${this._renderCategorySummary(category, displayAmount)}
+                ${this._renderCategoryDetails(category, displayAmount)}
+            </div>
+        `;
+    }
+
+    /**
+     * カテゴリサマリー行のHTMLを生成
+     * @private
+     */
+    _renderCategorySummary(category, displayAmount) {
+        return `
+            <div class="category-summary" onclick="app.budget.toggleAccordion(${category.id})">
+                <div class="category-summary-left">
+                    <span class="accordion-icon" id="icon-${category.id}">▶</span>
+                    <span class="category-summary-name">${category.name}</span>
+                </div>
+                <span class="category-summary-amount">${Utils.formatCurrency(displayAmount)}円</span>
+            </div>
+        `;
+    }
+
+    /**
+     * カテゴリ詳細のHTMLを生成
+     * @private
+     */
+    _renderCategoryDetails(category, displayAmount) {
+        const hasSubcategories = category.subcategories.length > 0;
+        
+        return `
+            <div class="category-details" id="details-${category.id}">
+                ${this._renderCategoryHeader(category, displayAmount, hasSubcategories)}
+                ${!hasSubcategories ? this._renderCategoryNote(category) : ''}
+                ${hasSubcategories ? this._renderSubcategories(category) : ''}
+                ${this._renderAddSubcategoryForm(category.id)}
+            </div>
+        `;
+    }
+
+    /**
+     * カテゴリヘッダーのHTMLを生成
+     * @private
+     */
+    _renderCategoryHeader(category, displayAmount, hasSubcategories) {
+        const amountSection = hasSubcategories
+            ? `<span style="font-size: 18px; font-weight: bold;">合計: ${Utils.formatCurrency(displayAmount)}円</span>`
+            : `<input type="number" id="amount-${category.id}" value="${category.amount}" onchange="app.budget.updateAmount(${category.id}, null)"><span>円</span>`;
+        
+        return `
+            <div class="category-header">
+                <div>
+                    <span class="category-name">${category.name}</span>
+                    ${category.note ? `<div class="note-text">備考: ${category.note}</div>` : ''}
+                </div>
+                <div class="category-amount">
+                    ${amountSection}
+                    <div class="category-actions">
+                        <button class="edit-btn" onclick="app.budget.editCategory(${category.id})">編集</button>
+                        <button class="delete-btn" onclick="app.budget.deleteCategory(${category.id})">削除</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * カテゴリ備考入力のHTMLを生成
+     * @private
+     */
+    _renderCategoryNote(category) {
+        return `
+            <div style="margin-top: 10px;">
+                <input type="text" class="note-input" id="note-${category.id}" 
+                    value="${category.note || ''}" placeholder="備考を入力..." 
+                    onchange="app.budget.updateNote(${category.id}, null)">
+            </div>
+        `;
+    }
+
+    /**
+     * サブカテゴリリストのHTMLを生成
+     * @private
+     */
+    _renderSubcategories(category) {
+        const items = category.subcategories.map(sub => `
+            <div class="subcategory-item">
+                <div class="sub-row">
+                    <div>
+                        <span class="subcategory-name">${sub.name}</span>
+                        ${sub.note ? `<div class="note-text">備考: ${sub.note}</div>` : ''}
+                    </div>
+                    <div class="category-amount">
+                        <input type="number" id="subamount-${category.id}-${sub.id}" value="${sub.amount}" 
+                            onchange="app.budget.updateAmount(${category.id}, ${sub.id})">
+                        <span>円</span>
+                        <div class="category-actions">
+                            <button class="edit-btn" onclick="app.budget.editSubcategory(${category.id}, ${sub.id})">編集</button>
+                            <button class="delete-btn" onclick="app.budget.deleteSubcategory(${category.id}, ${sub.id})">削除</button>
+                        </div>
+                    </div>
+                </div>
+                <input type="text" class="note-input" id="subnote-edit-${category.id}-${sub.id}" 
+                    value="${sub.note || ''}" placeholder="備考を入力..." 
+                    onchange="app.budget.updateNote(${category.id}, ${sub.id})">
+            </div>
+        `).join('');
+        
+        return `<div class="subcategory-list">${items}</div>`;
+    }
+
+    /**
+     * サブカテゴリ追加フォームのHTMLを生成
+     * @private
+     */
+    _renderAddSubcategoryForm(categoryId) {
+        return `
+            <div class="add-subcategory">
+                <div class="input-group">
+                    <input type="text" id="subname-${categoryId}" placeholder="小カテゴリー（例：電気）">
+                    <input type="number" id="subamount-${categoryId}" placeholder="金額">
+                    <input type="text" id="subnote-${categoryId}" placeholder="備考（任意）">
+                    <button onclick="app.budget.addSubcategory(${categoryId})">追加</button>
+                </div>
+            </div>
+        `;
+    }
+
+    // ----------------------------------------
+    // コピー機能
+    // ----------------------------------------
+
+    /**
+     * 出力テキストをクリップボードにコピー
+     */
     copyOutput() {
-        const text = document.getElementById('outputText').textContent;
+        const text = document.getElementById('outputText')?.textContent;
+        if (!text) return;
+        
         navigator.clipboard.writeText(text).then(() => {
             const successMsg = document.getElementById('copySuccess');
-            successMsg.style.display = 'block';
-            setTimeout(() => {
-                successMsg.style.display = 'none';
-            }, 2000);
+            if (successMsg) {
+                successMsg.style.display = 'block';
+                setTimeout(() => successMsg.style.display = 'none', 2000);
+            }
         });
     }
 
+    /**
+     * 折半金額をクリップボードにコピー
+     */
     copyHalfAmount() {
-        const total = this.calculateTotal();
-        const halfTotal = Math.round(total / 2);
-        const text = halfTotal.toLocaleString();
-        
-        navigator.clipboard.writeText(text).then(() => {
-            Utils.showToast('コピーしました！');
-        }).catch(() => {
-            Utils.showToast('コピーに失敗しました');
+        const halfTotal = Math.round(this.calculateTotal() / 2);
+        navigator.clipboard.writeText(Utils.formatCurrency(halfTotal))
+            .then(() => Utils.showToast('コピーしました！'))
+            .catch(() => Utils.showToast('コピーに失敗しました'));
+    }
+
+    // ----------------------------------------
+    // ヘルパーメソッド
+    // ----------------------------------------
+
+    /**
+     * カテゴリを検索
+     * @private
+     * @param {number} categoryId - カテゴリID
+     * @returns {Object|undefined}
+     */
+    _findCategory(categoryId) {
+        return this.getCurrentMonthData().categories.find(c => c.id === categoryId);
+    }
+
+    /**
+     * 入力フィールドをクリア
+     * @private
+     * @param {string[]} fieldIds - フィールドID配列
+     */
+    _clearInputFields(fieldIds) {
+        fieldIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
         });
+    }
+
+    /**
+     * 同期ステータスを表示してから保存
+     * @private
+     */
+    _saveWithStatus() {
+        this.showSyncStatus(SYNC_STATUS.SYNCING, '同期中...');
+        this.saveToFirestore();
     }
 }

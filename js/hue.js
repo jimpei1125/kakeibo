@@ -1,11 +1,29 @@
+/**
+ * Philips Hueモジュール
+ * Hue Remote APIによる照明制御を提供
+ */
+
 import { Utils } from './utils.js';
 
-// Philips Hueクラス（Remote API対応）
+// ============================================================
+// 定数定義
+// ============================================================
+
+const HUE_CONFIG = {
+    clientId: '1dadb03c-47a7-40f6-af51-bf8ccde0fb1b',
+    proxyUrl: 'https://hue-proxy.zinnpei11251818.workers.dev',
+    callbackUrl: 'https://jimpei1125.github.io/kakeibo/callback.html'
+};
+
+/** 明るさの最大値（Hue API） */
+const MAX_BRIGHTNESS = 254;
+
+// ============================================================
+// Philips Hueクラス
+// ============================================================
+
 export class PhilipsHue {
     constructor() {
-        this.clientId = '1dadb03c-47a7-40f6-af51-bf8ccde0fb1b';
-        this.proxyUrl = 'https://hue-proxy.zinnpei11251818.workers.dev';
-        this.callbackUrl = 'https://jimpei1125.github.io/kakeibo/callback.html';
         this.groups = {};
         this.lights = {};
         this.currentGroupId = null;
@@ -13,71 +31,60 @@ export class PhilipsHue {
         this.username = null;
     }
 
-    get accessToken() {
-        return localStorage.getItem('hue_access_token');
-    }
+    // ==================== トークン管理 ====================
 
-    get refreshToken() {
-        return localStorage.getItem('hue_refresh_token');
-    }
+    get accessToken() { return localStorage.getItem('hue_access_token'); }
+    get refreshToken() { return localStorage.getItem('hue_refresh_token'); }
+    get tokenExpires() { return parseInt(localStorage.getItem('hue_token_expires') || '0'); }
+    isTokenValid() { return this.accessToken && Date.now() < this.tokenExpires; }
 
-    get tokenExpires() {
-        return parseInt(localStorage.getItem('hue_token_expires') || '0');
-    }
-
-    isTokenValid() {
-        return this.accessToken && Date.now() < this.tokenExpires;
-    }
+    // ==================== 初期化 ====================
 
     async init() {
         const loadingEl = document.getElementById('hueLoading');
         const listEl = document.getElementById('hueLightList');
         
+        // 未認証の場合
         if (!this.accessToken) {
             if (loadingEl) loadingEl.style.display = 'none';
-            if (listEl) {
-                listEl.innerHTML = `
-                    <div class="hue-auth-prompt" style="grid-column: 1 / -1; text-align: center; padding: 30px;">
-                        <p style="margin-bottom: 15px; color: rgba(255,255,255,0.7);">Philips Hueアカウントとの連携が必要です</p>
-                        <button onclick="app.hue.startAuth()" style="padding: 14px 28px; background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: bold; cursor: pointer;">
-                            🔗 Hueアカウントを連携
-                        </button>
-                    </div>
-                `;
-            }
+            if (listEl) listEl.innerHTML = this._renderAuthPrompt();
             return;
         }
         
-        if (!this.isTokenValid()) {
-            await this.refreshAccessToken();
-        }
+        // トークン更新が必要な場合
+        if (!this.isTokenValid()) await this.refreshAccessToken();
         
-        if (!this.username) {
-            await this.getUsername();
-        }
+        // ユーザー名取得
+        if (!this.username) await this.getUsername();
         
         await this.loadGroups();
         await this.loadLights();
     }
 
+    _renderAuthPrompt() {
+        return `
+            <div class="hue-auth-prompt" style="grid-column:1/-1;text-align:center;padding:30px;">
+                <p style="margin-bottom:15px;color:rgba(255,255,255,0.7);">Philips Hueアカウントとの連携が必要です</p>
+                <button onclick="app.hue.startAuth()" style="padding:14px 28px;background:linear-gradient(135deg,#f39c12,#e67e22);color:white;border:none;border-radius:10px;font-size:15px;font-weight:bold;cursor:pointer;">
+                    🔗 Hueアカウントを連携
+                </button>
+            </div>
+        `;
+    }
+
+    // ==================== 認証 ====================
+
     startAuth() {
-        const authUrl = `https://api.meethue.com/v2/oauth2/authorize?client_id=${this.clientId}&response_type=code&redirect_uri=${encodeURIComponent(this.callbackUrl)}`;
-        
+        const authUrl = `https://api.meethue.com/v2/oauth2/authorize?client_id=${HUE_CONFIG.clientId}&response_type=code&redirect_uri=${encodeURIComponent(HUE_CONFIG.callbackUrl)}`;
         const authWindow = window.open(authUrl, '_blank', 'noopener,noreferrer');
-        
-        if (!authWindow) {
-            window.location.href = authUrl;
-        }
+        if (!authWindow) window.location.href = authUrl;
     }
 
     async refreshAccessToken() {
-        if (!this.refreshToken) {
-            this.logout();
-            return;
-        }
+        if (!this.refreshToken) { this.logout(); return; }
         
         try {
-            const response = await fetch(`${this.proxyUrl}/refresh`, {
+            const response = await fetch(`${HUE_CONFIG.proxyUrl}/refresh`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ refresh_token: this.refreshToken })
@@ -92,107 +99,69 @@ export class PhilipsHue {
             } else {
                 this.logout();
             }
-        } catch (error) {
-            console.error('Token refresh error:', error);
+        } catch (err) {
+            console.error('Token refresh error:', err);
             this.logout();
         }
     }
 
     async getUsername() {
         try {
-            const response = await fetch(`${this.proxyUrl}/api/route/api/0/config`, {
+            // Link buttonを有効化
+            await fetch(`${HUE_CONFIG.proxyUrl}/api/route/api/0/config`, {
                 method: 'PUT',
-                headers: {
-                    'Authorization': `Bearer ${this.accessToken}`,
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Authorization': `Bearer ${this.accessToken}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ linkbutton: true })
             });
             
-            const createResponse = await fetch(`${this.proxyUrl}/api/route/api`, {
+            // ユーザー作成
+            const response = await fetch(`${HUE_CONFIG.proxyUrl}/api/route/api`, {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${this.accessToken}`,
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Authorization': `Bearer ${this.accessToken}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ devicetype: 'family_app#browser' })
             });
             
-            const createData = await createResponse.json();
-            
-            if (createData[0]?.success?.username) {
-                this.username = createData[0].success.username;
-                localStorage.setItem('hue_username', this.username);
-            } else {
-                this.username = localStorage.getItem('hue_username');
-            }
-        } catch (error) {
-            console.error('Get username error:', error);
+            const data = await response.json();
+            this.username = data[0]?.success?.username || localStorage.getItem('hue_username');
+            if (this.username) localStorage.setItem('hue_username', this.username);
+        } catch (err) {
+            console.error('Get username error:', err);
             this.username = localStorage.getItem('hue_username');
         }
     }
 
     logout() {
-        localStorage.removeItem('hue_access_token');
-        localStorage.removeItem('hue_refresh_token');
-        localStorage.removeItem('hue_token_expires');
-        localStorage.removeItem('hue_username');
+        ['hue_access_token', 'hue_refresh_token', 'hue_token_expires', 'hue_username']
+            .forEach(key => localStorage.removeItem(key));
         this.username = null;
         this.isConnected = false;
         Utils.showToast('Hueからログアウトしました');
         this.init();
     }
 
-    async apiRequest(endpoint, method = 'GET', body = null) {
-        if (!this.isTokenValid()) {
-            await this.refreshAccessToken();
-        }
-        
-        const options = {
-            method,
-            headers: {
-                'Authorization': `Bearer ${this.accessToken}`,
-                'Content-Type': 'application/json'
-            }
-        };
-        
-        if (body) {
-            options.body = JSON.stringify(body);
-        }
-        
-        const response = await fetch(`${this.proxyUrl}/api/route/clip/v2${endpoint}`, options);
-        return await response.json();
-    }
+    // ==================== API通信 ====================
 
     async apiRequestV1(endpoint, method = 'GET', body = null) {
-        if (!this.isTokenValid()) {
-            await this.refreshAccessToken();
-        }
+        if (!this.isTokenValid()) await this.refreshAccessToken();
         
         const options = {
             method,
-            headers: {
-                'Authorization': `Bearer ${this.accessToken}`,
-                'Content-Type': 'application/json'
-            }
+            headers: { 'Authorization': `Bearer ${this.accessToken}`, 'Content-Type': 'application/json' }
         };
+        if (body) options.body = JSON.stringify(body);
         
-        if (body) {
-            options.body = JSON.stringify(body);
-        }
-        
-        const response = await fetch(`${this.proxyUrl}/api/route/api/${this.username}${endpoint}`, options);
-        return await response.json();
+        const response = await fetch(`${HUE_CONFIG.proxyUrl}/api/route/api/${this.username}${endpoint}`, options);
+        return response.json();
     }
+
+    // ==================== データ読み込み ====================
 
     async loadLights() {
         try {
             const data = await this.apiRequestV1('/lights');
-            if (data && !data.error) {
-                this.lights = data;
-            }
-        } catch (error) {
-            console.error('ライト取得エラー:', error);
+            if (data && !data.error) this.lights = data;
+        } catch (err) {
+            console.error('ライト取得エラー:', err);
         }
     }
 
@@ -209,69 +178,65 @@ export class PhilipsHue {
             if (data && !data.error) {
                 this.groups = data;
                 this.isConnected = true;
-                
                 if (loadingEl) loadingEl.style.display = 'none';
                 this.renderGroups();
             } else {
                 throw new Error(data?.error?.description || '接続失敗');
             }
-        } catch (error) {
-            console.error('Hue接続エラー:', error);
+        } catch (err) {
+            console.error('Hue接続エラー:', err);
             this.isConnected = false;
-            
             if (loadingEl) loadingEl.style.display = 'none';
-            if (listEl) {
-                listEl.innerHTML = `
-                    <div class="hue-error" style="grid-column: 1 / -1; text-align: center;">
-                        <p>😢 Hueに接続できません</p>
-                        <p style="font-size: 12px; margin-top: 8px; opacity: 0.7;">${error.message}</p>
-                        <button onclick="app.hue.logout()" style="margin-top: 15px; padding: 10px 20px; background: rgba(255,255,255,0.1); color: #e0e0e0; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; cursor: pointer;">
-                            再認証する
-                        </button>
-                    </div>
-                `;
-            }
+            if (listEl) listEl.innerHTML = this._renderConnectionError(err.message);
         }
     }
+
+    _renderConnectionError(message) {
+        return `
+            <div class="hue-error" style="grid-column:1/-1;text-align:center;">
+                <p>😢 Hueに接続できません</p>
+                <p style="font-size:12px;margin-top:8px;opacity:0.7;">${message}</p>
+                <button onclick="app.hue.logout()" style="margin-top:15px;padding:10px 20px;background:rgba(255,255,255,0.1);color:#e0e0e0;border:1px solid rgba(255,255,255,0.2);border-radius:8px;cursor:pointer;">
+                    再認証する
+                </button>
+            </div>
+        `;
+    }
+
+    // ==================== 描画 ====================
 
     renderGroups() {
         const listEl = document.getElementById('hueLightList');
         if (!listEl) return;
         
-        const groupIds = Object.keys(this.groups);
-        
-        const roomGroups = groupIds.filter(id => {
-            const type = this.groups[id].type;
-            return type === 'Room' || type === 'Zone';
-        });
+        const roomGroups = Object.keys(this.groups).filter(id => 
+            ['Room', 'Zone'].includes(this.groups[id].type)
+        );
         
         if (roomGroups.length === 0) {
             listEl.innerHTML = '<div class="no-devices">グループが見つかりません</div>';
             return;
         }
         
-        let html = '';
-        roomGroups.forEach(id => {
-            const group = this.groups[id];
-            const isOn = group.state && group.state.any_on;
-            const allOn = group.state && group.state.all_on;
-            const lightCount = group.lights ? group.lights.length : 0;
+        listEl.innerHTML = roomGroups.map(id => {
+            const g = this.groups[id];
+            const isOn = g.state?.any_on;
+            const allOn = g.state?.all_on;
+            const icon = g.type === 'Zone' ? '🏷️' : '🏠';
             
-            const icon = group.type === 'Zone' ? '🏷️' : '🏠';
-            
-            html += `
+            return `
                 <div class="hue-light-card ${isOn ? 'on' : 'off'}" onclick="app.hue.showControl('${id}')">
                     <div class="hue-light-status ${allOn ? 'all-on' : ''}"></div>
                     <div class="hue-light-icon">${icon}</div>
-                    <div class="hue-light-name">${group.name}</div>
+                    <div class="hue-light-name">${g.name}</div>
                     <div class="hue-light-brightness">${isOn ? (allOn ? '全点灯' : '一部点灯') : 'OFF'}</div>
-                    <div class="hue-light-count">${lightCount}台</div>
+                    <div class="hue-light-count">${g.lights?.length || 0}台</div>
                 </div>
             `;
-        });
-        
-        listEl.innerHTML = html;
+        }).join('');
     }
+
+    // ==================== グループ制御 ====================
 
     showControl(groupId) {
         this.currentGroupId = groupId;
@@ -279,13 +244,17 @@ export class PhilipsHue {
         
         document.getElementById('hueControlTitle').textContent = `💡 ${group.name}`;
         
-        const brightness = group.action && group.action.bri ? Math.round((group.action.bri / 254) * 100) : 100;
+        const brightness = group.action?.bri ? Math.round((group.action.bri / MAX_BRIGHTNESS) * 100) : 100;
         document.getElementById('hueBrightnessSlider').value = brightness;
         document.getElementById('hueBrightnessValue').textContent = brightness;
         
         this.renderIndividualLights(group.lights || []);
-        
-        document.getElementById('hueControlModal').classList.add('show');
+        Utils.showModal('hueControlModal');
+    }
+
+    closeControl() {
+        Utils.closeModal('hueControlModal');
+        this.currentGroupId = null;
     }
 
     renderIndividualLights(lightIds) {
@@ -293,36 +262,34 @@ export class PhilipsHue {
         if (!container) return;
         
         if (lightIds.length === 0) {
-            container.innerHTML = '<div style="color: rgba(255,255,255,0.5); text-align: center; padding: 10px;">ライトがありません</div>';
+            container.innerHTML = '<div style="color:rgba(255,255,255,0.5);text-align:center;padding:10px;">ライトがありません</div>';
             return;
         }
         
-        let html = '';
-        lightIds.forEach(id => {
+        container.innerHTML = lightIds.map(id => {
             const light = this.lights[id];
-            if (!light) return;
+            if (!light) return '';
             
-            const isOn = light.state && light.state.on;
-            const brightness = light.state && light.state.bri ? Math.round((light.state.bri / 254) * 100) : 100;
+            const isOn = light.state?.on;
+            const brightness = light.state?.bri ? Math.round((light.state.bri / MAX_BRIGHTNESS) * 100) : 100;
             
-            html += `
+            return `
                 <div class="hue-individual-light ${isOn ? 'on' : 'off'}">
                     <button class="hue-individual-toggle ${isOn ? 'on' : 'off'}" onclick="app.hue.toggleIndividualLight('${id}')">
                         ${isOn ? '💡' : '🌙'}
                     </button>
                     <div class="hue-individual-info">
                         <div class="hue-individual-name">${light.name}</div>
-                        <input type="range" class="hue-individual-slider" 
-                            min="1" max="100" value="${brightness}" 
-                            onchange="app.hue.setIndividualBrightness('${id}', this.value)">
+                        <input type="range" class="hue-individual-slider" min="1" max="100" value="${brightness}" 
+                            onchange="app.hue.setIndividualBrightness('${id}',this.value)">
                     </div>
                     <div class="hue-individual-brightness">${brightness}%</div>
                 </div>
             `;
-        });
-        
-        container.innerHTML = html;
+        }).join('');
     }
+
+    // ==================== 個別ライト制御 ====================
 
     async toggleIndividualLight(lightId) {
         const light = this.lights[lightId];
@@ -332,14 +299,12 @@ export class PhilipsHue {
         
         try {
             await this.apiRequestV1(`/lights/${lightId}/state`, 'PUT', { on: newState });
-            
             light.state.on = newState;
-            const group = this.groups[this.currentGroupId];
-            this.renderIndividualLights(group.lights || []);
+            this.renderIndividualLights(this.groups[this.currentGroupId]?.lights || []);
             await this.loadGroups();
             Utils.showToast(newState ? `${light.name}を点灯` : `${light.name}を消灯`);
-        } catch (error) {
-            console.error('ライト操作エラー:', error);
+        } catch (err) {
+            console.error('ライト操作エラー:', err);
             Utils.showToast('操作に失敗しました');
         }
     }
@@ -348,26 +313,23 @@ export class PhilipsHue {
         const light = this.lights[lightId];
         if (!light) return;
         
-        const bri = Math.round((parseInt(brightness) / 100) * 254);
+        const bri = Math.round((parseInt(brightness) / 100) * MAX_BRIGHTNESS);
         
         try {
-            await this.apiRequestV1(`/lights/${lightId}/state`, 'PUT', { on: true, bri: bri });
+            await this.apiRequestV1(`/lights/${lightId}/state`, 'PUT', { on: true, bri });
             light.state.on = true;
             light.state.bri = bri;
-        } catch (error) {
-            console.error('明るさ変更エラー:', error);
+        } catch (err) {
+            console.error('明るさ変更エラー:', err);
         }
     }
 
-    closeControl() {
-        document.getElementById('hueControlModal').classList.remove('show');
-        this.currentGroupId = null;
-    }
-
     updateBrightnessLabel() {
-        const value = document.getElementById('hueBrightnessSlider').value;
+        const value = document.getElementById('hueBrightnessSlider')?.value;
         document.getElementById('hueBrightnessValue').textContent = value;
     }
+
+    // ==================== グループ一括制御 ====================
 
     async setPower(on) {
         if (!this.currentGroupId) return;
@@ -376,7 +338,7 @@ export class PhilipsHue {
         Utils.showToast(on ? `${group.name}を点灯中...` : `${group.name}を消灯中...`);
         
         try {
-            await this.apiRequestV1(`/groups/${this.currentGroupId}/action`, 'PUT', { on: on });
+            await this.apiRequestV1(`/groups/${this.currentGroupId}/action`, 'PUT', { on });
             
             if (this.groups[this.currentGroupId].state) {
                 this.groups[this.currentGroupId].state.any_on = on;
@@ -385,8 +347,8 @@ export class PhilipsHue {
             this.renderGroups();
             this.closeControl();
             Utils.showToast(on ? '点灯しました' : '消灯しました');
-        } catch (error) {
-            console.error('Hue操作エラー:', error);
+        } catch (err) {
+            console.error('Hue操作エラー:', err);
             Utils.showToast('接続エラー');
         }
     }
@@ -394,13 +356,13 @@ export class PhilipsHue {
     async applyBrightness() {
         if (!this.currentGroupId) return;
         
-        const brightness = parseInt(document.getElementById('hueBrightnessSlider').value);
-        const bri = Math.round((brightness / 100) * 254);
+        const brightness = parseInt(document.getElementById('hueBrightnessSlider')?.value);
+        const bri = Math.round((brightness / 100) * MAX_BRIGHTNESS);
         
         Utils.showToast('明るさを変更中...');
         
         try {
-            await this.apiRequestV1(`/groups/${this.currentGroupId}/action`, 'PUT', { on: true, bri: bri });
+            await this.apiRequestV1(`/groups/${this.currentGroupId}/action`, 'PUT', { on: true, bri });
             
             if (this.groups[this.currentGroupId].action) {
                 this.groups[this.currentGroupId].action.bri = bri;
@@ -412,58 +374,42 @@ export class PhilipsHue {
             this.renderGroups();
             this.closeControl();
             Utils.showToast('明るさを変更しました');
-        } catch (error) {
-            console.error('Hue操作エラー:', error);
+        } catch (err) {
+            console.error('Hue操作エラー:', err);
             Utils.showToast('接続エラー');
         }
     }
 
+    // ==================== 全体制御 ====================
+
     async allLightsOn() {
-        Utils.showToast('全グループ点灯中...');
-        
-        try {
-            const groupIds = Object.keys(this.groups).filter(id => {
-                const type = this.groups[id].type;
-                return type === 'Room' || type === 'Zone';
-            });
-            
-            for (const id of groupIds) {
-                await this.apiRequestV1(`/groups/${id}/action`, 'PUT', { on: true });
-                if (this.groups[id].state) {
-                    this.groups[id].state.any_on = true;
-                    this.groups[id].state.all_on = true;
-                }
-            }
-            
-            this.renderGroups();
-            Utils.showToast('全グループ点灯しました');
-        } catch (error) {
-            console.error('Hue操作エラー:', error);
-            Utils.showToast('接続エラー');
-        }
+        await this._controlAllGroups(true, '全グループ点灯');
     }
 
     async allLightsOff() {
-        Utils.showToast('全グループ消灯中...');
+        await this._controlAllGroups(false, '全グループ消灯');
+    }
+
+    async _controlAllGroups(on, message) {
+        Utils.showToast(`${message}中...`);
         
         try {
-            const groupIds = Object.keys(this.groups).filter(id => {
-                const type = this.groups[id].type;
-                return type === 'Room' || type === 'Zone';
-            });
+            const groupIds = Object.keys(this.groups).filter(id => 
+                ['Room', 'Zone'].includes(this.groups[id].type)
+            );
             
             for (const id of groupIds) {
-                await this.apiRequestV1(`/groups/${id}/action`, 'PUT', { on: false });
+                await this.apiRequestV1(`/groups/${id}/action`, 'PUT', { on });
                 if (this.groups[id].state) {
-                    this.groups[id].state.any_on = false;
-                    this.groups[id].state.all_on = false;
+                    this.groups[id].state.any_on = on;
+                    this.groups[id].state.all_on = on;
                 }
             }
             
             this.renderGroups();
-            Utils.showToast('全グループ消灯しました');
-        } catch (error) {
-            console.error('Hue操作エラー:', error);
+            Utils.showToast(`${message}しました`);
+        } catch (err) {
+            console.error('Hue操作エラー:', err);
             Utils.showToast('接続エラー');
         }
     }

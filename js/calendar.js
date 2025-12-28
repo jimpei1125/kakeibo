@@ -1,16 +1,50 @@
+/**
+ * カレンダーモジュール
+ * 休日カレンダー、ユーザー管理、メモ機能、Googleカレンダー連携を提供
+ */
+
 import { db, collection, addDoc, deleteDoc, query, where, getDocs, orderBy, onSnapshot } from './firebase-config.js';
 import { Utils } from './utils.js';
 
+// ============================================================
+// 定数定義
+// ============================================================
+
+const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
+const CALENDAR_CELLS = 42;
+
+const USER_COLORS = [
+    { name: '赤', value: '#FF5733', emoji: '🔴' },
+    { name: 'オレンジ', value: '#FF8C42', emoji: '🟠' },
+    { name: '黄', value: '#FFC300', emoji: '🟡' },
+    { name: '緑', value: '#38EF7D', emoji: '🟢' },
+    { name: '青', value: '#4FACFE', emoji: '🔵' },
+    { name: '紫', value: '#9B59B6', emoji: '🟣' },
+    { name: 'ピンク', value: '#FF69B4', emoji: '💗' },
+    { name: '茶', value: '#8B4513', emoji: '🟤' }
+];
+
+const GCAL_CONFIG = {
+    clientId: '120845540864-apujs76kfni95rndqsueaupi48ccfetd.apps.googleusercontent.com',
+    scopes: 'https://www.googleapis.com/auth/calendar.events'
+};
+
+// ============================================================
 // 休日カレンダークラス
+// ============================================================
+
 export class HolidayCalendar {
     constructor() {
-        this.currentYear = new Date().getFullYear();
-        this.currentMonth = new Date().getMonth() + 1;
+        const now = new Date();
+        this.currentYear = now.getFullYear();
+        this.currentMonth = now.getMonth() + 1;
         this.editYear = this.currentYear;
         this.editMonth = this.currentMonth;
+        
         this.users = [];
         this.holidays = [];
         this.memos = [];
+        
         this.selectedUser = null;
         this.editingUserId = null;
         this.selectedColor = null;
@@ -19,64 +53,38 @@ export class HolidayCalendar {
         this.selectedDateForMemo = null;
         this.memoListVisible = false;
         
-        // Googleカレンダー設定
-        this.gcalClientId = '120845540864-apujs76kfni95rndqsueaupi48ccfetd.apps.googleusercontent.com';
-        this.gcalScopes = 'https://www.googleapis.com/auth/calendar.events';
         this.gcalConnected = false;
         this.gcalTokenClient = null;
         this.gcalAccessToken = null;
-        
-        this.colors = [
-            { name: '赤', value: '#FF5733', emoji: '🔴' },
-            { name: 'オレンジ', value: '#FF8C42', emoji: '🟠' },
-            { name: '黄', value: '#FFC300', emoji: '🟡' },
-            { name: '緑', value: '#38EF7D', emoji: '🟢' },
-            { name: '青', value: '#4FACFE', emoji: '🔵' },
-            { name: '紫', value: '#9B59B6', emoji: '🟣' },
-            { name: 'ピンク', value: '#FF69B4', emoji: '💗' },
-            { name: '茶', value: '#8B4513', emoji: '🟤' }
-        ];
+        this.colors = USER_COLORS;
     }
 
+    // ==================== 初期化 ====================
+
     async init() {
-        await this.loadUsers();
-        await this.loadHolidays();
-        await this.loadMemos();
+        await Promise.all([this.loadUsers(), this.loadHolidays(), this.loadMemos()]);
         this.renderCalendar();
         this.initGoogleCalendar();
     }
 
-    // ========== Googleカレンダー連携 ==========
+    // ==================== Googleカレンダー連携 ====================
 
     initGoogleCalendar() {
-        // Google Identity Services ライブラリを読み込み
-        const script = document.createElement('script');
-        script.src = 'https://accounts.google.com/gsi/client';
-        script.async = true;
-        script.defer = true;
-        script.onload = () => {
-            this.setupGoogleAuth();
-        };
+        this._loadScript('https://accounts.google.com/gsi/client', () => this.setupGoogleAuth());
+        this._loadScript('https://apis.google.com/js/api.js', () => {
+            gapi.load('client', () => gapi.client.init({}).then(() => gapi.client.load('calendar', 'v3')));
+        });
+        this._restoreSavedToken();
+    }
+
+    _loadScript(src, onload) {
+        const script = Object.assign(document.createElement('script'), { src, async: true, defer: true, onload });
         document.head.appendChild(script);
+    }
 
-        // Google API クライアントライブラリを読み込み
-        const gapiScript = document.createElement('script');
-        gapiScript.src = 'https://apis.google.com/js/api.js';
-        gapiScript.async = true;
-        gapiScript.defer = true;
-        gapiScript.onload = () => {
-            gapi.load('client', () => {
-                gapi.client.init({}).then(() => {
-                    gapi.client.load('calendar', 'v3');
-                });
-            });
-        };
-        document.head.appendChild(gapiScript);
-
-        // 保存されたトークンがあればチェック
+    _restoreSavedToken() {
         const savedToken = localStorage.getItem('gcal_access_token');
         const savedExpiry = localStorage.getItem('gcal_token_expiry');
-        
         if (savedToken && savedExpiry && Date.now() < parseInt(savedExpiry)) {
             this.gcalAccessToken = savedToken;
             this.gcalConnected = true;
@@ -86,881 +94,406 @@ export class HolidayCalendar {
 
     setupGoogleAuth() {
         this.gcalTokenClient = google.accounts.oauth2.initTokenClient({
-            client_id: this.gcalClientId,
-            scope: this.gcalScopes,
-            callback: (response) => {
-                if (response.access_token) {
-                    this.gcalAccessToken = response.access_token;
+            client_id: GCAL_CONFIG.clientId,
+            scope: GCAL_CONFIG.scopes,
+            callback: (res) => {
+                if (res.access_token) {
+                    this.gcalAccessToken = res.access_token;
                     this.gcalConnected = true;
-                    
-                    // トークンを保存（1時間有効）
-                    localStorage.setItem('gcal_access_token', response.access_token);
-                    localStorage.setItem('gcal_token_expiry', Date.now() + (response.expires_in * 1000));
-                    
+                    localStorage.setItem('gcal_access_token', res.access_token);
+                    localStorage.setItem('gcal_token_expiry', Date.now() + (res.expires_in * 1000));
                     this.updateGcalStatus();
                     Utils.showToast('Googleカレンダーと連携しました');
                 }
             },
-            error_callback: (error) => {
-                console.error('Google認証エラー:', error);
-                Utils.showToast('認証に失敗しました');
-            }
+            error_callback: () => Utils.showToast('認証に失敗しました')
         });
-        
         this.updateGcalStatus();
     }
 
     toggleGoogleCalendar() {
         if (this.gcalConnected) {
-            // 連携解除
             this.gcalAccessToken = null;
             this.gcalConnected = false;
             localStorage.removeItem('gcal_access_token');
             localStorage.removeItem('gcal_token_expiry');
             this.updateGcalStatus();
             Utils.showToast('Googleカレンダーの連携を解除しました');
+        } else if (this.gcalTokenClient) {
+            this.gcalTokenClient.requestAccessToken();
         } else {
-            // 連携開始
-            if (this.gcalTokenClient) {
-                this.gcalTokenClient.requestAccessToken();
-            } else {
-                Utils.showToast('認証の準備中です。少々お待ちください');
-            }
+            Utils.showToast('認証の準備中です');
         }
     }
 
     updateGcalStatus() {
         const statusText = document.getElementById('gcalStatusText');
         const linkBtn = document.getElementById('gcalLinkBtn');
+        if (!statusText || !linkBtn) return;
         
-        if (statusText && linkBtn) {
-            if (this.gcalConnected) {
-                statusText.textContent = 'Googleカレンダー: 連携中 ✓';
-                statusText.style.color = '#38EF7D';
-                linkBtn.textContent = '🔓 解除';
-                linkBtn.classList.add('connected');
-            } else {
-                statusText.textContent = 'Googleカレンダー: 未連携';
-                statusText.style.color = 'rgba(255,255,255,0.6)';
-                linkBtn.textContent = '🔗 連携';
-                linkBtn.classList.remove('connected');
-            }
-        }
+        statusText.textContent = this.gcalConnected ? 'Googleカレンダー: 連携中 ✓' : 'Googleカレンダー: 未連携';
+        statusText.style.color = this.gcalConnected ? '#38EF7D' : 'rgba(255,255,255,0.6)';
+        linkBtn.textContent = this.gcalConnected ? '🔓 解除' : '🔗 連携';
+        linkBtn.classList.toggle('connected', this.gcalConnected);
     }
 
     async createGoogleCalendarEvent(memo) {
-        if (!this.gcalConnected || !this.gcalAccessToken) {
-            return null;
-        }
-
+        if (!this.gcalConnected || !this.gcalAccessToken) return null;
         try {
-            let event;
-            
-            if (memo.type === 'schedule') {
-                // 予定の場合
-                const startDateTime = `${memo.date}T${memo.startTime || '09:00'}:00`;
-                const endDateTime = `${memo.date}T${memo.endTime || '10:00'}:00`;
-                
-                event = {
-                    summary: memo.content,
-                    description: '家計簿アプリから登録',
-                    start: {
-                        dateTime: startDateTime,
-                        timeZone: 'Asia/Tokyo'
-                    },
-                    end: {
-                        dateTime: endDateTime,
-                        timeZone: 'Asia/Tokyo'
-                    },
-                    reminders: {
-                        useDefault: false,
-                        overrides: [
-                            { method: 'popup', minutes: 60 }  // 1時間前に通知
-                        ]
-                    }
-                };
-            } else {
-                // タスクの場合
-                const taskTime = memo.taskTime || '09:00';
-                const startDateTime = `${memo.date}T${taskTime}:00`;
-                const endDateTime = `${memo.date}T${taskTime}:00`;
-                
-                event = {
-                    summary: `📌 ${memo.content}`,
-                    description: 'タスク - 家計簿アプリから登録',
-                    start: {
-                        dateTime: startDateTime,
-                        timeZone: 'Asia/Tokyo'
-                    },
-                    end: {
-                        dateTime: endDateTime,
-                        timeZone: 'Asia/Tokyo'
-                    },
-                    reminders: {
-                        useDefault: false,
-                        overrides: [
-                            { method: 'popup', minutes: 0 }  // 時刻丁度に通知
-                        ]
-                    }
-                };
-            }
-
-            const response = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+            const isSchedule = memo.type === 'schedule';
+            const event = {
+                summary: isSchedule ? memo.content : `📌 ${memo.content}`,
+                description: isSchedule ? '家計簿アプリから登録' : 'タスク - 家計簿アプリから登録',
+                start: { dateTime: `${memo.date}T${memo.startTime || memo.taskTime || '09:00'}:00`, timeZone: 'Asia/Tokyo' },
+                end: { dateTime: `${memo.date}T${memo.endTime || memo.taskTime || '10:00'}:00`, timeZone: 'Asia/Tokyo' },
+                reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: isSchedule ? 60 : 0 }] }
+            };
+            const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${this.gcalAccessToken}`,
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Authorization': `Bearer ${this.gcalAccessToken}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify(event)
             });
-
-            if (response.ok) {
-                const data = await response.json();
-                return data.id;  // GoogleカレンダーのイベントIDを返す
-            } else {
-                const error = await response.json();
-                console.error('Googleカレンダー登録エラー:', error);
-                
-                // トークン期限切れの場合
-                if (response.status === 401) {
-                    this.gcalConnected = false;
-                    this.gcalAccessToken = null;
-                    localStorage.removeItem('gcal_access_token');
-                    localStorage.removeItem('gcal_token_expiry');
-                    this.updateGcalStatus();
-                    Utils.showToast('Googleカレンダーの認証が切れました。再連携してください');
-                }
-                return null;
-            }
-        } catch (error) {
-            console.error('Googleカレンダー連携エラー:', error);
+            if (res.ok) return (await res.json()).id;
+            if (res.status === 401) this._handleTokenExpired();
             return null;
-        }
+        } catch (e) { console.error('Googleカレンダー連携エラー:', e); return null; }
+    }
+
+    _handleTokenExpired() {
+        this.gcalConnected = false;
+        this.gcalAccessToken = null;
+        localStorage.removeItem('gcal_access_token');
+        localStorage.removeItem('gcal_token_expiry');
+        this.updateGcalStatus();
+        Utils.showToast('Googleカレンダーの認証が切れました');
     }
 
     async deleteGoogleCalendarEvent(eventId) {
-        if (!this.gcalConnected || !this.gcalAccessToken || !eventId) {
-            return false;
-        }
-
+        if (!this.gcalConnected || !this.gcalAccessToken || !eventId) return false;
         try {
-            const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${this.gcalAccessToken}`
-                }
+            const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`, {
+                method: 'DELETE', headers: { 'Authorization': `Bearer ${this.gcalAccessToken}` }
             });
-
-            if (response.ok || response.status === 204) {
-                return true;
-            } else {
-                console.error('Googleカレンダー削除エラー:', response.status);
-                return false;
-            }
-        } catch (error) {
-            console.error('Googleカレンダー削除エラー:', error);
-            return false;
-        }
+            return res.ok || res.status === 204;
+        } catch (e) { console.error('Googleカレンダー削除エラー:', e); return false; }
     }
 
-    // ========== データ読み込み ==========
+    // ==================== データ読み込み ====================
 
     async loadUsers() {
-        const usersCol = collection(db, 'holidayUsers');
-        const q = query(usersCol, orderBy('order', 'asc'));
-        
-        onSnapshot(q, (snapshot) => {
-            this.users = [];
-            snapshot.forEach(doc => {
-                this.users.push({
-                    id: doc.id,
-                    ...doc.data()
-                });
-            });
+        onSnapshot(query(collection(db, 'holidayUsers'), orderBy('order', 'asc')), (snap) => {
+            this.users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             this.updateUsersList();
             this.renderCalendar();
         });
     }
 
     async loadHolidays() {
-        const holidaysCol = collection(db, 'holidays');
-        
-        onSnapshot(holidaysCol, (snapshot) => {
-            this.holidays = [];
-            snapshot.forEach(doc => {
-                this.holidays.push({
-                    id: doc.id,
-                    ...doc.data()
-                });
-            });
+        onSnapshot(collection(db, 'holidays'), (snap) => {
+            this.holidays = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             this.renderCalendar();
         });
     }
 
     async loadMemos() {
-        const memosCol = collection(db, 'calendarMemos');
-        
-        onSnapshot(memosCol, (snapshot) => {
-            this.memos = [];
-            snapshot.forEach(doc => {
-                this.memos.push({
-                    id: doc.id,
-                    ...doc.data()
-                });
-            });
+        onSnapshot(collection(db, 'calendarMemos'), (snap) => {
+            this.memos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             this.renderCalendar();
-            if (this.memoListVisible) {
-                this.renderMemoList();
-            }
+            if (this.memoListVisible) this.renderMemoList();
         });
     }
 
     updateUsersList() {
-        const usersList = document.getElementById('usersList');
-        
-        if (this.users.length === 0) {
-            usersList.innerHTML = '<span class="no-users">ユーザーが登録されていません</span>';
-            return;
-        }
-        
-        let html = '';
-        this.users.forEach(user => {
-            html += `
-                <div class="user-tag">
-                    <div class="user-color-dot" style="background-color: ${user.color}"></div>
-                    <span>${user.name}</span>
-                </div>
-            `;
-        });
-        
-        usersList.innerHTML = html;
+        const el = document.getElementById('usersList');
+        if (!el) return;
+        el.innerHTML = this.users.length === 0
+            ? '<span class="no-users">ユーザーが登録されていません</span>'
+            : this.users.map(u => `<div class="user-tag"><div class="user-color-dot" style="background-color:${u.color}"></div><span>${u.name}</span></div>`).join('');
     }
 
+    // ==================== 月切り替え ====================
+
     changeMonth(delta) {
-        this.currentMonth += delta;
-        if (this.currentMonth > 12) {
-            this.currentMonth = 1;
-            this.currentYear++;
-        } else if (this.currentMonth < 1) {
-            this.currentMonth = 12;
-            this.currentYear--;
-        }
+        this._adjustMonth('current', delta);
         this.renderCalendar();
-        if (this.memoListVisible) {
-            this.renderMemoList();
-        }
+        if (this.memoListVisible) this.renderMemoList();
     }
 
     changeEditMonth(delta) {
-        this.editMonth += delta;
-        if (this.editMonth > 12) {
-            this.editMonth = 1;
-            this.editYear++;
-        } else if (this.editMonth < 1) {
-            this.editMonth = 12;
-            this.editYear--;
-        }
+        this._adjustMonth('edit', delta);
         this.renderEditCalendar();
     }
 
+    _adjustMonth(type, delta) {
+        const y = type === 'edit' ? 'editYear' : 'currentYear';
+        const m = type === 'edit' ? 'editMonth' : 'currentMonth';
+        this[m] += delta;
+        if (this[m] > 12) { this[m] = 1; this[y]++; }
+        else if (this[m] < 1) { this[m] = 12; this[y]--; }
+    }
+
+    // ==================== カレンダー描画 ====================
+
     renderCalendar() {
-        document.getElementById('calendarCurrentMonth').textContent = 
-            this.currentYear + '年' + this.currentMonth + '月';
-
-        const firstDay = new Date(this.currentYear, this.currentMonth - 1, 1);
-        const lastDay = new Date(this.currentYear, this.currentMonth, 0);
-        const daysInMonth = lastDay.getDate();
-        const startDayOfWeek = firstDay.getDay();
-
-        let html = '';
+        const monthEl = document.getElementById('calendarCurrentMonth');
+        const calEl = document.getElementById('holidayCalendar');
+        if (!monthEl || !calEl) return;
         
-        ['日', '月', '火', '水', '木', '金', '土'].forEach(day => {
-            html += '<div class="calendar-weekday">' + day + '</div>';
-        });
+        monthEl.textContent = `${this.currentYear}年${this.currentMonth}月`;
+        const firstDay = new Date(this.currentYear, this.currentMonth - 1, 1);
+        const daysInMonth = new Date(this.currentYear, this.currentMonth, 0).getDate();
+        const startDow = firstDay.getDay();
+        const todayStr = Utils.formatDateString(new Date());
+        const prevDays = new Date(this.currentYear, this.currentMonth - 1, 0).getDate();
 
-        const prevMonthDays = new Date(this.currentYear, this.currentMonth - 1, 0).getDate();
-        for (let i = startDayOfWeek - 1; i >= 0; i--) {
-            html += '<div class="calendar-date-cell other-month">';
-            html += '<div class="calendar-date-number">' + (prevMonthDays - i) + '</div>';
-            html += '</div>';
+        let html = WEEKDAYS.map(d => `<div class="calendar-weekday">${d}</div>`).join('');
+        
+        for (let i = startDow - 1; i >= 0; i--) {
+            html += `<div class="calendar-date-cell other-month"><div class="calendar-date-number">${prevDays - i}</div></div>`;
         }
 
-        const today = new Date();
-        const todayStr = today.getFullYear() + '-' + 
-                       String(today.getMonth() + 1).padStart(2, '0') + '-' +
-                       String(today.getDate()).padStart(2, '0');
-
         for (let day = 1; day <= daysInMonth; day++) {
-            const dateStr = this.currentYear + '-' + 
-                          String(this.currentMonth).padStart(2, '0') + '-' +
-                          String(day).padStart(2, '0');
-            
+            const dateStr = `${this.currentYear}-${String(this.currentMonth).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
             const isToday = dateStr === todayStr;
-            const dayHolidays = this.holidays.filter(h => h.date === dateStr);
-            const dayMemos = this.memos.filter(m => m.date === dateStr);
-            const hasMemos = dayMemos.length > 0;
-
-            html += `<div class="calendar-date-cell${isToday ? ' today' : ''}${hasMemos ? ' has-memo' : ''}" onclick="app.holidayCalendar.showDateDetail('${dateStr}')">`;
-            html += '<div class="calendar-date-number">' + day + '</div>';
-            html += '<div class="calendar-holiday-users">';
+            const dayH = this.holidays.filter(h => h.date === dateStr);
+            const dayM = this.memos.filter(m => m.date === dateStr);
             
-            // メモインジケーター
-            if (hasMemos) {
-                const taskCount = dayMemos.filter(m => m.type === 'task').length;
-                const scheduleCount = dayMemos.filter(m => m.type === 'schedule').length;
+            html += `<div class="calendar-date-cell${isToday ? ' today' : ''}${dayM.length ? ' has-memo' : ''}" onclick="app.holidayCalendar.showDateDetail('${dateStr}')">`;
+            html += `<div class="calendar-date-number">${day}</div><div class="calendar-holiday-users">`;
+            
+            if (dayM.length) {
+                const tc = dayM.filter(m => m.type === 'task').length;
+                const sc = dayM.filter(m => m.type === 'schedule').length;
                 html += '<div class="calendar-memo-indicator">';
-                if (taskCount > 0) html += `<span class="memo-badge task">📌${taskCount}</span>`;
-                if (scheduleCount > 0) html += `<span class="memo-badge schedule">🗓️${scheduleCount}</span>`;
+                if (tc) html += `<span class="memo-badge task">📌${tc}</span>`;
+                if (sc) html += `<span class="memo-badge schedule">🗓️${sc}</span>`;
                 html += '</div>';
             }
             
-            const displayUsers = dayHolidays.slice(0, 3);
-            displayUsers.forEach(holiday => {
-                const user = this.users.find(u => u.id === holiday.userId);
-                if (user) {
-                    html += `
-                        <div class="calendar-holiday-user">
-                            <div class="calendar-holiday-dot" style="background-color: ${user.color}"></div>
-                            <span class="calendar-holiday-name">${user.name}</span>
-                        </div>
-                    `;
-                }
+            dayH.slice(0, 3).forEach(h => {
+                const u = this.users.find(x => x.id === h.userId);
+                if (u) html += `<div class="calendar-holiday-user"><div class="calendar-holiday-dot" style="background-color:${u.color}"></div><span class="calendar-holiday-name">${u.name}</span></div>`;
             });
-            
-            if (dayHolidays.length > 3) {
-                html += '<div class="calendar-more-users">+' + (dayHolidays.length - 3) + '</div>';
-            }
-            
+            if (dayH.length > 3) html += `<div class="calendar-more-users">+${dayH.length - 3}</div>`;
             html += '</div></div>';
         }
 
-        const remainingDays = 42 - (startDayOfWeek + daysInMonth);
-        for (let i = 1; i <= remainingDays; i++) {
-            html += '<div class="calendar-date-cell other-month">';
-            html += '<div class="calendar-date-number">' + i + '</div>';
-            html += '</div>';
+        const remain = CALENDAR_CELLS - (startDow + daysInMonth);
+        for (let i = 1; i <= remain; i++) {
+            html += `<div class="calendar-date-cell other-month"><div class="calendar-date-number">${i}</div></div>`;
         }
-
-        document.getElementById('holidayCalendar').innerHTML = html;
+        calEl.innerHTML = html;
     }
 
-    // ========== メモ機能 ==========
+    // ==================== メモ機能 ====================
 
     showMemoForm(dateStr = null) {
         this.selectedDateForMemo = dateStr;
         this.selectedMemoType = 'task';
-        
-        // フォームをリセット
-        document.getElementById('memoDate').value = dateStr || this.getTodayStr();
+        document.getElementById('memoDate').value = dateStr || Utils.getTodayString();
         document.getElementById('memoContent').value = '';
         document.getElementById('memoStartTime').value = '';
         document.getElementById('memoEndTime').value = '';
         document.getElementById('memoTaskTime').value = '09:00';
         document.getElementById('memoNotification').checked = true;
-        document.getElementById('memoTimeSection').style.display = 'none';
-        document.getElementById('memoTaskTimeSection').style.display = 'block';
-        
-        // タイプボタンをリセット
-        document.querySelectorAll('.memo-type-btn').forEach(btn => {
-            btn.classList.remove('active');
-            if (btn.dataset.type === 'task') btn.classList.add('active');
-        });
-
-        // 通知説明を更新
+        Utils.setVisible('memoTimeSection', false);
+        Utils.setVisible('memoTaskTimeSection', true);
+        document.querySelectorAll('.memo-type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === 'task'));
         this.updateNotificationNote();
-        
-        document.getElementById('memoFormModal').classList.add('show');
+        Utils.showModal('memoFormModal');
     }
 
-    showMemoFormForDate() {
-        const dateStr = this.selectedDateForMemo;
-        this.closeDateDetail();
-        this.showMemoForm(dateStr);
-    }
-
-    closeMemoForm() {
-        document.getElementById('memoFormModal').classList.remove('show');
-    }
+    showMemoFormForDate() { const d = this.selectedDateForMemo; this.closeDateDetail(); this.showMemoForm(d); }
+    closeMemoForm() { Utils.closeModal('memoFormModal'); }
 
     selectMemoType(type) {
         this.selectedMemoType = type;
-        document.querySelectorAll('.memo-type-btn').forEach(btn => {
-            btn.classList.remove('active');
-            if (btn.dataset.type === type) btn.classList.add('active');
-        });
-        
-        // 予定の場合は時刻入力を表示、タスクの場合は通知時刻を表示
-        const timeSection = document.getElementById('memoTimeSection');
-        const taskTimeSection = document.getElementById('memoTaskTimeSection');
-        
-        if (type === 'schedule') {
-            timeSection.style.display = 'block';
-            taskTimeSection.style.display = 'none';
-        } else {
-            timeSection.style.display = 'none';
-            taskTimeSection.style.display = 'block';
-        }
-
+        document.querySelectorAll('.memo-type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === type));
+        Utils.setVisible('memoTimeSection', type === 'schedule');
+        Utils.setVisible('memoTaskTimeSection', type === 'task');
         this.updateNotificationNote();
     }
 
     updateNotificationNote() {
-        const note = document.getElementById('gcalNotificationNote');
-        if (note) {
-            if (this.selectedMemoType === 'schedule') {
-                note.textContent = '※ 予定の1時間前に通知されます';
-            } else {
-                note.textContent = '※ 設定時刻ちょうどに通知されます';
-            }
-        }
+        const n = document.getElementById('gcalNotificationNote');
+        if (n) n.textContent = this.selectedMemoType === 'schedule' ? '※ 予定の1時間前に通知' : '※ 設定時刻に通知';
     }
 
-    getTodayStr() {
-        const today = new Date();
-        return today.getFullYear() + '-' + 
-               String(today.getMonth() + 1).padStart(2, '0') + '-' +
-               String(today.getDate()).padStart(2, '0');
-    }
+    getTodayStr() { return Utils.formatDateString(new Date()); }
 
     async saveMemo() {
-        const date = document.getElementById('memoDate').value;
-        const content = document.getElementById('memoContent').value.trim();
-        const notification = document.getElementById('memoNotification').checked;
-        
-        if (!date) {
-            Utils.showToast('日付を選択してください');
-            return;
-        }
-        
-        if (!content) {
-            Utils.showToast('内容を入力してください');
-            return;
-        }
+        const date = document.getElementById('memoDate')?.value;
+        const content = document.getElementById('memoContent')?.value.trim();
+        const notification = document.getElementById('memoNotification')?.checked;
+        if (!date) return Utils.showToast('日付を選択してください');
+        if (!content) return Utils.showToast('内容を入力してください');
 
-        const memoData = {
-            type: this.selectedMemoType,
-            date: date,
-            content: content,
-            notification: notification,
-            createdAt: new Date().toISOString()
-        };
-
+        const memoData = { type: this.selectedMemoType, date, content, notification, createdAt: new Date().toISOString() };
         if (this.selectedMemoType === 'schedule') {
-            memoData.startTime = document.getElementById('memoStartTime').value;
-            memoData.endTime = document.getElementById('memoEndTime').value;
-            
-            if (!memoData.startTime) {
-                Utils.showToast('開始時刻を入力してください');
-                return;
-            }
+            memoData.startTime = document.getElementById('memoStartTime')?.value;
+            memoData.endTime = document.getElementById('memoEndTime')?.value;
+            if (!memoData.startTime) return Utils.showToast('開始時刻を入力してください');
         } else {
-            memoData.taskTime = document.getElementById('memoTaskTime').value;
-            
-            if (notification && !memoData.taskTime) {
-                Utils.showToast('通知時刻を入力してください');
-                return;
-            }
+            memoData.taskTime = document.getElementById('memoTaskTime')?.value;
+            if (notification && !memoData.taskTime) return Utils.showToast('通知時刻を入力してください');
         }
 
         try {
-            // Googleカレンダーに登録（通知ONかつ連携中の場合）
-            let gcalEventId = null;
             if (notification && this.gcalConnected) {
-                gcalEventId = await this.createGoogleCalendarEvent(memoData);
-                if (gcalEventId) {
-                    memoData.gcalEventId = gcalEventId;
-                    Utils.showToast('Googleカレンダーにも登録しました');
-                }
+                const gcalId = await this.createGoogleCalendarEvent(memoData);
+                if (gcalId) { memoData.gcalEventId = gcalId; Utils.showToast('Googleカレンダーにも登録しました'); }
             }
-
-            // Firestoreに保存
             await addDoc(collection(db, 'calendarMemos'), memoData);
-            
-            if (!gcalEventId && notification) {
-                Utils.showToast('メモを保存しました（Googleカレンダー未連携）');
-            } else if (!notification) {
-                Utils.showToast('メモを保存しました');
-            }
-            
+            if (!memoData.gcalEventId && notification) Utils.showToast('メモを保存しました（Googleカレンダー未連携）');
+            else if (!notification) Utils.showToast('メモを保存しました');
             this.closeMemoForm();
-        } catch (error) {
-            console.error('メモ保存エラー:', error);
-            Utils.showToast('保存に失敗しました');
-        }
+        } catch (e) { console.error('メモ保存エラー:', e); Utils.showToast('保存に失敗しました'); }
     }
 
     toggleMemoList() {
         this.memoListVisible = !this.memoListVisible;
-        const container = document.getElementById('memoListContainer');
-        
-        if (this.memoListVisible) {
-            container.style.display = 'block';
-            this.renderMemoList();
-        } else {
-            container.style.display = 'none';
-        }
+        Utils.setVisible('memoListContainer', this.memoListVisible);
+        if (this.memoListVisible) this.renderMemoList();
     }
 
     renderMemoList() {
-        const container = document.getElementById('memoList');
+        const c = document.getElementById('memoList');
+        if (!c) return;
+        const monthStr = `${this.currentYear}-${String(this.currentMonth).padStart(2,'0')}`;
+        const memos = this.memos.filter(m => m.date?.startsWith(monthStr)).sort((a,b) => a.date !== b.date ? b.date.localeCompare(a.date) : (a.type === 'task' ? -1 : 1));
         
-        // 現在の月のメモをフィルタ
-        const monthStr = this.currentYear + '-' + String(this.currentMonth).padStart(2, '0');
-        const monthMemos = this.memos.filter(m => m.date && m.date.startsWith(monthStr));
-        
-        if (monthMemos.length === 0) {
-            container.innerHTML = '<div class="no-memos">この月のメモはありません</div>';
-            return;
-        }
-
-        // 日付降順、同日はタスクを上にソート
-        monthMemos.sort((a, b) => {
-            if (a.date !== b.date) {
-                return b.date.localeCompare(a.date);
+        if (!memos.length) { c.innerHTML = '<div class="no-memos">この月のメモはありません</div>'; return; }
+        let html = '', curDate = '';
+        memos.forEach(m => {
+            if (m.date !== curDate) {
+                curDate = m.date;
+                html += `<div class="memo-date-header">${m.date.substring(5).replace('-','/')} (${WEEKDAYS[new Date(m.date).getDay()]})</div>`;
             }
-            // 同日の場合、タスクを先に
-            if (a.type === 'task' && b.type !== 'task') return -1;
-            if (a.type !== 'task' && b.type === 'task') return 1;
-            return 0;
+            const icon = m.type === 'task' ? '📌' : '🗓️';
+            const time = m.type === 'schedule' && m.startTime ? `<span class="memo-time">${m.startTime}${m.endTime ? ' - '+m.endTime : ''}</span>` : m.taskTime ? `<span class="memo-time">🔔 ${m.taskTime}</span>` : '';
+            html += `<div class="memo-item ${m.type}"><div class="memo-item-content"><span class="memo-icon">${icon}</span><div class="memo-details"><span class="memo-text">${m.content}</span>${time}</div>${m.gcalEventId ? '<span class="memo-gcal-icon">📅</span>' : ''}</div><button class="memo-delete-btn" onclick="app.holidayCalendar.deleteMemo('${m.id}')">❌</button></div>`;
         });
-
-        let html = '';
-        let currentDate = '';
-
-        monthMemos.forEach(memo => {
-            if (memo.date !== currentDate) {
-                currentDate = memo.date;
-                const dateObj = new Date(memo.date);
-                const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
-                const dayName = dayNames[dateObj.getDay()];
-                html += `<div class="memo-date-header">${memo.date.substring(5).replace('-', '/')} (${dayName})</div>`;
-            }
-
-            const icon = memo.type === 'task' ? '📌' : '🗓️';
-            const typeClass = memo.type === 'task' ? 'task' : 'schedule';
-            let timeStr = '';
-            
-            if (memo.type === 'schedule' && memo.startTime) {
-                timeStr = `<span class="memo-time">${memo.startTime}${memo.endTime ? ' - ' + memo.endTime : ''}</span>`;
-            } else if (memo.type === 'task' && memo.taskTime) {
-                timeStr = `<span class="memo-time">🔔 ${memo.taskTime}</span>`;
-            }
-
-            const gcalIcon = memo.gcalEventId ? '📅' : '';
-
-            html += `
-                <div class="memo-item ${typeClass}">
-                    <div class="memo-item-content">
-                        <span class="memo-icon">${icon}</span>
-                        <div class="memo-details">
-                            <span class="memo-text">${memo.content}</span>
-                            ${timeStr}
-                        </div>
-                        ${gcalIcon ? `<span class="memo-gcal-icon">${gcalIcon}</span>` : ''}
-                    </div>
-                    <button class="memo-delete-btn" onclick="app.holidayCalendar.deleteMemo('${memo.id}')">❌</button>
-                </div>
-            `;
-        });
-
-        container.innerHTML = html;
+        c.innerHTML = html;
     }
 
     async deleteMemo(memoId) {
         try {
-            // メモ情報を取得
             const memo = this.memos.find(m => m.id === memoId);
-            
-            // Googleカレンダーからも削除
-            if (memo && memo.gcalEventId) {
-                const deleted = await this.deleteGoogleCalendarEvent(memo.gcalEventId);
-                if (deleted) {
-                    Utils.showToast('Googleカレンダーからも削除しました');
-                }
-            }
-            
-            // Firestoreから削除
+            if (memo?.gcalEventId && await this.deleteGoogleCalendarEvent(memo.gcalEventId)) Utils.showToast('Googleカレンダーからも削除しました');
             const { doc } = await import('./firebase-config.js');
             await deleteDoc(doc(db, 'calendarMemos', memoId));
-            
-            if (!memo?.gcalEventId) {
-                Utils.showToast('メモを削除しました');
-            }
-        } catch (error) {
-            console.error('メモ削除エラー:', error);
-            Utils.showToast('削除に失敗しました');
-        }
+            if (!memo?.gcalEventId) Utils.showToast('メモを削除しました');
+        } catch (e) { console.error('メモ削除エラー:', e); Utils.showToast('削除に失敗しました'); }
     }
 
-    // ========== 日付詳細モーダル ==========
+    // ==================== 日付詳細モーダル ====================
 
     showDateDetail(dateStr) {
         this.selectedDateForMemo = dateStr;
+        const d = new Date(dateStr);
+        document.getElementById('dateDetailTitle').textContent = `📅 ${d.getMonth()+1}/${d.getDate()} (${WEEKDAYS[d.getDay()]})`;
         
-        const dateObj = new Date(dateStr);
-        const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
-        const dayName = dayNames[dateObj.getDay()];
-        const displayDate = `${dateObj.getMonth() + 1}/${dateObj.getDate()} (${dayName})`;
-        
-        document.getElementById('dateDetailTitle').textContent = `📅 ${displayDate}`;
-        
-        // 休日ユーザー表示
-        const dayHolidays = this.holidays.filter(h => h.date === dateStr);
-        const holidaysHtml = dayHolidays.length > 0 ? 
-            '<div class="detail-section-title">🏖️ 休日</div>' +
-            dayHolidays.map(h => {
-                const user = this.users.find(u => u.id === h.userId);
-                return user ? `
-                    <div class="detail-holiday-user">
-                        <div class="user-color-dot" style="background-color: ${user.color}"></div>
-                        <span>${user.name}</span>
-                    </div>
-                ` : '';
-            }).join('') : '';
-        
-        document.getElementById('dateDetailHolidays').innerHTML = holidaysHtml;
-        
-        // メモ表示
-        const dayMemos = this.memos.filter(m => m.date === dateStr);
-        
-        // タスクを先に、予定を後に
-        dayMemos.sort((a, b) => {
-            if (a.type === 'task' && b.type !== 'task') return -1;
-            if (a.type !== 'task' && b.type === 'task') return 1;
-            return 0;
+        const holidays = this.holidays.filter(h => h.date === dateStr);
+        let hHtml = holidays.length ? '<div class="detail-section-title">🏖️ 休日</div>' + holidays.map(h => {
+            const u = this.users.find(x => x.id === h.userId);
+            return u ? `<div class="detail-holiday-user"><div class="user-color-dot" style="background-color:${u.color}"></div><span>${u.name}</span></div>` : '';
+        }).join('') : '';
+        document.getElementById('dateDetailHolidays').innerHTML = hHtml;
+
+        const memos = this.memos.filter(m => m.date === dateStr).sort((a,b) => a.type === 'task' ? -1 : 1);
+        let mHtml = memos.length ? '<div class="detail-section-title">📝 メモ</div>' : '<div class="no-memos">メモはありません</div>';
+        memos.forEach(m => {
+            const icon = m.type === 'task' ? '📌' : '🗓️';
+            const time = m.type === 'schedule' && m.startTime ? `<div class="detail-memo-time">${m.startTime}${m.endTime ? ' - '+m.endTime : ''}</div>` : m.taskTime ? `<div class="detail-memo-time">🔔 ${m.taskTime}</div>` : '';
+            mHtml += `<div class="detail-memo-item ${m.type}"><div class="detail-memo-main"><span class="memo-icon">${icon}</span><span class="detail-memo-content">${m.content}${m.gcalEventId ? ' 📅' : ''}</span></div>${time}<button class="memo-delete-btn small" onclick="app.holidayCalendar.deleteMemoFromDetail('${m.id}')">❌</button></div>`;
         });
-
-        let memosHtml = '';
-        if (dayMemos.length > 0) {
-            memosHtml = '<div class="detail-section-title">📝 メモ</div>';
-            dayMemos.forEach(memo => {
-                const icon = memo.type === 'task' ? '📌' : '🗓️';
-                let timeStr = '';
-                if (memo.type === 'schedule' && memo.startTime) {
-                    timeStr = `<div class="detail-memo-time">${memo.startTime}${memo.endTime ? ' - ' + memo.endTime : ''}</div>`;
-                } else if (memo.type === 'task' && memo.taskTime) {
-                    timeStr = `<div class="detail-memo-time">🔔 ${memo.taskTime}</div>`;
-                }
-                const gcalIcon = memo.gcalEventId ? ' 📅' : '';
-                
-                memosHtml += `
-                    <div class="detail-memo-item ${memo.type}">
-                        <div class="detail-memo-main">
-                            <span class="memo-icon">${icon}</span>
-                            <span class="detail-memo-content">${memo.content}${gcalIcon}</span>
-                        </div>
-                        ${timeStr}
-                        <button class="memo-delete-btn small" onclick="app.holidayCalendar.deleteMemoFromDetail('${memo.id}')">❌</button>
-                    </div>
-                `;
-            });
-        } else {
-            memosHtml = '<div class="no-memos">メモはありません</div>';
-        }
-        
-        document.getElementById('dateDetailMemos').innerHTML = memosHtml;
-        document.getElementById('dateDetailModal').classList.add('show');
+        document.getElementById('dateDetailMemos').innerHTML = mHtml;
+        Utils.showModal('dateDetailModal');
     }
 
-    closeDateDetail() {
-        document.getElementById('dateDetailModal').classList.remove('show');
-    }
+    closeDateDetail() { Utils.closeModal('dateDetailModal'); }
+    async deleteMemoFromDetail(id) { await this.deleteMemo(id); if (this.selectedDateForMemo) this.showDateDetail(this.selectedDateForMemo); }
 
-    async deleteMemoFromDetail(memoId) {
-        await this.deleteMemo(memoId);
-        // モーダルを再描画
-        if (this.selectedDateForMemo) {
-            this.showDateDetail(this.selectedDateForMemo);
-        }
-    }
+    // ==================== ユーザー管理 ====================
 
-    // ========== ユーザー管理 ==========
-
-    showUserManagement() {
-        this.renderUserList();
-        document.getElementById('userModal').classList.add('show');
-    }
-
-    closeUserModal() {
-        document.getElementById('userModal').classList.remove('show');
-    }
+    showUserManagement() { this.renderUserList(); Utils.showModal('userModal'); }
+    closeUserModal() { Utils.closeModal('userModal'); }
 
     renderUserList() {
-        const userListModal = document.getElementById('userListModal');
-        
-        if (this.users.length === 0) {
-            userListModal.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.5);">ユーザーが登録されていません</p>';
-            return;
-        }
-        
-        let html = '';
-        this.users.forEach(user => {
-            html += `
-                <div class="user-item" onclick="app.holidayCalendar.editUser('${user.id}')">
-                    <div class="user-color-dot" style="background-color: ${user.color}"></div>
-                    <span>${user.name}</span>
-                </div>
-            `;
-        });
-        
-        userListModal.innerHTML = html;
+        const el = document.getElementById('userListModal');
+        if (!el) return;
+        el.innerHTML = this.users.length === 0
+            ? '<p style="text-align:center;color:rgba(255,255,255,0.5);">ユーザーが登録されていません</p>'
+            : this.users.map(u => `<div class="user-item" onclick="app.holidayCalendar.editUser('${u.id}')"><div class="user-color-dot" style="background-color:${u.color}"></div><span>${u.name}</span></div>`).join('');
     }
 
     showUserForm(userId = null) {
         this.editingUserId = userId;
-        
-        if (userId) {
-            const user = this.users.find(u => u.id === userId);
-            document.getElementById('userFormTitle').textContent = '✏️ ユーザー編集';
-            document.getElementById('userName').value = user.name;
-            this.selectedColor = user.color;
-            document.getElementById('deleteUserBtn').style.display = 'block';
-        } else {
-            document.getElementById('userFormTitle').textContent = '✨ ユーザー新規登録';
-            document.getElementById('userName').value = '';
-            this.selectedColor = null;
-            document.getElementById('deleteUserBtn').style.display = 'none';
-        }
-        
+        const user = userId ? this.users.find(u => u.id === userId) : null;
+        document.getElementById('userFormTitle').textContent = userId ? '✏️ ユーザー編集' : '✨ ユーザー新規登録';
+        document.getElementById('userName').value = user?.name || '';
+        this.selectedColor = user?.color || null;
+        document.getElementById('deleteUserBtn').style.display = userId ? 'block' : 'none';
         this.renderColorPalette();
-        document.getElementById('userModal').classList.remove('show');
-        document.getElementById('userFormModal').classList.add('show');
+        Utils.closeModal('userModal');
+        Utils.showModal('userFormModal');
     }
 
-    editUser(userId) {
-        this.showUserForm(userId);
-    }
-
-    closeUserForm() {
-        document.getElementById('userFormModal').classList.remove('show');
-        document.getElementById('userModal').classList.add('show');
-    }
+    editUser(userId) { this.showUserForm(userId); }
+    closeUserForm() { Utils.closeModal('userFormModal'); Utils.showModal('userModal'); }
 
     renderColorPalette() {
-        const palette = document.getElementById('colorPalette');
-        const usedColors = this.users
-            .filter(u => u.id !== this.editingUserId)
-            .map(u => u.color);
-        
-        let html = '';
-        this.colors.forEach(color => {
-            const isUsed = usedColors.includes(color.value);
-            const isSelected = this.selectedColor === color.value;
-            const classes = ['color-option'];
-            if (isUsed) classes.push('disabled');
-            if (isSelected) classes.push('selected');
-            
-            html += `
-                <div class="${classes.join(' ')}" 
-                     style="background-color: ${color.value}"
-                     onclick="app.holidayCalendar.selectColor('${color.value}', ${isUsed})">
-                    ${isSelected ? '✓' : color.emoji}
-                </div>
-            `;
-        });
-        
-        palette.innerHTML = html;
+        const el = document.getElementById('colorPalette');
+        if (!el) return;
+        const usedColors = this.users.filter(u => u.id !== this.editingUserId).map(u => u.color);
+        el.innerHTML = this.colors.map(c => {
+            const used = usedColors.includes(c.value), sel = this.selectedColor === c.value;
+            return `<div class="color-option${used ? ' disabled' : ''}${sel ? ' selected' : ''}" style="background-color:${c.value}" onclick="app.holidayCalendar.selectColor('${c.value}',${used})">${sel ? '✓' : c.emoji}</div>`;
+        }).join('');
     }
 
-    selectColor(colorValue, isUsed) {
-        if (isUsed) return;
-        this.selectedColor = colorValue;
-        this.renderColorPalette();
-    }
+    selectColor(val, used) { if (!used) { this.selectedColor = val; this.renderColorPalette(); } }
 
     async saveUser() {
-        const name = document.getElementById('userName').value.trim();
-        
-        if (!name) {
-            Utils.showToast('名前を入力してください');
-            return;
-        }
-        
-        if (!this.selectedColor) {
-            Utils.showToast('色を選択してください');
-            return;
-        }
-        
+        const name = document.getElementById('userName')?.value.trim();
+        if (!name) return Utils.showToast('名前を入力してください');
+        if (!this.selectedColor) return Utils.showToast('色を選択してください');
         try {
             if (this.editingUserId) {
                 const { updateDoc, doc } = await import('./firebase-config.js');
-                await updateDoc(doc(db, 'holidayUsers', this.editingUserId), {
-                    name: name,
-                    color: this.selectedColor
-                });
+                await updateDoc(doc(db, 'holidayUsers', this.editingUserId), { name, color: this.selectedColor });
                 Utils.showToast('更新しました');
             } else {
-                await addDoc(collection(db, 'holidayUsers'), {
-                    name: name,
-                    color: this.selectedColor,
-                    order: this.users.length,
-                    createdAt: new Date().toISOString()
-                });
+                await addDoc(collection(db, 'holidayUsers'), { name, color: this.selectedColor, order: this.users.length, createdAt: new Date().toISOString() });
                 Utils.showToast('登録しました');
             }
-            
-            document.getElementById('userFormModal').classList.remove('show');
-            document.getElementById('userModal').classList.add('show');
-        } catch (error) {
-            console.error('ユーザー保存エラー:', error);
-            Utils.showToast('保存に失敗しました');
-        }
+            Utils.closeModal('userFormModal'); Utils.showModal('userModal');
+        } catch (e) { console.error('ユーザー保存エラー:', e); Utils.showToast('保存に失敗しました'); }
     }
 
     async deleteUser() {
-        if (!this.editingUserId) return;
-        if (!confirm('このユーザーを削除しますか？関連する休日データも削除されます。')) return;
-        
+        if (!this.editingUserId || !confirm('このユーザーを削除しますか？')) return;
         try {
             const { doc } = await import('./firebase-config.js');
             await deleteDoc(doc(db, 'holidayUsers', this.editingUserId));
-            
-            const holidaysQuery = query(
-                collection(db, 'holidays'),
-                where('userId', '==', this.editingUserId)
-            );
-            const snapshot = await getDocs(holidaysQuery);
-            const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
-            await Promise.all(deletePromises);
-            
+            const snap = await getDocs(query(collection(db, 'holidays'), where('userId', '==', this.editingUserId)));
+            await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
             Utils.showToast('削除しました');
-            document.getElementById('userFormModal').classList.remove('show');
-            document.getElementById('userModal').classList.add('show');
-        } catch (error) {
-            console.error('ユーザー削除エラー:', error);
-            Utils.showToast('削除に失敗しました');
-        }
+            Utils.closeModal('userFormModal'); Utils.showModal('userModal');
+        } catch (e) { console.error('ユーザー削除エラー:', e); Utils.showToast('削除に失敗しました'); }
     }
 
-    // ========== 休日編集 ==========
+    // ==================== 休日編集 ====================
 
-    showHolidayUserSelect() {
-        this.renderHolidayUserSelect();
-        document.getElementById('holidayUserSelectModal').classList.add('show');
-    }
-
-    closeHolidayUserSelect() {
-        document.getElementById('holidayUserSelectModal').classList.remove('show');
-    }
+    showHolidayUserSelect() { this.renderHolidayUserSelect(); Utils.showModal('holidayUserSelectModal'); }
+    closeHolidayUserSelect() { Utils.closeModal('holidayUserSelectModal'); }
 
     renderHolidayUserSelect() {
-        const list = document.getElementById('holidayUserSelectList');
-        
-        if (this.users.length === 0) {
-            list.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.5);">先にユーザーを登録してください</p>';
-            return;
-        }
-        
-        let html = '';
-        this.users.forEach(user => {
-            html += `
-                <button class="holiday-user-btn" onclick="app.holidayCalendar.selectHolidayUser('${user.id}')" style="border-left: 4px solid ${user.color}">
-                    <span class="user-emoji">👤</span> ${user.name}
-                </button>
-            `;
-        });
-        
-        list.innerHTML = html;
+        const el = document.getElementById('holidayUserSelectList');
+        if (!el) return;
+        el.innerHTML = this.users.length === 0
+            ? '<p style="text-align:center;color:rgba(255,255,255,0.5);">先にユーザーを登録してください</p>'
+            : this.users.map(u => `<button class="holiday-user-btn" onclick="app.holidayCalendar.selectHolidayUser('${u.id}')" style="border-left:4px solid ${u.color}"><span class="user-emoji">👤</span> ${u.name}</button>`).join('');
     }
 
     selectHolidayUser(userId) {
@@ -971,96 +504,47 @@ export class HolidayCalendar {
 
     showHolidayEdit() {
         if (!this.selectedUser) return;
-        
         this.editYear = this.currentYear;
         this.editMonth = this.currentMonth;
-        
-        const userHolidays = this.holidays.filter(h => h.userId === this.selectedUser.id);
-        this.tempHolidays = userHolidays.map(h => h.date);
-        
-        document.getElementById('holidayEditTitle').textContent = 
-            `📅 ${this.selectedUser.name}さんの休日編集`;
-        
+        this.tempHolidays = this.holidays.filter(h => h.userId === this.selectedUser.id).map(h => h.date);
+        document.getElementById('holidayEditTitle').textContent = `📅 ${this.selectedUser.name}さんの休日編集`;
         this.renderEditCalendar();
-        document.getElementById('holidayEditModal').classList.add('show');
+        Utils.showModal('holidayEditModal');
     }
 
     renderEditCalendar() {
-        document.getElementById('editCalendarMonth').textContent = 
-            this.editYear + '年' + this.editMonth + '月';
-
-        const firstDay = new Date(this.editYear, this.editMonth - 1, 1);
-        const lastDay = new Date(this.editYear, this.editMonth, 0);
-        const daysInMonth = lastDay.getDate();
-        const startDayOfWeek = firstDay.getDay();
-
-        let html = '';
+        document.getElementById('editCalendarMonth').textContent = `${this.editYear}年${this.editMonth}月`;
+        const daysInMonth = new Date(this.editYear, this.editMonth, 0).getDate();
+        const startDow = new Date(this.editYear, this.editMonth - 1, 1).getDay();
         
-        ['日', '月', '火', '水', '木', '金', '土'].forEach(day => {
-            html += '<div class="edit-calendar-weekday">' + day + '</div>';
-        });
-
-        for (let i = 0; i < startDayOfWeek; i++) {
-            html += '<div class="edit-calendar-cell empty"></div>';
-        }
-
+        let html = WEEKDAYS.map(d => `<div class="edit-calendar-weekday">${d}</div>`).join('');
+        for (let i = 0; i < startDow; i++) html += '<div class="edit-calendar-cell empty"></div>';
+        
         for (let day = 1; day <= daysInMonth; day++) {
-            const dateStr = this.editYear + '-' + 
-                          String(this.editMonth).padStart(2, '0') + '-' +
-                          String(day).padStart(2, '0');
-            const isSelected = this.tempHolidays.includes(dateStr);
-            
-            html += `
-                <div class="edit-calendar-cell ${isSelected ? 'selected' : ''}" 
-                     onclick="app.holidayCalendar.toggleHoliday('${dateStr}')">
-                    ${day}
-                </div>
-            `;
+            const dateStr = `${this.editYear}-${String(this.editMonth).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+            const sel = this.tempHolidays.includes(dateStr);
+            html += `<div class="edit-calendar-cell${sel ? ' selected' : ''}" onclick="app.holidayCalendar.toggleHoliday('${dateStr}')">${day}</div>`;
         }
-
         document.getElementById('editCalendar').innerHTML = html;
     }
 
     toggleHoliday(dateStr) {
-        const index = this.tempHolidays.indexOf(dateStr);
-        if (index > -1) {
-            this.tempHolidays.splice(index, 1);
-        } else {
-            this.tempHolidays.push(dateStr);
-        }
+        const idx = this.tempHolidays.indexOf(dateStr);
+        if (idx > -1) this.tempHolidays.splice(idx, 1);
+        else this.tempHolidays.push(dateStr);
         this.renderEditCalendar();
     }
 
     async saveHolidays() {
         if (!this.selectedUser) return;
-        
         try {
-            const existingQuery = query(
-                collection(db, 'holidays'),
-                where('userId', '==', this.selectedUser.id)
-            );
-            const snapshot = await getDocs(existingQuery);
-            const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
-            await Promise.all(deletePromises);
-            
-            const addPromises = this.tempHolidays.map(date => 
-                addDoc(collection(db, 'holidays'), {
-                    userId: this.selectedUser.id,
-                    date: date,
-                    createdAt: new Date().toISOString()
-                })
-            );
-            await Promise.all(addPromises);
-            
+            const snap = await getDocs(query(collection(db, 'holidays'), where('userId', '==', this.selectedUser.id)));
+            await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
+            await Promise.all(this.tempHolidays.map(date => addDoc(collection(db, 'holidays'), { userId: this.selectedUser.id, date, createdAt: new Date().toISOString() })));
             Utils.showToast('休日を保存しました');
-            document.getElementById('holidayEditModal').classList.remove('show');
-        } catch (error) {
-            console.error('休日保存エラー:', error);
-            alert('保存に失敗しました');
-        }
+            Utils.closeModal('holidayEditModal');
+        } catch (e) { console.error('休日保存エラー:', e); alert('保存に失敗しました'); }
     }
 
-    cancelHolidayEdit() {
-        document.getElementById('holidayEditModal').classList.remove('show');
-    }
+    cancelHolidayEdit() { Utils.closeModal('holidayEditModal'); }
 }
