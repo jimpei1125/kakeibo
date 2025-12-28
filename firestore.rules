@@ -1,0 +1,123 @@
+// Firebase Security Rules
+// Firestoreコンソール（https://console.firebase.google.com）で設定してください
+// プロジェクト設定 > Firestore Database > ルール タブで以下を貼り付け
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ==================== ヘルパー関数 ====================
+    
+    // ログイン済みかチェック
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // 自分のデータかチェック（ユーザーIDフィールドがある場合）
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // ==================== 家計簿データ ====================
+    
+    // budgetData: 月ごとの予算データ
+    match /budgetData/{document} {
+      // 認証済みユーザーのみ読み書き可能
+      // 注意: 現在の実装では全ユーザーで共有されています
+      // ユーザーごとに分離する場合は、ドキュメントパスを変更してください
+      allow read, write: if isAuthenticated();
+    }
+    
+    // ==================== カレンダー関連 ====================
+    
+    // holidayUsers: 休日管理のユーザー
+    match /holidayUsers/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // holidays: 休日データ
+    match /holidays/{holidayId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // calendarMemos: カレンダーメモ
+    match /calendarMemos/{memoId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // ==================== 買い物リスト ====================
+    
+    // shoppingItems: 買い物リストアイテム
+    match /shoppingItems/{itemId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // shoppingTemplates: 買い物テンプレート
+    match /shoppingTemplates/{templateId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // ==================== より厳格なルール（オプション） ====================
+    
+    // 家族間で共有する場合は、familyIdフィールドを追加して以下のように設定
+    // 
+    // function isFamilyMember(familyId) {
+    //   return isAuthenticated() && 
+    //          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.familyId == familyId;
+    // }
+    //
+    // match /budgetData/{document} {
+    //   allow read, write: if isFamilyMember(resource.data.familyId);
+    // }
+    
+    // ==================== ユーザープロファイル（将来の拡張用） ====================
+    
+    // match /users/{userId} {
+    //   allow read: if isAuthenticated();
+    //   allow write: if isOwner(userId);
+    // }
+  }
+}
+
+/*
+==================== 設定手順 ====================
+
+1. Firebase Console（https://console.firebase.google.com）にアクセス
+2. プロジェクト「kakeibo-cc964」を選択
+3. 左メニューから「Firestore Database」を選択
+4. 「ルール」タブをクリック
+5. 上記のルールをコピーして貼り付け
+6. 「公開」ボタンをクリック
+
+==================== 認証の有効化 ====================
+
+1. Firebase Console > Authentication を選択
+2. 「Sign-in method」タブをクリック
+3. 以下を有効化:
+   - Google（推奨）
+   - 匿名（ゲストログイン用）
+
+4. Google認証の設定:
+   - 「Google」をクリック
+   - 「有効にする」をトグル
+   - プロジェクトのサポートメールを設定
+   - 「保存」をクリック
+
+5. 匿名認証の設定:
+   - 「匿名」をクリック
+   - 「有効にする」をトグル
+   - 「保存」をクリック
+
+==================== 注意事項 ====================
+
+- 現在のルールは「認証済みユーザー全員がすべてのデータにアクセス可能」です
+- 家族アプリとして使用する場合は適切ですが、
+  完全にプライベートなデータが必要な場合は、
+  ユーザーごとにデータを分離するルールに変更してください
+
+*/
