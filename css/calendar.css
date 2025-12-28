@@ -1228,3 +1228,261 @@
     font-size: 12px;
     margin-left: 5px;
 }
+
+/* ==================== Pull to Refresh ==================== */
+
+.pull-to-refresh-indicator {
+    height: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
+    border-radius: 12px;
+    margin-bottom: 10px;
+    transition: height 0.2s ease, opacity 0.2s ease;
+    opacity: 0;
+}
+
+.pull-to-refresh-indicator .pull-icon {
+    font-size: 20px;
+    transition: transform 0.3s ease;
+}
+
+.pull-to-refresh-indicator.ready .pull-icon {
+    transform: rotate(180deg);
+}
+
+.pull-to-refresh-indicator.refreshing .pull-icon {
+    animation: spin 1s linear infinite;
+}
+
+.pull-to-refresh-indicator .pull-text {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* ==================== スワイプアニメーション ==================== */
+
+.holiday-calendar {
+    transition: transform 0.15s ease-out, opacity 0.15s ease-out;
+}
+
+.holiday-calendar.slide-left {
+    transform: translateX(-30px);
+    opacity: 0;
+}
+
+.holiday-calendar.slide-right {
+    transform: translateX(30px);
+    opacity: 0;
+}
+
+.holiday-calendar.slide-in-left {
+    animation: slideInLeft 0.3s ease-out;
+}
+
+.holiday-calendar.slide-in-right {
+    animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInLeft {
+    from {
+        transform: translateX(30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(-30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* ==================== ドラッグ&ドロップ ==================== */
+
+.calendar-date-cell.drag-over {
+    background: rgba(102, 126, 234, 0.3) !important;
+    border: 2px dashed #667eea;
+    transform: scale(1.02);
+}
+
+.memo-item.dragging,
+.detail-memo-item.dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+}
+
+.memo-item,
+.detail-memo-item {
+    cursor: grab;
+    transition: transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease;
+}
+
+.memo-item:active,
+.detail-memo-item:active {
+    cursor: grabbing;
+}
+
+/* ==================== メモ編集ヒント ==================== */
+
+.memo-edit-hint {
+    opacity: 0;
+    font-size: 12px;
+    margin-left: auto;
+    padding-left: 8px;
+    transition: opacity 0.2s ease;
+}
+
+.memo-item-content:hover .memo-edit-hint,
+.detail-memo-main:hover .memo-edit-hint {
+    opacity: 0.7;
+}
+
+.memo-item-content,
+.detail-memo-main {
+    cursor: pointer;
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.memo-item-content:hover,
+.detail-memo-main:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+}
+
+/* ==================== メモフィルター ==================== */
+
+.memo-filter-section {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+
+.memo-filter-btn {
+    flex: 1;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.memo-filter-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.memo-filter-btn.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    box-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
+}
+
+/* ==================== メモ日付ヘッダー（今日ハイライト） ==================== */
+
+.memo-date-header.today {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.3) 100%);
+    border-left: 3px solid #667eea;
+    padding-left: 12px;
+}
+
+/* ==================== メモ削除ボタン（フォーム内） ==================== */
+
+.delete-memo-btn {
+    width: 100%;
+    margin-top: 10px;
+    padding: 12px;
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.delete-memo-btn:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+}
+
+/* ==================== メモアイテム改善 ==================== */
+
+.memo-item {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    border-left: 3px solid transparent;
+}
+
+.memo-item.task {
+    border-left-color: #FFC300;
+}
+
+.memo-item.schedule {
+    border-left-color: #4FACFE;
+}
+
+.detail-memo-item {
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    border-left: 3px solid transparent;
+    position: relative;
+}
+
+.detail-memo-item.task {
+    border-left-color: #FFC300;
+}
+
+.detail-memo-item.schedule {
+    border-left-color: #4FACFE;
+}
+
+.detail-memo-main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px;
+    border-radius: 6px;
+    transition: background 0.2s ease;
+}
+
+.detail-memo-item .memo-delete-btn.small {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+}
+
