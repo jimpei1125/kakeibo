@@ -9,6 +9,7 @@ import { HolidayCalendar } from './calendar.js';
 import { ShoppingList } from './shopping.js';
 import { SmartHome } from './smarthome.js';
 import { PhilipsHue } from './hue.js';
+import { authManager } from './firebase-config.js';
 
 // ============================================================
 // 定数定義
@@ -48,7 +49,16 @@ class KakeiboApp {
         this.shopping = new ShoppingList(this.budget);
         this.smartHome = new SmartHome();
         this.hue = new PhilipsHue();
+        this.authManager = authManager;
     }
+
+    // ==================== 認証関連 ====================
+
+    showLoginModal() { this.authManager.showLoginModal(); }
+    closeLoginModal() { this.authManager.closeLoginModal(); }
+    async signInWithGoogle() { await this.authManager.signInWithGoogle(); }
+    async signInAsGuest() { await this.authManager.signInAsGuest(); }
+    async signOut() { await this.authManager.signOut(); }
 
     // ==================== メニュー制御 ====================
 
@@ -157,6 +167,9 @@ class KakeiboApp {
      * アプリケーションを初期化
      */
     init() {
+        // 認証状態の監視を開始
+        this.authManager.initAuthStateListener();
+        
         // 同期ステータスを表示
         this.budget.showSyncStatus('syncing', '接続中...');
         
