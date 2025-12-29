@@ -361,51 +361,66 @@ body {
     padding: 0 20px 20px 20px;
 }
 
-/* ==================== 認証ステータス ==================== */
+/* ==================== 認証ステータス（サイドメニュー内） ==================== */
 
-.auth-status {
-    position: fixed;
-    top: 10px;
-    left: 10px;
+.menu-auth-status {
+    padding: 20px 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 10px;
+}
+
+.menu-auth-user {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px 12px;
-    background: rgba(15, 12, 41, 0.9);
-    backdrop-filter: blur(10px);
-    border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    z-index: 100;
-    font-size: 12px;
+    margin-bottom: 12px;
 }
 
-.auth-user-name {
-    color: rgba(255, 255, 255, 0.7);
-    max-width: 100px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.menu-auth-icon {
+    font-size: 24px;
 }
 
-.auth-status.logged-in .auth-user-name {
+.menu-auth-status.logged-in .menu-auth-icon::before {
+    content: '✓';
+    position: absolute;
+    font-size: 10px;
     color: #38EF7D;
 }
 
-.auth-btn {
-    padding: 6px 12px;
+.menu-auth-name {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 14px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 180px;
+}
+
+.menu-auth-status.logged-in .menu-auth-name {
+    color: #38EF7D;
+}
+
+.menu-auth-btn {
+    width: 100%;
+    padding: 10px 15px;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     border: none;
-    border-radius: 15px;
-    font-size: 11px;
+    border-radius: 10px;
+    font-size: 14px;
     font-weight: 700;
     cursor: pointer;
     transition: all 0.3s ease;
 }
 
-.auth-btn:hover {
-    transform: scale(1.05);
-    box-shadow: 0 2px 10px rgba(102, 126, 234, 0.4);
+.menu-auth-btn:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.menu-auth-status.logged-in .menu-auth-btn {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
 }
 
 /* ==================== ログインモーダル ==================== */
