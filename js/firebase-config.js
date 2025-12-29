@@ -90,6 +90,7 @@ class AuthManager {
         const authStatus = document.getElementById('authStatus');
         const authBtn = document.getElementById('authBtn');
         const authUserName = document.getElementById('authUserName');
+        const authIcon = document.getElementById('authIcon');
         
         if (!authStatus) return;
 
@@ -97,6 +98,9 @@ class AuthManager {
             authStatus.classList.add('logged-in');
             if (authUserName) {
                 authUserName.textContent = user.displayName || user.email || 'ゲスト';
+            }
+            if (authIcon) {
+                authIcon.textContent = '✅';
             }
             if (authBtn) {
                 authBtn.textContent = '🚪 ログアウト';
@@ -106,6 +110,9 @@ class AuthManager {
             authStatus.classList.remove('logged-in');
             if (authUserName) {
                 authUserName.textContent = '未ログイン';
+            }
+            if (authIcon) {
+                authIcon.textContent = '👤';
             }
             if (authBtn) {
                 authBtn.textContent = '🔐 ログイン';
