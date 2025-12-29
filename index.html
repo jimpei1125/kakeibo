@@ -17,6 +17,16 @@
     <!-- サイドメニュー -->
     <div class="side-menu" id="sideMenu">
         <button class="close-menu" onclick="app.closeMenu()">✕</button>
+        
+        <!-- 認証ステータス（メニュー内） -->
+        <div class="menu-auth-status" id="authStatus">
+            <div class="menu-auth-user">
+                <span class="menu-auth-icon" id="authIcon">👤</span>
+                <span class="menu-auth-name" id="authUserName">未ログイン</span>
+            </div>
+            <button class="menu-auth-btn" id="authBtn" onclick="app.showLoginModal()">🔐 ログイン</button>
+        </div>
+        
         <div class="menu-items">
             <div class="menu-item" id="menuCalendar" onclick="app.showCalendar(); app.closeMenu();">📅 カレンダー</div>
             <div class="menu-item" id="menuBudget" onclick="app.showBudget(); app.closeMenu();" style="display: none;">📊 家計簿</div>
@@ -28,12 +38,6 @@
 
     <!-- トーストメッセージ -->
     <div class="toast" id="toast"></div>
-
-    <!-- 認証ステータス -->
-    <div class="auth-status" id="authStatus">
-        <span class="auth-user-name" id="authUserName">未ログイン</span>
-        <button class="auth-btn" id="authBtn" onclick="app.showLoginModal()">🔐 ログイン</button>
-    </div>
 
     <!-- ログインモーダル -->
     <div class="login-modal" id="loginModal" style="display: none;">
