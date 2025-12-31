@@ -369,6 +369,220 @@ export class BudgetManager {
         this.data = {};
         /** @type {boolean} 初回読み込みフラグ */
         this.isInitialLoad = true;
+        /** @type {boolean} クイック入力モード */
+        this.quickInputMode = false;
+        /** @type {number|null} 連続入力モーダルの対象カテゴリID */
+        this.continuousInputCategoryId = null;
+    }
+
+    // ----------------------------------------
+    // クイック入力モード
+    // ----------------------------------------
+
+    /**
+     * クイック入力モードを切り替え
+     */
+    toggleQuickInputMode() {
+        this.quickInputMode = !this.quickInputMode;
+        this.updateDisplay();
+        
+        const btn = document.getElementById('quickInputToggle');
+        if (btn) {
+            btn.classList.toggle('active', this.quickInputMode);
+            btn.textContent = this.quickInputMode ? '⚡ クイック入力 ON' : '⚡ クイック入力';
+        }
+        
+        if (this.quickInputMode) {
+            Utils.showToast('クイック入力モード ON');
+            // 最初の入力欄にフォーカス
+            setTimeout(() => {
+                const firstInput = document.querySelector('.quick-input-field');
+                if (firstInput) firstInput.focus();
+            }, 100);
+        }
+    }
+
+    /**
+     * クイック入力で金額を追加
+     * @param {number} categoryId - カテゴリID
+     * @param {number|null} subId - サブカテゴリID（null=カテゴリ直接）
+     * @param {Event} event - キーボードイベント
+     */
+    quickAddAmount(categoryId, subId, event) {
+        // Enterキー以外は無視
+        if (event.key !== 'Enter') return;
+        
+        const inputId = subId ? `quick-sub-${categoryId}-${subId}` : `quick-${categoryId}`;
+        const input = document.getElementById(inputId);
+        const amount = parseFloat(input?.value);
+        
+        if (!amount || isNaN(amount)) return;
+        
+        const category = this._findCategory(categoryId);
+        if (!category) return;
+        
+        if (subId) {
+            const sub = category.subcategories.find(s => s.id === subId);
+            if (sub) {
+                sub.amount = (sub.amount || 0) + amount;
+            }
+        } else {
+            category.amount = (category.amount || 0) + amount;
+        }
+        
+        // 入力をクリアしてフィードバック
+        input.value = '';
+        input.classList.add('quick-input-success');
+        setTimeout(() => input.classList.remove('quick-input-success'), 300);
+        
+        Utils.showToast(`+¥${Utils.formatCurrency(amount)} 追加`);
+        this._saveWithStatus();
+    }
+
+    // ----------------------------------------
+    // 連続入力モーダル
+    // ----------------------------------------
+
+    /**
+     * 連続入力モーダルを表示
+     * @param {number|null} categoryId - 初期選択カテゴリID
+     */
+    showContinuousInput(categoryId = null) {
+        this.continuousInputCategoryId = categoryId;
+        this._renderContinuousInputModal();
+        Utils.showModal('continuousInputModal');
+        
+        // 金額入力欄にフォーカス
+        setTimeout(() => {
+            document.getElementById('ciAmount')?.focus();
+        }, 100);
+    }
+
+    /**
+     * 連続入力モーダルを閉じる
+     */
+    closeContinuousInput() {
+        Utils.closeModal('continuousInputModal');
+        this.continuousInputCategoryId = null;
+    }
+
+    /**
+     * 連続入力モーダルのカテゴリ選択肢を描画
+     * @private
+     */
+    _renderContinuousInputModal() {
+        const select = document.getElementById('ciCategory');
+        if (!select) return;
+        
+        const categories = this.getCurrentMonthData().categories;
+        let options = '<option value="">-- カテゴリを選択 --</option>';
+        
+        categories.forEach(cat => {
+            const selected = cat.id === this.continuousInputCategoryId ? ' selected' : '';
+            options += `<option value="${cat.id}"${selected}>${cat.name}</option>`;
+            
+            // サブカテゴリがあれば追加
+            cat.subcategories.forEach(sub => {
+                const subSelected = false; // サブは初期選択しない
+                options += `<option value="${cat.id}-${sub.id}">　└ ${sub.name}</option>`;
+            });
+        });
+        
+        select.innerHTML = options;
+        
+        // 直前の追加履歴をクリア
+        const history = document.getElementById('ciHistory');
+        if (history) history.innerHTML = '';
+    }
+
+    /**
+     * 連続入力で金額を保存して続ける
+     */
+    saveContinuousAndNext() {
+        const categoryValue = document.getElementById('ciCategory')?.value;
+        const amount = parseFloat(document.getElementById('ciAmount')?.value);
+        const note = document.getElementById('ciNote')?.value.trim();
+        
+        if (!categoryValue) {
+            Utils.showToast('カテゴリを選択してください');
+            return;
+        }
+        
+        if (!amount || isNaN(amount)) {
+            Utils.showToast('金額を入力してください');
+            return;
+        }
+        
+        // カテゴリIDとサブカテゴリIDを解析
+        const [catIdStr, subIdStr] = categoryValue.split('-');
+        const categoryId = parseInt(catIdStr);
+        const subId = subIdStr ? parseInt(subIdStr) : null;
+        
+        const category = this._findCategory(categoryId);
+        if (!category) return;
+        
+        let targetName = category.name;
+        
+        if (subId) {
+            const sub = category.subcategories.find(s => s.id === subId);
+            if (sub) {
+                sub.amount = (sub.amount || 0) + amount;
+                if (note) sub.note = note;
+                targetName = sub.name;
+            }
+        } else if (category.subcategories.length === 0) {
+            category.amount = (category.amount || 0) + amount;
+            if (note) category.note = note;
+        } else {
+            // サブカテゴリがある場合は新規サブカテゴリとして追加
+            category.subcategories.push({
+                id: Utils.generateId(),
+                name: note || '項目',
+                amount: amount,
+                note: ''
+            });
+            targetName = note || '項目';
+        }
+        
+        // 履歴に追加
+        this._addContinuousHistory(targetName, amount);
+        
+        // 入力をクリア（カテゴリは維持）
+        document.getElementById('ciAmount').value = '';
+        document.getElementById('ciNote').value = '';
+        document.getElementById('ciAmount').focus();
+        
+        this._saveWithStatus();
+    }
+
+    /**
+     * 連続入力の履歴を追加
+     * @private
+     */
+    _addContinuousHistory(name, amount) {
+        const history = document.getElementById('ciHistory');
+        if (!history) return;
+        
+        const item = document.createElement('div');
+        item.className = 'ci-history-item';
+        item.innerHTML = `<span>✓ ${name}</span><span>+¥${Utils.formatCurrency(amount)}</span>`;
+        history.insertBefore(item, history.firstChild);
+        
+        // 5件以上は古いものを削除
+        while (history.children.length > 5) {
+            history.removeChild(history.lastChild);
+        }
+    }
+
+    /**
+     * 連続入力モーダルでのキー処理
+     * @param {Event} event - キーボードイベント
+     */
+    handleContinuousInputKey(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            this.saveContinuousAndNext();
+        }
     }
 
     // ----------------------------------------
@@ -907,13 +1121,23 @@ export class BudgetManager {
      * @private
      */
     _renderCategorySummary(category, displayAmount) {
+        const quickInput = this.quickInputMode ? `
+            <div class="quick-input-wrapper" onclick="event.stopPropagation()">
+                <input type="number" class="quick-input-field" id="quick-${category.id}" 
+                    placeholder="+" onkeypress="app.budget.quickAddAmount(${category.id}, null, event)">
+            </div>
+        ` : '';
+        
         return `
             <div class="category-summary" onclick="app.budget.toggleAccordion(${category.id})">
                 <div class="category-summary-left">
                     <span class="accordion-icon" id="icon-${category.id}">▶</span>
                     <span class="category-summary-name">${category.name}</span>
                 </div>
-                <span class="category-summary-amount">${Utils.formatCurrency(displayAmount)}円</span>
+                <div class="category-summary-right">
+                    ${quickInput}
+                    <span class="category-summary-amount">${Utils.formatCurrency(displayAmount)}円</span>
+                </div>
             </div>
         `;
     }
@@ -980,28 +1204,36 @@ export class BudgetManager {
      * @private
      */
     _renderSubcategories(category) {
-        const items = category.subcategories.map(sub => `
-            <div class="subcategory-item">
-                <div class="sub-row">
-                    <div>
-                        <span class="subcategory-name">${sub.name}</span>
-                        ${sub.note ? `<div class="note-text">備考: ${sub.note}</div>` : ''}
-                    </div>
-                    <div class="category-amount">
-                        <input type="number" id="subamount-${category.id}-${sub.id}" value="${sub.amount}" 
-                            onchange="app.budget.updateAmount(${category.id}, ${sub.id})">
-                        <span>円</span>
-                        <div class="category-actions">
-                            <button class="edit-btn" onclick="app.budget.editSubcategory(${category.id}, ${sub.id})">編集</button>
-                            <button class="delete-btn" onclick="app.budget.deleteSubcategory(${category.id}, ${sub.id})">削除</button>
+        const items = category.subcategories.map(sub => {
+            const quickInput = this.quickInputMode ? `
+                <input type="number" class="quick-input-field quick-input-sub" id="quick-sub-${category.id}-${sub.id}" 
+                    placeholder="+" onkeypress="app.budget.quickAddAmount(${category.id}, ${sub.id}, event)">
+            ` : '';
+            
+            return `
+                <div class="subcategory-item">
+                    <div class="sub-row">
+                        <div>
+                            <span class="subcategory-name">${sub.name}</span>
+                            ${sub.note ? `<div class="note-text">備考: ${sub.note}</div>` : ''}
+                        </div>
+                        <div class="category-amount">
+                            ${quickInput}
+                            <input type="number" id="subamount-${category.id}-${sub.id}" value="${sub.amount}" 
+                                onchange="app.budget.updateAmount(${category.id}, ${sub.id})">
+                            <span>円</span>
+                            <div class="category-actions">
+                                <button class="edit-btn" onclick="app.budget.editSubcategory(${category.id}, ${sub.id})">編集</button>
+                                <button class="delete-btn" onclick="app.budget.deleteSubcategory(${category.id}, ${sub.id})">削除</button>
+                            </div>
                         </div>
                     </div>
+                    <input type="text" class="note-input" id="subnote-edit-${category.id}-${sub.id}" 
+                        value="${sub.note || ''}" placeholder="備考を入力..." 
+                        onchange="app.budget.updateNote(${category.id}, ${sub.id})">
                 </div>
-                <input type="text" class="note-input" id="subnote-edit-${category.id}-${sub.id}" 
-                    value="${sub.note || ''}" placeholder="備考を入力..." 
-                    onchange="app.budget.updateNote(${category.id}, ${sub.id})">
-            </div>
-        `).join('');
+            `;
+        }).join('');
         
         return `<div class="subcategory-list">${items}</div>`;
     }
