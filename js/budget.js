@@ -403,20 +403,19 @@ export class BudgetManager {
     }
 
     /**
-     * クイック入力で金額を追加
+     * クイック入力で金額を追加（ボタン押下時）
      * @param {number} categoryId - カテゴリID
      * @param {number|null} subId - サブカテゴリID（null=カテゴリ直接）
-     * @param {Event} event - キーボードイベント
      */
-    quickAddAmount(categoryId, subId, event) {
-        // Enterキー以外は無視
-        if (event.key !== 'Enter') return;
-        
+    quickAddAmount(categoryId, subId = null) {
         const inputId = subId ? `quick-sub-${categoryId}-${subId}` : `quick-${categoryId}`;
         const input = document.getElementById(inputId);
         const amount = parseFloat(input?.value);
         
-        if (!amount || isNaN(amount)) return;
+        if (!amount || isNaN(amount)) {
+            Utils.showToast('金額を入力してください');
+            return;
+        }
         
         const category = this._findCategory(categoryId);
         if (!category) return;
@@ -437,6 +436,20 @@ export class BudgetManager {
         
         Utils.showToast(`+¥${Utils.formatCurrency(amount)} 追加`);
         this._saveWithStatus();
+    }
+
+    /**
+     * クイック入力のキーボードイベント処理
+     * @param {number} categoryId - カテゴリID
+     * @param {number|null} subId - サブカテゴリID
+     * @param {Event} event - キーボードイベント
+     */
+    quickInputKeyHandler(categoryId, subId, event) {
+        // Enter, Go, Done などで追加
+        if (event.key === 'Enter' || event.keyCode === 13) {
+            event.preventDefault();
+            this.quickAddAmount(categoryId, subId);
+        }
     }
 
     // ----------------------------------------
@@ -579,7 +592,7 @@ export class BudgetManager {
      * @param {Event} event - キーボードイベント
      */
     handleContinuousInputKey(event) {
-        if (event.key === 'Enter') {
+        if (event.key === 'Enter' || event.keyCode === 13) {
             event.preventDefault();
             this.saveContinuousAndNext();
         }
@@ -1124,7 +1137,9 @@ export class BudgetManager {
         const quickInput = this.quickInputMode ? `
             <div class="quick-input-wrapper" onclick="event.stopPropagation()">
                 <input type="number" class="quick-input-field" id="quick-${category.id}" 
-                    placeholder="+" onkeypress="app.budget.quickAddAmount(${category.id}, null, event)">
+                    placeholder="金額" inputmode="numeric" enterkeyhint="done"
+                    onkeydown="app.budget.quickInputKeyHandler(${category.id}, null, event)">
+                <button class="quick-add-btn" onclick="app.budget.quickAddAmount(${category.id}, null)">+</button>
             </div>
         ` : '';
         
@@ -1206,8 +1221,12 @@ export class BudgetManager {
     _renderSubcategories(category) {
         const items = category.subcategories.map(sub => {
             const quickInput = this.quickInputMode ? `
-                <input type="number" class="quick-input-field quick-input-sub" id="quick-sub-${category.id}-${sub.id}" 
-                    placeholder="+" onkeypress="app.budget.quickAddAmount(${category.id}, ${sub.id}, event)">
+                <div class="quick-input-wrapper-sub">
+                    <input type="number" class="quick-input-field quick-input-sub" id="quick-sub-${category.id}-${sub.id}" 
+                        placeholder="金額" inputmode="numeric" enterkeyhint="done"
+                        onkeydown="app.budget.quickInputKeyHandler(${category.id}, ${sub.id}, event)">
+                    <button class="quick-add-btn" onclick="app.budget.quickAddAmount(${category.id}, ${sub.id})">+</button>
+                </div>
             ` : '';
             
             return `
