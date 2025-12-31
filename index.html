@@ -83,15 +83,15 @@
                     <label>金額</label>
                     <div class="ci-amount-wrapper">
                         <span class="ci-currency">¥</span>
-                        <input type="number" id="ciAmount" placeholder="0" 
-                            onkeypress="app.budget.handleContinuousInputKey(event)">
+                        <input type="number" id="ciAmount" placeholder="0" inputmode="numeric" enterkeyhint="done"
+                            onkeydown="app.budget.handleContinuousInputKey(event)">
                     </div>
                 </div>
                 
                 <div class="ci-field">
                     <label>メモ（任意）</label>
-                    <input type="text" id="ciNote" placeholder="例：スーパーで購入"
-                        onkeypress="app.budget.handleContinuousInputKey(event)">
+                    <input type="text" id="ciNote" placeholder="例：スーパーで購入" enterkeyhint="done"
+                        onkeydown="app.budget.handleContinuousInputKey(event)">
                 </div>
                 
                 <div class="ci-actions">
