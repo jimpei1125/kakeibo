@@ -614,3 +614,258 @@ button.edit-btn:hover {
     font-size: 14px;
 }
 
+/* ==================== クイック入力 & 連続入力 ==================== */
+
+.quick-input-actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.quick-input-toggle,
+.continuous-input-btn {
+    flex: 1;
+    padding: 12px 15px;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.quick-input-toggle {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.8);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.quick-input-toggle:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.quick-input-toggle.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.continuous-input-btn {
+    background: linear-gradient(135deg, #38EF7D 0%, #11998e 100%);
+    color: white;
+}
+
+.continuous-input-btn:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 15px rgba(56, 239, 125, 0.4);
+}
+
+/* クイック入力フィールド */
+.category-summary-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.quick-input-wrapper {
+    display: flex;
+    align-items: center;
+}
+
+.quick-input-field {
+    width: 70px;
+    padding: 6px 10px;
+    border: 2px solid rgba(102, 126, 234, 0.5);
+    border-radius: 8px;
+    background: rgba(102, 126, 234, 0.1);
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: right;
+    transition: all 0.3s ease;
+}
+
+.quick-input-field::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.quick-input-field:focus {
+    outline: none;
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.2);
+    box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+}
+
+.quick-input-field.quick-input-success {
+    border-color: #38EF7D;
+    background: rgba(56, 239, 125, 0.2);
+}
+
+.quick-input-sub {
+    width: 60px;
+    margin-right: 8px;
+}
+
+/* ==================== 連続入力モーダル ==================== */
+
+.continuous-input-modal {
+    max-width: 400px;
+    width: 90%;
+}
+
+.ci-form {
+    padding: 5px;
+}
+
+.ci-field {
+    margin-bottom: 18px;
+}
+
+.ci-field label {
+    display: block;
+    margin-bottom: 8px;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.ci-field select,
+.ci-field input[type="text"] {
+    width: 100%;
+    padding: 12px 15px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    color: white;
+    font-size: 16px;
+    transition: all 0.3s ease;
+}
+
+.ci-field select:focus,
+.ci-field input:focus {
+    outline: none;
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.1);
+}
+
+.ci-amount-wrapper {
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+.ci-amount-wrapper:focus-within {
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.1);
+}
+
+.ci-currency {
+    padding: 12px 15px;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.ci-amount-wrapper input {
+    flex: 1;
+    padding: 12px 15px 12px 0;
+    border: none;
+    background: transparent;
+    color: white;
+    font-size: 24px;
+    font-weight: 700;
+    text-align: right;
+}
+
+.ci-amount-wrapper input:focus {
+    outline: none;
+}
+
+.ci-amount-wrapper input::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.ci-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.ci-save-next {
+    flex: 2;
+    padding: 14px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.ci-save-next:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+}
+
+.ci-done {
+    flex: 1;
+    padding: 14px 20px;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.ci-done:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.ci-history {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ci-history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    background: rgba(56, 239, 125, 0.1);
+    border-radius: 8px;
+    border-left: 3px solid #38EF7D;
+    animation: slideIn 0.3s ease;
+}
+
+.ci-history-item span:first-child {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 14px;
+}
+
+.ci-history-item span:last-child {
+    color: #38EF7D;
+    font-weight: 700;
+    font-size: 14px;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
