@@ -132,17 +132,18 @@ body {
     background: rgba(15, 12, 41, 0.95);
     backdrop-filter: blur(10px);
     border-top: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 10px 20px;
+    padding: 10px 15px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
     z-index: 1000;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
 }
 
 .footer-nav {
     display: flex;
-    gap: 10px;
-    max-width: 800px;
+    max-width: 500px;
     margin: 0 auto;
-    justify-content: center;
+    justify-content: space-evenly;
+    align-items: center;
 }
 
 .footer-nav::-webkit-scrollbar {
@@ -150,17 +151,20 @@ body {
 }
 
 .nav-btn {
-    flex-shrink: 0;
-    padding: 10px 20px;
+    flex: 1;
+    max-width: 140px;
+    padding: 10px 12px;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     border: none;
     border-radius: 8px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
     transition: all 0.3s ease;
     box-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
+    text-align: center;
+    white-space: nowrap;
 }
 
 .nav-btn:hover {
@@ -169,7 +173,8 @@ body {
 }
 
 .nav-btn.active {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    background: linear-gradient(135deg, #38EF7D 0%, #11998e 100%);
+    box-shadow: 0 2px 10px rgba(56, 239, 125, 0.4);
 }
 
 /* トーストメッセージ */

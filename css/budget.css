@@ -614,36 +614,7 @@ button.edit-btn:hover {
     font-size: 14px;
 }
 
-/* ==================== クイック入力 & 連続入力 ==================== */
-
-.quick-input-actions {
-    margin-bottom: 15px;
-}
-
-.quick-input-toggle {
-    width: 100%;
-    padding: 14px 20px;
-    border: none;
-    border-radius: 12px;
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.8);
-    border: 2px solid rgba(255, 255, 255, 0.2);
-}
-
-.quick-input-toggle:hover {
-    background: rgba(255, 255, 255, 0.15);
-}
-
-.quick-input-toggle.active {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border-color: transparent;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-}
+/* ==================== クイック入力 ==================== */
 
 /* クイック入力フィールド */
 .category-summary-right {
