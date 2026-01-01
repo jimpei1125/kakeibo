@@ -371,6 +371,8 @@ export class BudgetManager {
         this.isInitialLoad = true;
         /** @type {boolean} クイック入力モード */
         this.quickInputMode = false;
+        /** @type {string|null} クイック入力中のフォーカス対象ID */
+        this.quickInputFocusId = null;
     }
 
     // ----------------------------------------
@@ -427,15 +429,12 @@ export class BudgetManager {
             category.amount = (category.amount || 0) + amount;
         }
         
-        // 入力をクリアしてフィードバック
-        input.value = '';
-        input.classList.add('quick-input-success');
-        setTimeout(() => input.classList.remove('quick-input-success'), 300);
-        
-        // フォーカスを維持（キーボードを閉じない）
-        input.focus();
-        
         Utils.showToast(`+¥${Utils.formatCurrency(amount)} 追加`);
+        
+        // フォーカス対象を記録（DOM再描画後に復元するため）
+        this.quickInputFocusId = inputId;
+        
+        // 保存（これによりonSnapshotが発火し、updateDisplayが呼ばれる）
         this._saveWithStatus();
     }
 
@@ -451,8 +450,6 @@ export class BudgetManager {
             event.preventDefault();
             event.stopPropagation();
             this.quickAddAmount(categoryId, subId);
-            // フォーカスを明示的に維持
-            event.target.focus();
         }
     }
 
@@ -553,6 +550,9 @@ export class BudgetManager {
             this.data = docSnap.data().data;
             this.updateDisplay();
             
+            // クイック入力中ならフォーカスを復元
+            this._restoreQuickInputFocus();
+            
             if (this.isInitialLoad) {
                 this.showSyncStatus(SYNC_STATUS.SYNCED, '✓ データ読み込み完了');
                 this.isInitialLoad = false;
@@ -565,6 +565,21 @@ export class BudgetManager {
             setTimeout(() => {
                 document.getElementById('syncStatus').style.display = 'none';
             }, SYNC_STATUS_HIDE_DELAY);
+        }
+    }
+
+    /**
+     * クイック入力のフォーカスを復元
+     * @private
+     */
+    _restoreQuickInputFocus() {
+        if (this.quickInputMode && this.quickInputFocusId) {
+            setTimeout(() => {
+                const input = document.getElementById(this.quickInputFocusId);
+                if (input) {
+                    input.focus();
+                }
+            }, 10);
         }
     }
 
