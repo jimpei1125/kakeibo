@@ -164,11 +164,6 @@
                 <button onclick="app.budget.copyFromPreviousMonth()" style="width: 100%; background: #ffc107; color: #333;">📋 先月分をコピー</button>
             </div>
 
-            <!-- クイック入力トグル -->
-            <div class="quick-input-actions">
-                <button class="quick-input-toggle" id="quickInputToggle" onclick="app.budget.toggleQuickInputMode()">⚡ クイック入力</button>
-            </div>
-
             <div class="add-category">
                 <div class="input-group">
                     <input type="text" id="newCategoryName" placeholder="大カテゴリー名（例：光熱費）">
@@ -652,7 +647,7 @@
     <!-- フッター -->
     <div class="footer">
         <div class="footer-nav">
-            <button class="nav-btn active" onclick="app.showSection('budget')">📊 家計簿</button>
+            <button class="nav-btn" id="footerQuickInput" onclick="app.budget.toggleQuickInputMode()">⚡ クイック入力</button>
             <button class="nav-btn" onclick="app.calculator.show()">🔢 計算機</button>
             <button class="nav-btn" onclick="app.csv.showModal()">📥 CSV出力</button>
         </div>
