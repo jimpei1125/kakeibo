@@ -405,6 +405,20 @@ export class BudgetManager {
     }
 
     /**
+     * クイック入力のフォームsubmit処理
+     * @param {number} categoryId - カテゴリID
+     * @param {number|null} subId - サブカテゴリID
+     * @param {Event} event - submitイベント
+     * @returns {boolean} false（フォーム送信を防止）
+     */
+    quickInputSubmit(categoryId, subId, event) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.quickAddAmount(categoryId, subId);
+        return false;
+    }
+
+    /**
      * クイック入力で金額を追加（ボタン押下時）
      * @param {number} categoryId - カテゴリID
      * @param {number|null} subId - サブカテゴリID（null=カテゴリ直接）
@@ -511,21 +525,6 @@ export class BudgetManager {
         } catch (error) {
             console.error('Firestore保存エラー:', error);
             this.showSyncStatus(SYNC_STATUS.ERROR, `✗ 同期エラー: ${error.message}`);
-        }
-    }
-
-    /**
-     * クイック入力のキーボードイベント処理
-     * @param {number} categoryId - カテゴリID
-     * @param {number|null} subId - サブカテゴリID
-     * @param {Event} event - キーボードイベント
-     */
-    quickInputKeyHandler(categoryId, subId, event) {
-        // Enter, Go, Done などで追加
-        if (event.key === 'Enter' || event.keyCode === 13) {
-            event.preventDefault();
-            event.stopPropagation();
-            this.quickAddAmount(categoryId, subId);
         }
     }
 
@@ -1071,12 +1070,12 @@ export class BudgetManager {
      */
     _renderCategorySummary(category, displayAmount) {
         const quickInput = this.quickInputMode ? `
-            <div class="quick-input-wrapper" onclick="event.stopPropagation()">
+            <form class="quick-input-wrapper" onsubmit="return app.budget.quickInputSubmit(${category.id}, null, event)">
                 <input type="number" class="quick-input-field" id="quick-${category.id}" 
-                    placeholder="金額" inputmode="numeric" enterkeyhint="done"
-                    onkeydown="app.budget.quickInputKeyHandler(${category.id}, null, event)">
-                <button class="quick-add-btn" onclick="app.budget.quickAddAmount(${category.id}, null)">+</button>
-            </div>
+                    placeholder="金額" inputmode="decimal" enterkeyhint="go"
+                    onclick="event.stopPropagation()">
+                <button type="submit" class="quick-add-btn" onclick="event.stopPropagation()">+</button>
+            </form>
         ` : '';
         
         return `
@@ -1157,12 +1156,11 @@ export class BudgetManager {
     _renderSubcategories(category) {
         const items = category.subcategories.map(sub => {
             const quickInput = this.quickInputMode ? `
-                <div class="quick-input-wrapper-sub">
+                <form class="quick-input-wrapper-sub" onsubmit="return app.budget.quickInputSubmit(${category.id}, ${sub.id}, event)">
                     <input type="number" class="quick-input-field quick-input-sub" id="quick-sub-${category.id}-${sub.id}" 
-                        placeholder="金額" inputmode="numeric" enterkeyhint="done"
-                        onkeydown="app.budget.quickInputKeyHandler(${category.id}, ${sub.id}, event)">
-                    <button class="quick-add-btn" onclick="app.budget.quickAddAmount(${category.id}, ${sub.id})">+</button>
-                </div>
+                        placeholder="金額" inputmode="decimal" enterkeyhint="go">
+                    <button type="submit" class="quick-add-btn">+</button>
+                </form>
             ` : '';
             
             return `
