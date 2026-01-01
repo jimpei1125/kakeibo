@@ -515,12 +515,15 @@ export class BudgetManager {
         const subTotal = category.subcategories.reduce((sum, sub) => sum + (sub.amount || 0), 0);
         const displayAmount = category.subcategories.length > 0 ? subTotal : category.amount;
         
-        // サマリー行の金額を更新
-        const summaryEl = document.querySelector(`#icon-${categoryId}`)?.closest('.category-summary');
-        if (summaryEl) {
-            const amountEl = summaryEl.querySelector('.category-summary-amount');
-            if (amountEl) {
-                amountEl.textContent = `${Utils.formatCurrency(displayAmount)}円`;
+        // icon要素からサマリー行を取得（getElementByIdは小数点を含むIDでも動作）
+        const iconEl = document.getElementById(`icon-${categoryId}`);
+        if (iconEl) {
+            const summaryEl = iconEl.closest('.category-summary');
+            if (summaryEl) {
+                const amountEl = summaryEl.querySelector('.category-summary-amount');
+                if (amountEl) {
+                    amountEl.textContent = `${Utils.formatCurrency(displayAmount)}円`;
+                }
             }
         }
     }
