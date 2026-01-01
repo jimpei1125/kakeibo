@@ -386,10 +386,11 @@ export class BudgetManager {
         // モード終了時は全体を再描画して最新状態に
         this.updateDisplay();
         
-        const btn = document.getElementById('quickInputToggle');
-        if (btn) {
-            btn.classList.toggle('active', this.quickInputMode);
-            btn.textContent = this.quickInputMode ? '⚡ クイック入力 ON' : '⚡ クイック入力';
+        // フッターのボタン状態を更新
+        const footerBtn = document.getElementById('footerQuickInput');
+        if (footerBtn) {
+            footerBtn.classList.toggle('active', this.quickInputMode);
+            footerBtn.textContent = this.quickInputMode ? '⚡ ON' : '⚡ クイック入力';
         }
         
         if (this.quickInputMode) {
