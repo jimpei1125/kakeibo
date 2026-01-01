@@ -406,27 +406,49 @@ export class BudgetManager {
 
     /**
      * クイック入力のフォームsubmit処理
-     * @param {number} categoryId - カテゴリID
-     * @param {number|null} subId - サブカテゴリID
+     * @param {string} categoryIdStr - カテゴリID（安全な文字列形式）
+     * @param {string|null} subIdStr - サブカテゴリID（安全な文字列形式）
      * @param {Event} event - submitイベント
      * @returns {boolean} false（フォーム送信を防止）
      */
-    quickInputSubmit(categoryId, subId, event) {
-        event.preventDefault();
-        event.stopPropagation();
-        this.quickAddAmount(categoryId, subId);
+    quickInputSubmit(categoryIdStr, subIdStr, event) {
+        console.log('quickInputSubmit called:', categoryIdStr, subIdStr);
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        this.quickAddAmount(categoryIdStr, subIdStr);
         return false;
     }
 
     /**
-     * クイック入力で金額を追加（ボタン押下時）
-     * @param {number} categoryId - カテゴリID
-     * @param {number|null} subId - サブカテゴリID（null=カテゴリ直接）
+     * クイック入力で金額を追加
+     * @param {string} categoryIdStr - カテゴリID（安全な文字列形式、ハイフン区切り）
+     * @param {string|null} subIdStr - サブカテゴリID（安全な文字列形式）
      */
-    quickAddAmount(categoryId, subId = null) {
-        const inputId = subId ? `quick-sub-${categoryId}-${subId}` : `quick-${categoryId}`;
+    quickAddAmount(categoryIdStr, subIdStr = null) {
+        console.log('quickAddAmount called:', categoryIdStr, subIdStr);
+        
+        // 安全な文字列IDから元のIDを復元（ハイフンを小数点に戻す）
+        const categoryId = parseFloat(String(categoryIdStr).replace('-', '.'));
+        const subId = subIdStr ? parseFloat(String(subIdStr).replace('-', '.')) : null;
+        
+        console.log('Parsed IDs:', categoryId, subId);
+        
+        const inputId = subIdStr ? `quick-sub-${categoryIdStr}-${subIdStr}` : `quick-${categoryIdStr}`;
+        console.log('Looking for input:', inputId);
+        
         const input = document.getElementById(inputId);
-        const amount = parseFloat(input?.value);
+        console.log('Found input:', input);
+        
+        if (!input) {
+            console.error('Input not found!');
+            Utils.showToast('エラー: 入力欄が見つかりません');
+            return;
+        }
+        
+        const amount = parseFloat(input.value);
+        console.log('Amount:', amount, 'Raw value:', input.value);
         
         if (!amount || isNaN(amount)) {
             Utils.showToast('金額を入力してください');
@@ -434,7 +456,13 @@ export class BudgetManager {
         }
         
         const category = this._findCategory(categoryId);
-        if (!category) return;
+        console.log('Found category:', category);
+        
+        if (!category) {
+            console.error('Category not found!');
+            Utils.showToast('エラー: カテゴリが見つかりません');
+            return;
+        }
         
         let newTotal = 0;
         
@@ -450,6 +478,7 @@ export class BudgetManager {
         } else {
             category.amount = (category.amount || 0) + amount;
             newTotal = category.amount;
+            console.log('New total for category:', newTotal);
             // カテゴリの金額表示を部分更新
             const amountInput = document.getElementById(`amount-${categoryId}`);
             if (amountInput) amountInput.value = newTotal;
@@ -469,6 +498,7 @@ export class BudgetManager {
         setTimeout(() => input.classList.remove('quick-input-success'), 300);
         
         Utils.showToast(`+¥${Utils.formatCurrency(amount)} 追加`);
+        console.log('Toast shown, saving to Firestore...');
         
         // Firestoreに保存（バックグラウンドで、DOM再描画なし）
         this._saveQuietly();
@@ -1069,9 +1099,12 @@ export class BudgetManager {
      * @private
      */
     _renderCategorySummary(category, displayAmount) {
+        // IDを安全な文字列に変換（小数点をハイフンに置換）
+        const safeId = String(category.id).replace('.', '-');
+        
         const quickInput = this.quickInputMode ? `
-            <form class="quick-input-wrapper" onsubmit="return app.budget.quickInputSubmit(${category.id}, null, event)">
-                <input type="number" class="quick-input-field" id="quick-${category.id}" 
+            <form class="quick-input-wrapper" onsubmit="return app.budget.quickInputSubmit('${safeId}', null, event)">
+                <input type="number" class="quick-input-field" id="quick-${safeId}" 
                     placeholder="金額" inputmode="decimal" enterkeyhint="go"
                     onclick="event.stopPropagation()">
                 <button type="submit" class="quick-add-btn" onclick="event.stopPropagation()">+</button>
@@ -1154,10 +1187,14 @@ export class BudgetManager {
      * @private
      */
     _renderSubcategories(category) {
+        const safeCatId = String(category.id).replace('.', '-');
+        
         const items = category.subcategories.map(sub => {
+            const safeSubId = String(sub.id).replace('.', '-');
+            
             const quickInput = this.quickInputMode ? `
-                <form class="quick-input-wrapper-sub" onsubmit="return app.budget.quickInputSubmit(${category.id}, ${sub.id}, event)">
-                    <input type="number" class="quick-input-field quick-input-sub" id="quick-sub-${category.id}-${sub.id}" 
+                <form class="quick-input-wrapper-sub" onsubmit="return app.budget.quickInputSubmit('${safeCatId}', '${safeSubId}', event)">
+                    <input type="number" class="quick-input-field quick-input-sub" id="quick-sub-${safeCatId}-${safeSubId}" 
                         placeholder="金額" inputmode="decimal" enterkeyhint="go">
                     <button type="submit" class="quick-add-btn">+</button>
                 </form>

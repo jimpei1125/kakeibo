@@ -107,9 +107,9 @@ export class Utils {
 
     /**
      * 一意のIDを生成
-     * @returns {number} ユニークID
+     * @returns {number} ユニークID（整数）
      */
     static generateId() {
-        return Date.now() + Math.random();
+        return Math.floor(Date.now() + Math.random() * 1000);
     }
 }
