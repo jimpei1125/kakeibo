@@ -371,8 +371,6 @@ export class BudgetManager {
         this.isInitialLoad = true;
         /** @type {boolean} クイック入力モード */
         this.quickInputMode = false;
-        /** @type {number|null} 連続入力モーダルの対象カテゴリID */
-        this.continuousInputCategoryId = null;
     }
 
     // ----------------------------------------
@@ -434,6 +432,9 @@ export class BudgetManager {
         input.classList.add('quick-input-success');
         setTimeout(() => input.classList.remove('quick-input-success'), 300);
         
+        // フォーカスを維持（キーボードを閉じない）
+        input.focus();
+        
         Utils.showToast(`+¥${Utils.formatCurrency(amount)} 追加`);
         this._saveWithStatus();
     }
@@ -448,153 +449,10 @@ export class BudgetManager {
         // Enter, Go, Done などで追加
         if (event.key === 'Enter' || event.keyCode === 13) {
             event.preventDefault();
+            event.stopPropagation();
             this.quickAddAmount(categoryId, subId);
-        }
-    }
-
-    // ----------------------------------------
-    // 連続入力モーダル
-    // ----------------------------------------
-
-    /**
-     * 連続入力モーダルを表示
-     * @param {number|null} categoryId - 初期選択カテゴリID
-     */
-    showContinuousInput(categoryId = null) {
-        this.continuousInputCategoryId = categoryId;
-        this._renderContinuousInputModal();
-        Utils.showModal('continuousInputModal');
-        
-        // 金額入力欄にフォーカス
-        setTimeout(() => {
-            document.getElementById('ciAmount')?.focus();
-        }, 100);
-    }
-
-    /**
-     * 連続入力モーダルを閉じる
-     */
-    closeContinuousInput() {
-        Utils.closeModal('continuousInputModal');
-        this.continuousInputCategoryId = null;
-    }
-
-    /**
-     * 連続入力モーダルのカテゴリ選択肢を描画
-     * @private
-     */
-    _renderContinuousInputModal() {
-        const select = document.getElementById('ciCategory');
-        if (!select) return;
-        
-        const categories = this.getCurrentMonthData().categories;
-        let options = '<option value="">-- カテゴリを選択 --</option>';
-        
-        categories.forEach(cat => {
-            const selected = cat.id === this.continuousInputCategoryId ? ' selected' : '';
-            options += `<option value="${cat.id}"${selected}>${cat.name}</option>`;
-            
-            // サブカテゴリがあれば追加
-            cat.subcategories.forEach(sub => {
-                const subSelected = false; // サブは初期選択しない
-                options += `<option value="${cat.id}-${sub.id}">　└ ${sub.name}</option>`;
-            });
-        });
-        
-        select.innerHTML = options;
-        
-        // 直前の追加履歴をクリア
-        const history = document.getElementById('ciHistory');
-        if (history) history.innerHTML = '';
-    }
-
-    /**
-     * 連続入力で金額を保存して続ける
-     */
-    saveContinuousAndNext() {
-        const categoryValue = document.getElementById('ciCategory')?.value;
-        const amount = parseFloat(document.getElementById('ciAmount')?.value);
-        const note = document.getElementById('ciNote')?.value.trim();
-        
-        if (!categoryValue) {
-            Utils.showToast('カテゴリを選択してください');
-            return;
-        }
-        
-        if (!amount || isNaN(amount)) {
-            Utils.showToast('金額を入力してください');
-            return;
-        }
-        
-        // カテゴリIDとサブカテゴリIDを解析
-        const [catIdStr, subIdStr] = categoryValue.split('-');
-        const categoryId = parseInt(catIdStr);
-        const subId = subIdStr ? parseInt(subIdStr) : null;
-        
-        const category = this._findCategory(categoryId);
-        if (!category) return;
-        
-        let targetName = category.name;
-        
-        if (subId) {
-            const sub = category.subcategories.find(s => s.id === subId);
-            if (sub) {
-                sub.amount = (sub.amount || 0) + amount;
-                if (note) sub.note = note;
-                targetName = sub.name;
-            }
-        } else if (category.subcategories.length === 0) {
-            category.amount = (category.amount || 0) + amount;
-            if (note) category.note = note;
-        } else {
-            // サブカテゴリがある場合は新規サブカテゴリとして追加
-            category.subcategories.push({
-                id: Utils.generateId(),
-                name: note || '項目',
-                amount: amount,
-                note: ''
-            });
-            targetName = note || '項目';
-        }
-        
-        // 履歴に追加
-        this._addContinuousHistory(targetName, amount);
-        
-        // 入力をクリア（カテゴリは維持）
-        document.getElementById('ciAmount').value = '';
-        document.getElementById('ciNote').value = '';
-        document.getElementById('ciAmount').focus();
-        
-        this._saveWithStatus();
-    }
-
-    /**
-     * 連続入力の履歴を追加
-     * @private
-     */
-    _addContinuousHistory(name, amount) {
-        const history = document.getElementById('ciHistory');
-        if (!history) return;
-        
-        const item = document.createElement('div');
-        item.className = 'ci-history-item';
-        item.innerHTML = `<span>✓ ${name}</span><span>+¥${Utils.formatCurrency(amount)}</span>`;
-        history.insertBefore(item, history.firstChild);
-        
-        // 5件以上は古いものを削除
-        while (history.children.length > 5) {
-            history.removeChild(history.lastChild);
-        }
-    }
-
-    /**
-     * 連続入力モーダルでのキー処理
-     * @param {Event} event - キーボードイベント
-     */
-    handleContinuousInputKey(event) {
-        if (event.key === 'Enter' || event.keyCode === 13) {
-            event.preventDefault();
-            this.saveContinuousAndNext();
+            // フォーカスを明示的に維持
+            event.target.focus();
         }
     }
 
