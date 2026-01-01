@@ -371,8 +371,6 @@ export class BudgetManager {
         this.isInitialLoad = true;
         /** @type {boolean} クイック入力モード */
         this.quickInputMode = false;
-        /** @type {string|null} クイック入力中のフォーカス対象ID */
-        this.quickInputFocusId = null;
     }
 
     // ----------------------------------------
@@ -384,6 +382,8 @@ export class BudgetManager {
      */
     toggleQuickInputMode() {
         this.quickInputMode = !this.quickInputMode;
+        
+        // モード終了時は全体を再描画して最新状態に
         this.updateDisplay();
         
         const btn = document.getElementById('quickInputToggle');
@@ -399,6 +399,8 @@ export class BudgetManager {
                 const firstInput = document.querySelector('.quick-input-field');
                 if (firstInput) firstInput.focus();
             }, 100);
+        } else {
+            Utils.showToast('クイック入力モード OFF');
         }
     }
 
@@ -420,22 +422,96 @@ export class BudgetManager {
         const category = this._findCategory(categoryId);
         if (!category) return;
         
+        let newTotal = 0;
+        
         if (subId) {
             const sub = category.subcategories.find(s => s.id === subId);
             if (sub) {
                 sub.amount = (sub.amount || 0) + amount;
+                newTotal = sub.amount;
+                // サブカテゴリの金額表示を部分更新
+                const subAmountInput = document.getElementById(`subamount-${categoryId}-${subId}`);
+                if (subAmountInput) subAmountInput.value = newTotal;
             }
         } else {
             category.amount = (category.amount || 0) + amount;
+            newTotal = category.amount;
+            // カテゴリの金額表示を部分更新
+            const amountInput = document.getElementById(`amount-${categoryId}`);
+            if (amountInput) amountInput.value = newTotal;
         }
+        
+        // カテゴリサマリーの金額表示を更新
+        this._updateCategorySummaryAmount(categoryId);
+        
+        // 合計金額を更新
+        this._updateTotalDisplay();
+        
+        // 入力欄をクリア（フォーカスは維持）
+        input.value = '';
+        
+        // 成功フィードバック
+        input.classList.add('quick-input-success');
+        setTimeout(() => input.classList.remove('quick-input-success'), 300);
         
         Utils.showToast(`+¥${Utils.formatCurrency(amount)} 追加`);
         
-        // フォーカス対象を記録（DOM再描画後に復元するため）
-        this.quickInputFocusId = inputId;
+        // Firestoreに保存（バックグラウンドで、DOM再描画なし）
+        this._saveQuietly();
+    }
+    
+    /**
+     * カテゴリサマリーの金額表示を更新
+     * @private
+     */
+    _updateCategorySummaryAmount(categoryId) {
+        const category = this._findCategory(categoryId);
+        if (!category) return;
         
-        // 保存（これによりonSnapshotが発火し、updateDisplayが呼ばれる）
-        this._saveWithStatus();
+        const subTotal = category.subcategories.reduce((sum, sub) => sum + (sub.amount || 0), 0);
+        const displayAmount = category.subcategories.length > 0 ? subTotal : category.amount;
+        
+        // サマリー行の金額を更新
+        const summaryEl = document.querySelector(`#icon-${categoryId}`)?.closest('.category-summary');
+        if (summaryEl) {
+            const amountEl = summaryEl.querySelector('.category-summary-amount');
+            if (amountEl) {
+                amountEl.textContent = `${Utils.formatCurrency(displayAmount)}円`;
+            }
+        }
+    }
+    
+    /**
+     * 合計金額の表示を更新
+     * @private
+     */
+    _updateTotalDisplay() {
+        const total = this.calculateTotal();
+        const half = Math.round(total / 2);
+        
+        const totalEl = document.getElementById('totalAmount');
+        const halfEl = document.getElementById('halfAmount');
+        const outputEl = document.getElementById('outputText');
+        
+        if (totalEl) totalEl.textContent = `¥${Utils.formatCurrency(total)}`;
+        if (halfEl) halfEl.textContent = `折半: ¥${Utils.formatCurrency(half)}`;
+        if (outputEl) outputEl.textContent = this.generateOutput();
+    }
+    
+    /**
+     * Firestoreに静かに保存（DOM再描画なし）
+     * @private
+     */
+    async _saveQuietly() {
+        try {
+            await setDoc(doc(db, 'budgetData', 'data'), { data: this.data });
+            // 同期ステータスは表示するが、updateDisplayは呼ばない
+            this.showSyncStatus(SYNC_STATUS.SYNCED, '✓ 同期完了');
+            this._hideSyncStatusAfterDelay();
+        } catch (error) {
+            console.error('Firestore保存エラー:', error);
+            this.showSyncStatus(SYNC_STATUS.ERROR, `✗ 同期エラー: ${error.message}`);
+        }
     }
 
     /**
@@ -548,12 +624,14 @@ export class BudgetManager {
     _handleSnapshot(docSnap) {
         if (docSnap.exists() && docSnap.data().data) {
             this.data = docSnap.data().data;
-            this.updateDisplay();
             
-            // クイック入力中ならフォーカスを復元
-            this._restoreQuickInputFocus();
+            // クイック入力中はDOM再描画をスキップ（フォーカスを維持するため）
+            if (!this.quickInputMode) {
+                this.updateDisplay();
+            }
             
             if (this.isInitialLoad) {
+                this.updateDisplay(); // 初回は必ず描画
                 this.showSyncStatus(SYNC_STATUS.SYNCED, '✓ データ読み込み完了');
                 this.isInitialLoad = false;
                 setTimeout(() => {
@@ -565,21 +643,6 @@ export class BudgetManager {
             setTimeout(() => {
                 document.getElementById('syncStatus').style.display = 'none';
             }, SYNC_STATUS_HIDE_DELAY);
-        }
-    }
-
-    /**
-     * クイック入力のフォーカスを復元
-     * @private
-     */
-    _restoreQuickInputFocus() {
-        if (this.quickInputMode && this.quickInputFocusId) {
-            setTimeout(() => {
-                const input = document.getElementById(this.quickInputFocusId);
-                if (input) {
-                    input.focus();
-                }
-            }, 10);
         }
     }
 
