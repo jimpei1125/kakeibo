@@ -656,13 +656,16 @@ button.edit-btn:hover {
     display: flex;
     align-items: center;
     gap: 5px;
+    margin: 0;
+    padding: 0;
 }
 
 .quick-input-wrapper-sub {
     display: flex;
     align-items: center;
     gap: 5px;
-    margin-right: 8px;
+    margin: 0 8px 0 0;
+    padding: 0;
 }
 
 .quick-input-field {
