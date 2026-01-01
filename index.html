@@ -65,51 +65,6 @@
         </div>
     </div>
 
-    <!-- 連続入力モーダル -->
-    <div class="modal-overlay" id="continuousInputModal" style="display: none;">
-        <div class="modal-content continuous-input-modal">
-            <div class="modal-header">
-                <h2>📝 連続入力</h2>
-                <button class="modal-close" onclick="app.budget.closeContinuousInput()">✕</button>
-            </div>
-            
-            <div class="ci-form">
-                <div class="ci-field">
-                    <label>カテゴリ</label>
-                    <select id="ciCategory"></select>
-                </div>
-                
-                <div class="ci-field">
-                    <label>金額</label>
-                    <div class="ci-amount-wrapper">
-                        <span class="ci-currency">¥</span>
-                        <input type="number" id="ciAmount" placeholder="0" inputmode="numeric" enterkeyhint="done"
-                            onkeydown="app.budget.handleContinuousInputKey(event)">
-                    </div>
-                </div>
-                
-                <div class="ci-field">
-                    <label>メモ（任意）</label>
-                    <input type="text" id="ciNote" placeholder="例：スーパーで購入" enterkeyhint="done"
-                        onkeydown="app.budget.handleContinuousInputKey(event)">
-                </div>
-                
-                <div class="ci-actions">
-                    <button class="ci-save-next" onclick="app.budget.saveContinuousAndNext()">
-                        保存して次へ（Enter）
-                    </button>
-                    <button class="ci-done" onclick="app.budget.closeContinuousInput()">
-                        完了
-                    </button>
-                </div>
-                
-                <div class="ci-history" id="ciHistory">
-                    <!-- 追加履歴がここに表示される -->
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- 計算機モーダル（既存） -->
     <div class="calculator-modal" id="calculatorModal">
         <div class="calc-header">
@@ -209,10 +164,9 @@
                 <button onclick="app.budget.copyFromPreviousMonth()" style="width: 100%; background: #ffc107; color: #333;">📋 先月分をコピー</button>
             </div>
 
-            <!-- クイック入力トグル＆連続入力ボタン -->
+            <!-- クイック入力トグル -->
             <div class="quick-input-actions">
                 <button class="quick-input-toggle" id="quickInputToggle" onclick="app.budget.toggleQuickInputMode()">⚡ クイック入力</button>
-                <button class="continuous-input-btn" onclick="app.budget.showContinuousInput()">📝 連続入力</button>
             </div>
 
             <div class="add-category">
