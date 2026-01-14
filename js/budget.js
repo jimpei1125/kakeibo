@@ -418,25 +418,44 @@ export class CSVImporter {
      * @param {Event} event - ファイル選択イベント
      */
     async handleFileSelect(event) {
+        console.log('handleFileSelect called', event);
         const file = event.target.files[0];
-        if (!file) return;
+        console.log('Selected file:', file);
+
+        if (!file) {
+            console.log('No file selected');
+            return;
+        }
+
+        // ファイル情報をログ出力（デバッグ用）
+        console.log('File details:', {
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            lastModified: new Date(file.lastModified)
+        });
 
         // ファイル名を表示
         const fileNameDisplay = document.getElementById('csvFileName');
         if (fileNameDisplay) {
-            fileNameDisplay.textContent = `選択されたファイル: ${file.name}`;
+            fileNameDisplay.textContent = `選択されたファイル: ${file.name} (${(file.size / 1024).toFixed(1)}KB)`;
             fileNameDisplay.style.display = 'block';
         }
 
-        if (!file.name.endsWith('.csv')) {
+        if (!file.name.toLowerCase().endsWith('.csv')) {
             alert('CSVファイルを選択してください');
             return;
         }
 
         try {
             Utils.showToast('CSV読み込み中...');
+            console.log('Reading file...');
             const content = await this._readFile(file);
+            console.log('File content length:', content.length);
+            console.log('First 200 chars:', content.substring(0, 200));
+
             this.calculatedTotal = this._parseCSVAndCalculateTotal(content);
+            console.log('Calculated total:', this.calculatedTotal);
             this._displayTotal();
         } catch (error) {
             console.error('CSV読み込みエラー:', error);
@@ -449,17 +468,44 @@ export class CSVImporter {
     }
 
     /**
-     * ファイルを読み込む
+     * ファイルを読み込む（エンコーディング自動検出）
      * @private
      * @param {File} file - 読み込むファイル
      * @returns {Promise<string>} ファイル内容
      */
-    _readFile(file) {
+    async _readFile(file) {
+        // まずUTF-8で試す（モバイルやWebでダウンロードしたCSVの多く）
+        try {
+            const content = await this._readFileWithEncoding(file, 'UTF-8');
+            // UTF-8で日本語が正しく読めているか簡易チェック
+            if (!content.includes('�') && content.length > 0) {
+                return content;
+            }
+        } catch (error) {
+            console.log('UTF-8での読み込みに失敗、Shift_JISを試します');
+        }
+
+        // UTF-8で失敗したらShift_JISで試す（クレジットカード会社のCSV）
+        try {
+            return await this._readFileWithEncoding(file, 'Shift_JIS');
+        } catch (error) {
+            throw new Error('ファイルの読み込みに失敗しました（エンコーディングが不明です）');
+        }
+    }
+
+    /**
+     * 指定されたエンコーディングでファイルを読み込む
+     * @private
+     * @param {File} file - 読み込むファイル
+     * @param {string} encoding - エンコーディング
+     * @returns {Promise<string>} ファイル内容
+     */
+    _readFileWithEncoding(file, encoding) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = (e) => resolve(e.target.result);
-            reader.onerror = () => reject(new Error('ファイルの読み込みに失敗しました'));
-            reader.readAsText(file, 'Shift_JIS'); // クレジットカードCSVは通常Shift_JIS
+            reader.onerror = () => reject(new Error(`${encoding}での読み込みに失敗しました`));
+            reader.readAsText(file, encoding);
         });
     }
 
