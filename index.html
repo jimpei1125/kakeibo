@@ -159,8 +159,12 @@
         <div style="background: rgba(255, 255, 255, 0.08); padding: 20px; border-radius: 12px; margin-bottom: 15px;">
             <div style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 8px; color: #e0e0e0; font-weight: 700;">CSVファイルを選択</label>
-                <input type="file" id="csvFileInput" accept=".csv" onchange="app.csvImporter.handleFileSelect(event)"
-                    style="width: 100%; padding: 10px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; color: #e0e0e0;">
+                <input type="file" id="csvFileInput" accept=".csv" onchange="app.csvImporter.handleFileSelect(event)" style="display: none;">
+                <button onclick="document.getElementById('csvFileInput').click()"
+                    style="width: 100%; padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);">
+                    📁 CSVファイルを選択
+                </button>
+                <div id="csvFileName" style="margin-top: 10px; color: #4caf50; font-size: 14px; display: none;"></div>
                 <p style="margin-top: 8px; color: #aaa; font-size: 12px;">※ クレジットカードの利用明細CSVファイルを選択してください</p>
             </div>
 

@@ -395,6 +395,7 @@ export class CSVImporter {
         const categoryName = document.getElementById('csvCategoryName');
         const totalDisplay = document.getElementById('csvTotalDisplay');
         const importBtn = document.getElementById('csvImportBtn');
+        const fileNameDisplay = document.getElementById('csvFileName');
 
         if (fileInput) fileInput.value = '';
         if (categoryName) categoryName.value = '';
@@ -402,7 +403,14 @@ export class CSVImporter {
             totalDisplay.textContent = '';
             totalDisplay.style.display = 'none';
         }
-        if (importBtn) importBtn.disabled = true;
+        if (fileNameDisplay) {
+            fileNameDisplay.textContent = '';
+            fileNameDisplay.style.display = 'none';
+        }
+        if (importBtn) {
+            importBtn.disabled = true;
+            importBtn.style.opacity = '0.5';
+        }
     }
 
     /**
@@ -413,18 +421,30 @@ export class CSVImporter {
         const file = event.target.files[0];
         if (!file) return;
 
+        // ファイル名を表示
+        const fileNameDisplay = document.getElementById('csvFileName');
+        if (fileNameDisplay) {
+            fileNameDisplay.textContent = `選択されたファイル: ${file.name}`;
+            fileNameDisplay.style.display = 'block';
+        }
+
         if (!file.name.endsWith('.csv')) {
             alert('CSVファイルを選択してください');
             return;
         }
 
         try {
+            Utils.showToast('CSV読み込み中...');
             const content = await this._readFile(file);
             this.calculatedTotal = this._parseCSVAndCalculateTotal(content);
             this._displayTotal();
         } catch (error) {
             console.error('CSV読み込みエラー:', error);
             alert(`CSVファイルの読み込みに失敗しました: ${error.message}`);
+            // エラー時はファイル名表示をクリア
+            if (fileNameDisplay) {
+                fileNameDisplay.style.display = 'none';
+            }
         }
     }
 
