@@ -352,6 +352,227 @@ export class CSVExporter {
 }
 
 // ============================================================
+// CSVインポートクラス
+// ============================================================
+
+/**
+ * CSVファイルから利用金額を読み込んで合計を計算し、項目として追加するクラス
+ */
+export class CSVImporter {
+    /**
+     * @param {BudgetManager} budgetManager - 予算管理インスタンス
+     */
+    constructor(budgetManager) {
+        /** @type {BudgetManager} */
+        this.budgetManager = budgetManager;
+        /** @type {number|null} 計算された合計金額 */
+        this.calculatedTotal = null;
+    }
+
+    /**
+     * CSVインポートモーダルを表示
+     */
+    showModal() {
+        Utils.showModal('csvImportModal');
+        this._resetImportState();
+    }
+
+    /**
+     * CSVインポートモーダルを閉じる
+     */
+    closeModal() {
+        Utils.closeModal('csvImportModal');
+        this._resetImportState();
+    }
+
+    /**
+     * インポート状態をリセット
+     * @private
+     */
+    _resetImportState() {
+        this.calculatedTotal = null;
+        const fileInput = document.getElementById('csvFileInput');
+        const categoryName = document.getElementById('csvCategoryName');
+        const totalDisplay = document.getElementById('csvTotalDisplay');
+        const importBtn = document.getElementById('csvImportBtn');
+
+        if (fileInput) fileInput.value = '';
+        if (categoryName) categoryName.value = '';
+        if (totalDisplay) {
+            totalDisplay.textContent = '';
+            totalDisplay.style.display = 'none';
+        }
+        if (importBtn) importBtn.disabled = true;
+    }
+
+    /**
+     * CSVファイルが選択されたときの処理
+     * @param {Event} event - ファイル選択イベント
+     */
+    async handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        if (!file.name.endsWith('.csv')) {
+            alert('CSVファイルを選択してください');
+            return;
+        }
+
+        try {
+            const content = await this._readFile(file);
+            this.calculatedTotal = this._parseCSVAndCalculateTotal(content);
+            this._displayTotal();
+        } catch (error) {
+            console.error('CSV読み込みエラー:', error);
+            alert(`CSVファイルの読み込みに失敗しました: ${error.message}`);
+        }
+    }
+
+    /**
+     * ファイルを読み込む
+     * @private
+     * @param {File} file - 読み込むファイル
+     * @returns {Promise<string>} ファイル内容
+     */
+    _readFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = () => reject(new Error('ファイルの読み込みに失敗しました'));
+            reader.readAsText(file, 'Shift_JIS'); // クレジットカードCSVは通常Shift_JIS
+        });
+    }
+
+    /**
+     * CSVをパースして利用金額の合計を計算
+     * @private
+     * @param {string} content - CSV内容
+     * @returns {number} 合計金額
+     */
+    _parseCSVAndCalculateTotal(content) {
+        const lines = content.split(/\r?\n/).filter(line => line.trim());
+        if (lines.length === 0) {
+            throw new Error('CSVファイルが空です');
+        }
+
+        // ヘッダー行から「利用金額」列のインデックスを取得
+        const headers = this._parseCSVLine(lines[0]);
+        const amountIndex = headers.findIndex(h =>
+            h.includes('利用金額') || h.includes('金額') || h.includes('Amount')
+        );
+
+        if (amountIndex === -1) {
+            throw new Error('「利用金額」列が見つかりません。ヘッダー行を確認してください。');
+        }
+
+        // データ行から金額を抽出して合計
+        let total = 0;
+        for (let i = 1; i < lines.length; i++) {
+            const row = this._parseCSVLine(lines[i]);
+            if (row.length > amountIndex) {
+                const amountStr = row[amountIndex].replace(/[,¥円]/g, '').trim();
+                const amount = parseFloat(amountStr);
+                if (!isNaN(amount) && amount > 0) {
+                    total += amount;
+                }
+            }
+        }
+
+        if (total === 0) {
+            throw new Error('有効な金額データが見つかりませんでした');
+        }
+
+        return total;
+    }
+
+    /**
+     * CSV行をパース（簡易実装）
+     * @private
+     * @param {string} line - CSV行
+     * @returns {string[]} パースされた列
+     */
+    _parseCSVLine(line) {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+
+            if (char === '"') {
+                if (inQuotes && line[i + 1] === '"') {
+                    current += '"';
+                    i++;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+            } else if (char === ',' && !inQuotes) {
+                result.push(current.trim());
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        result.push(current.trim());
+
+        return result;
+    }
+
+    /**
+     * 計算された合計金額を表示
+     * @private
+     */
+    _displayTotal() {
+        const totalDisplay = document.getElementById('csvTotalDisplay');
+        const importBtn = document.getElementById('csvImportBtn');
+
+        if (totalDisplay) {
+            totalDisplay.textContent = `利用金額合計: ¥${Utils.formatCurrency(this.calculatedTotal)}`;
+            totalDisplay.style.display = 'block';
+        }
+
+        if (importBtn) {
+            importBtn.disabled = false;
+            importBtn.style.opacity = '1';
+        }
+
+        Utils.showToast('CSV読み込み完了！');
+    }
+
+    /**
+     * CSVデータをインポート
+     */
+    importData() {
+        if (this.calculatedTotal === null) {
+            alert('CSVファイルを選択してください');
+            return;
+        }
+
+        const categoryName = document.getElementById('csvCategoryName')?.value.trim();
+        if (!categoryName) {
+            alert('項目名を入力してください');
+            return;
+        }
+
+        // 新しいカテゴリとして追加
+        this.budgetManager.getCurrentMonthData().categories.push({
+            id: Utils.generateId(),
+            name: categoryName,
+            amount: this.calculatedTotal,
+            note: 'CSVインポート',
+            subcategories: []
+        });
+
+        // 保存して表示を更新
+        this.budgetManager.showSyncStatus(SYNC_STATUS.SYNCING, '同期中...');
+        this.budgetManager.saveToFirestore();
+
+        Utils.showToast(`「${categoryName}」を追加しました！`);
+        this.closeModal();
+    }
+}
+
+// ============================================================
 // 予算管理クラス
 // ============================================================
 
