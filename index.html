@@ -105,7 +105,7 @@
             <h2>📥 CSV出力</h2>
             <button class="modal-close" onclick="app.csv.closeModal()">✕</button>
         </div>
-        
+
         <div style="background: rgba(255, 255, 255, 0.08); padding: 20px; border-radius: 12px; margin-bottom: 15px;">
             <div style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 8px; color: #e0e0e0; font-weight: 700;">出力範囲</label>
@@ -146,6 +146,38 @@
 
         <button onclick="app.csv.export()" style="width: 100%; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); box-shadow: 0 4px 15px rgba(240, 147, 251, 0.4);">
             📥 CSVダウンロード
+        </button>
+    </div>
+
+    <!-- CSVインポートモーダル -->
+    <div class="csv-modal" id="csvImportModal">
+        <div class="modal-header">
+            <h2>📤 CSVインポート</h2>
+            <button class="modal-close" onclick="app.csvImporter.closeModal()">✕</button>
+        </div>
+
+        <div style="background: rgba(255, 255, 255, 0.08); padding: 20px; border-radius: 12px; margin-bottom: 15px;">
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 8px; color: #e0e0e0; font-weight: 700;">CSVファイルを選択</label>
+                <input type="file" id="csvFileInput" accept=".csv" onchange="app.csvImporter.handleFileSelect(event)"
+                    style="width: 100%; padding: 10px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; color: #e0e0e0;">
+                <p style="margin-top: 8px; color: #aaa; font-size: 12px;">※ クレジットカードの利用明細CSVファイルを選択してください</p>
+            </div>
+
+            <div id="csvTotalDisplay" style="display: none; margin-bottom: 15px; padding: 15px; background: rgba(76, 175, 80, 0.2); border-radius: 8px; color: #4caf50; font-weight: bold; text-align: center; font-size: 18px;">
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 8px; color: #e0e0e0; font-weight: 700;">項目名</label>
+                <input type="text" id="csvCategoryName" placeholder="例：クレジットカード（楽天）"
+                    style="width: 100%; padding: 10px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; color: #e0e0e0;">
+                <p style="margin-top: 8px; color: #aaa; font-size: 12px;">※ この名前でカテゴリが作成されます</p>
+            </div>
+        </div>
+
+        <button id="csvImportBtn" onclick="app.csvImporter.importData()" disabled
+            style="width: 100%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); box-shadow: 0 4px 15px rgba(79, 172, 254, 0.4); opacity: 0.5; transition: opacity 0.3s;">
+            📤 インポート
         </button>
     </div>
 
@@ -650,6 +682,7 @@
             <button class="nav-btn" id="footerQuickInput" onclick="app.budget.toggleQuickInputMode()">⚡ クイック入力</button>
             <button class="nav-btn" onclick="app.calculator.show()">🔢 計算機</button>
             <button class="nav-btn" onclick="app.csv.showModal()">📥 CSV出力</button>
+            <button class="nav-btn" onclick="app.csvImporter.showModal()">📤 CSV取込</button>
         </div>
     </div>
 

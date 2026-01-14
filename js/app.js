@@ -4,7 +4,7 @@
  */
 
 import { Utils } from './utils.js';
-import { BudgetManager, Calculator, CSVExporter } from './budget.js';
+import { BudgetManager, Calculator, CSVExporter, CSVImporter } from './budget.js';
 import { HolidayCalendar } from './calendar.js';
 import { ShoppingList } from './shopping.js';
 import { SmartHome } from './smarthome.js';
@@ -45,6 +45,7 @@ class KakeiboApp {
         this.budget = new BudgetManager();
         this.calculator = new Calculator();
         this.csv = new CSVExporter(this.budget);
+        this.csvImporter = new CSVImporter(this.budget);
         this.holidayCalendar = new HolidayCalendar();
         this.shopping = new ShoppingList(this.budget);
         this.smartHome = new SmartHome();
