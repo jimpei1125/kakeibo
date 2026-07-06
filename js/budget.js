@@ -73,15 +73,66 @@ export class Calculator {
      */
     calculate() {
         try {
-            // 全角演算子を半角に変換して計算
-            const expr = this.expression.replace(/×/g, '*').replace(/÷/g, '/');
-            const result = Math.round(eval(expr) * 100) / 100;
+            const result = Math.round(Calculator.evaluate(this.expression) * 100) / 100;
             this.expression = result.toString();
             this._updateDisplay(result);
         } catch {
             this._updateDisplay('エラー');
             this.expression = 'エラー';
         }
+    }
+
+    /**
+     * 四則演算式を安全に評価する（evalは使わない）
+     * 対応: + - × ÷ * / 括弧 小数 単項マイナス
+     * @param {string} expression - 計算式
+     * @returns {number} 計算結果
+     * @throws {Error} 不正な式の場合
+     */
+    static evaluate(expression) {
+        const tokens = expression
+            .replace(/×/g, '*')
+            .replace(/÷/g, '/')
+            .match(/(?:\d+\.?\d*|\.\d+)|[+\-*/()]/g);
+        if (!tokens) throw new Error('式が空です');
+
+        let pos = 0;
+        const peek = () => tokens[pos];
+        const next = () => tokens[pos++];
+
+        const parseFactor = () => {
+            const token = next();
+            if (token === '(') {
+                const value = parseExpression();
+                if (next() !== ')') throw new Error('括弧が閉じられていません');
+                return value;
+            }
+            if (token === '-') return -parseFactor();
+            if (token === '+') return parseFactor();
+            const num = parseFloat(token);
+            if (Number.isNaN(num)) throw new Error('不正なトークン');
+            return num;
+        };
+
+        const parseTerm = () => {
+            let value = parseFactor();
+            while (peek() === '*' || peek() === '/') {
+                value = next() === '*' ? value * parseFactor() : value / parseFactor();
+            }
+            return value;
+        };
+
+        const parseExpression = () => {
+            let value = parseTerm();
+            while (peek() === '+' || peek() === '-') {
+                value = next() === '+' ? value + parseTerm() : value - parseTerm();
+            }
+            return value;
+        };
+
+        const result = parseExpression();
+        if (pos < tokens.length || !Number.isFinite(result)) throw new Error('不正な式');
+        return result;
     }
 
     /**
@@ -304,10 +355,20 @@ export class CSVExporter {
      * @private
      */
     _formatRow(month, category, subcategory, amount, note, includeHalf, includeNotes) {
-        const row = [month, `"${category}"`, `"${subcategory}"`, amount || 0];
+        const row = [month, this._quote(category), this._quote(subcategory), amount || 0];
         if (includeHalf) row.push(Math.round((amount || 0) / 2));
-        if (includeNotes) row.push(`"${note || ''}"`);
+        if (includeNotes) row.push(this._quote(note));
         return row.join(',') + '\n';
+    }
+
+    /**
+     * CSVフィールドをクォート（内部のダブルクォートをエスケープ）
+     * @private
+     * @param {*} value - フィールド値
+     * @returns {string}
+     */
+    _quote(value) {
+        return `"${String(value ?? '').replace(/"/g, '""')}"`;
     }
 
     /**
@@ -407,10 +468,7 @@ export class CSVImporter {
             fileNameDisplay.textContent = '';
             fileNameDisplay.style.display = 'none';
         }
-        if (importBtn) {
-            importBtn.disabled = true;
-            importBtn.style.opacity = '0.5';
-        }
+        if (importBtn) importBtn.disabled = true;
     }
 
     /**
@@ -418,22 +476,8 @@ export class CSVImporter {
      * @param {Event} event - ファイル選択イベント
      */
     async handleFileSelect(event) {
-        console.log('handleFileSelect called', event);
         const file = event.target.files[0];
-        console.log('Selected file:', file);
-
-        if (!file) {
-            console.log('No file selected');
-            return;
-        }
-
-        // ファイル情報をログ出力（デバッグ用）
-        console.log('File details:', {
-            name: file.name,
-            size: file.size,
-            type: file.type,
-            lastModified: new Date(file.lastModified)
-        });
+        if (!file) return;
 
         // ファイル名を表示
         const fileNameDisplay = document.getElementById('csvFileName');
@@ -449,13 +493,8 @@ export class CSVImporter {
 
         try {
             Utils.showToast('CSV読み込み中...');
-            console.log('Reading file...');
             const content = await this._readFile(file);
-            console.log('File content length:', content.length);
-            console.log('First 200 chars:', content.substring(0, 200));
-
             this.calculatedTotal = this._parseCSVAndCalculateTotal(content);
-            console.log('Calculated total:', this.calculatedTotal);
             this._displayTotal();
         } catch (error) {
             console.error('CSV読み込みエラー:', error);
@@ -477,18 +516,18 @@ export class CSVImporter {
         // まずUTF-8で試す（モバイルやWebでダウンロードしたCSVの多く）
         try {
             const content = await this._readFileWithEncoding(file, 'UTF-8');
-            // UTF-8で日本語が正しく読めているか簡易チェック
+            // UTF-8で日本語が正しく読めているか簡易チェック（置換文字が無ければOK）
             if (!content.includes('�') && content.length > 0) {
                 return content;
             }
-        } catch (error) {
-            console.log('UTF-8での読み込みに失敗、Shift_JISを試します');
+        } catch {
+            // フォールバックに進む
         }
 
         // UTF-8で失敗したらShift_JISで試す（クレジットカード会社のCSV）
         try {
             return await this._readFileWithEncoding(file, 'Shift_JIS');
-        } catch (error) {
+        } catch {
             throw new Error('ファイルの読み込みに失敗しました（エンコーディングが不明です）');
         }
     }
@@ -597,10 +636,7 @@ export class CSVImporter {
             totalDisplay.style.display = 'block';
         }
 
-        if (importBtn) {
-            importBtn.disabled = false;
-            importBtn.style.opacity = '1';
-        }
+        if (importBtn) importBtn.disabled = false;
 
         Utils.showToast('CSV読み込み完了！');
     }
@@ -629,9 +665,7 @@ export class CSVImporter {
             subcategories: []
         });
 
-        // 保存して表示を更新
-        this.budgetManager.showSyncStatus(SYNC_STATUS.SYNCING, '同期中...');
-        this.budgetManager.saveToFirestore();
+        this.budgetManager.saveWithStatus();
 
         Utils.showToast(`「${categoryName}」を追加しました！`);
         this.closeModal();
@@ -700,7 +734,6 @@ export class BudgetManager {
      * @returns {boolean} false（フォーム送信を防止）
      */
     quickInputSubmit(categoryIdStr, subIdStr, event) {
-        console.log('quickInputSubmit called:', categoryIdStr, subIdStr);
         if (event) {
             event.preventDefault();
             event.stopPropagation();
@@ -715,81 +748,60 @@ export class BudgetManager {
      * @param {string|null} subIdStr - サブカテゴリID（安全な文字列形式）
      */
     quickAddAmount(categoryIdStr, subIdStr = null) {
-        console.log('quickAddAmount called:', categoryIdStr, subIdStr);
-        
         // 安全な文字列IDから元のIDを復元（ハイフンを小数点に戻す）
-        const categoryId = parseFloat(String(categoryIdStr).replace('-', '.'));
-        const subId = subIdStr ? parseFloat(String(subIdStr).replace('-', '.')) : null;
-        
-        console.log('Parsed IDs:', categoryId, subId);
-        
+        const categoryId = parseFloat(String(categoryIdStr).replaceAll('-', '.'));
+        const subId = subIdStr ? parseFloat(String(subIdStr).replaceAll('-', '.')) : null;
+
         const inputId = subIdStr ? `quick-sub-${categoryIdStr}-${subIdStr}` : `quick-${categoryIdStr}`;
-        console.log('Looking for input:', inputId);
-        
         const input = document.getElementById(inputId);
-        console.log('Found input:', input);
-        
+
         if (!input) {
-            console.error('Input not found!');
             Utils.showToast('エラー: 入力欄が見つかりません');
             return;
         }
-        
+
         const amount = parseFloat(input.value);
-        console.log('Amount:', amount, 'Raw value:', input.value);
-        
         if (!amount || isNaN(amount)) {
             Utils.showToast('金額を入力してください');
             return;
         }
-        
+
         const category = this._findCategory(categoryId);
-        console.log('Found category:', category);
-        
         if (!category) {
-            console.error('Category not found!');
             Utils.showToast('エラー: カテゴリが見つかりません');
             return;
         }
-        
-        let newTotal = 0;
-        
+
         if (subId) {
             const sub = category.subcategories.find(s => s.id === subId);
             if (sub) {
                 sub.amount = (sub.amount || 0) + amount;
-                newTotal = sub.amount;
                 // サブカテゴリの金額表示を部分更新
                 const subAmountInput = document.getElementById(`subamount-${categoryId}-${subId}`);
-                if (subAmountInput) subAmountInput.value = newTotal;
+                if (subAmountInput) subAmountInput.value = sub.amount;
             }
         } else {
             category.amount = (category.amount || 0) + amount;
-            newTotal = category.amount;
-            console.log('New total for category:', newTotal);
             // カテゴリの金額表示を部分更新
             const amountInput = document.getElementById(`amount-${categoryId}`);
-            if (amountInput) amountInput.value = newTotal;
+            if (amountInput) amountInput.value = category.amount;
         }
-        
-        // カテゴリサマリーの金額表示を更新
+
+        // サマリーと合計の表示を部分更新（DOM全体は再描画しない＝フォーカス維持）
         this._updateCategorySummaryAmount(categoryId);
-        
-        // 合計金額を更新
         this._updateTotalDisplay();
-        
+
         // 入力欄をクリア（フォーカスは維持）
         input.value = '';
-        
+
         // 成功フィードバック
         input.classList.add('quick-input-success');
         setTimeout(() => input.classList.remove('quick-input-success'), 300);
-        
+
         Utils.showToast(`+¥${Utils.formatCurrency(amount)} 追加`);
-        console.log('Toast shown, saving to Firestore...');
-        
-        // Firestoreに保存（バックグラウンドで、DOM再描画なし）
-        this._saveQuietly();
+
+        // Firestoreに保存（スナップショット受信時の再描画はクイック入力中スキップされる）
+        this.saveToFirestore();
     }
     
     /**
@@ -831,22 +843,6 @@ export class BudgetManager {
         if (totalEl) totalEl.textContent = `¥${Utils.formatCurrency(total)}`;
         if (halfEl) halfEl.textContent = `折半: ¥${Utils.formatCurrency(half)}`;
         if (outputEl) outputEl.textContent = this.generateOutput();
-    }
-    
-    /**
-     * Firestoreに静かに保存（DOM再描画なし）
-     * @private
-     */
-    async _saveQuietly() {
-        try {
-            await setDoc(doc(db, 'budgetData', 'data'), { data: this.data });
-            // 同期ステータスは表示するが、updateDisplayは呼ばない
-            this.showSyncStatus(SYNC_STATUS.SYNCED, '✓ 同期完了');
-            this._hideSyncStatusAfterDelay();
-        } catch (error) {
-            console.error('Firestore保存エラー:', error);
-            this.showSyncStatus(SYNC_STATUS.ERROR, `✗ 同期エラー: ${error.message}`);
-        }
     }
 
     // ----------------------------------------
@@ -1035,7 +1031,7 @@ export class BudgetManager {
 
         // 入力フィールドをクリア
         this._clearInputFields(['newCategoryName', 'newCategoryAmount', 'newCategoryNote']);
-        this._saveWithStatus();
+        this.saveWithStatus();
     }
 
     /**
@@ -1047,7 +1043,7 @@ export class BudgetManager {
 
         const monthData = this.getCurrentMonthData();
         monthData.categories = monthData.categories.filter(c => c.id !== categoryId);
-        this._saveWithStatus();
+        this.saveWithStatus();
     }
 
     /**
@@ -1061,7 +1057,7 @@ export class BudgetManager {
         const newName = prompt('カテゴリー名を入力:', category.name);
         if (newName?.trim()) {
             category.name = newName.trim();
-            this._saveWithStatus();
+            this.saveWithStatus();
         }
     }
 
@@ -1098,7 +1094,7 @@ export class BudgetManager {
             `subamount-${categoryId}`,
             `subnote-${categoryId}`
         ]);
-        this._saveWithStatus();
+        this.saveWithStatus();
     }
 
     /**
@@ -1113,7 +1109,7 @@ export class BudgetManager {
         if (!category) return;
         
         category.subcategories = category.subcategories.filter(s => s.id !== subcategoryId);
-        this._saveWithStatus();
+        this.saveWithStatus();
     }
 
     /**
@@ -1129,7 +1125,7 @@ export class BudgetManager {
         const newName = prompt('項目名を入力:', subcategory.name);
         if (newName?.trim()) {
             subcategory.name = newName.trim();
-            this._saveWithStatus();
+            this.saveWithStatus();
         }
     }
 
@@ -1156,7 +1152,7 @@ export class BudgetManager {
                 subcategory.amount = parseFloat(input?.value) || 0;
             }
         }
-        this._saveWithStatus();
+        this.saveWithStatus();
     }
 
     /**
@@ -1178,7 +1174,7 @@ export class BudgetManager {
                 subcategory.note = input?.value.trim() || '';
             }
         }
-        this._saveWithStatus();
+        this.saveWithStatus();
     }
 
     // ----------------------------------------
@@ -1230,7 +1226,7 @@ export class BudgetManager {
         });
         
         currentData.categories = copiedCategories;
-        this._saveWithStatus();
+        this.saveWithStatus();
         alert('先月分のデータをコピーしました');
     }
 
@@ -1351,20 +1347,16 @@ export class BudgetManager {
      */
     updateDisplay() {
         // 月表示
-        document.getElementById('currentMonth').textContent = 
+        document.getElementById('currentMonth').textContent =
             `${this.currentYear}年 ${this.currentMonth}月`;
 
         // カテゴリリスト
         const monthData = this.getCurrentMonthData();
-        document.getElementById('categoryList').innerHTML = 
+        document.getElementById('categoryList').innerHTML =
             monthData.categories.map(cat => this._renderCategory(cat)).join('');
 
         // 合計表示
-        const total = this.calculateTotal();
-        const half = Math.round(total / 2);
-        document.getElementById('totalAmount').textContent = `¥${Utils.formatCurrency(total)}`;
-        document.getElementById('halfAmount').textContent = `折半: ¥${Utils.formatCurrency(half)}`;
-        document.getElementById('outputText').textContent = this.generateOutput();
+        this._updateTotalDisplay();
     }
 
     /**
@@ -1378,7 +1370,7 @@ export class BudgetManager {
         const displayAmount = category.subcategories.length > 0 ? subTotal : category.amount;
 
         return `
-            <div class="category-item">
+            <div class="category-item overflow-hidden rounded-xl bg-white/5 ring-1 ring-white/10">
                 ${this._renderCategorySummary(category, displayAmount)}
                 ${this._renderCategoryDetails(category, displayAmount)}
             </div>
@@ -1391,26 +1383,26 @@ export class BudgetManager {
      */
     _renderCategorySummary(category, displayAmount) {
         // IDを安全な文字列に変換（小数点をハイフンに置換）
-        const safeId = String(category.id).replace('.', '-');
-        
+        const safeId = String(category.id).replaceAll('.', '-');
+
         const quickInput = this.quickInputMode ? `
-            <form class="quick-input-wrapper" onsubmit="return app.budget.quickInputSubmit('${safeId}', null, event)">
-                <input type="number" class="quick-input-field" id="quick-${safeId}" 
+            <form class="quick-input-wrapper flex items-center gap-1.5" onsubmit="return app.budget.quickInputSubmit('${safeId}', null, event)">
+                <input type="number" class="quick-input-field w-24 rounded-lg bg-white/5 px-2.5 py-1.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" id="quick-${safeId}"
                     placeholder="金額" inputmode="decimal" enterkeyhint="go"
                     onclick="event.stopPropagation()">
-                <button type="submit" class="quick-add-btn" onclick="event.stopPropagation()">+</button>
+                <button type="submit" class="quick-add-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500 font-bold text-white transition hover:bg-indigo-400" onclick="event.stopPropagation()">+</button>
             </form>
         ` : '';
-        
+
         return `
-            <div class="category-summary" onclick="app.budget.toggleAccordion(${category.id})">
-                <div class="category-summary-left">
-                    <span class="accordion-icon" id="icon-${category.id}">▶</span>
-                    <span class="category-summary-name">${category.name}</span>
+            <div class="category-summary flex cursor-pointer items-center justify-between gap-3 px-4 py-3 transition hover:bg-white/5" onclick="app.budget.toggleAccordion(${category.id})">
+                <div class="category-summary-left flex min-w-0 items-center gap-2.5">
+                    <span class="accordion-icon text-[10px] text-zinc-500" id="icon-${category.id}">▶</span>
+                    <span class="category-summary-name truncate text-sm font-semibold text-zinc-100">${Utils.escapeHtml(category.name)}</span>
                 </div>
-                <div class="category-summary-right">
+                <div class="category-summary-right flex shrink-0 items-center gap-2">
                     ${quickInput}
-                    <span class="category-summary-amount">${Utils.formatCurrency(displayAmount)}円</span>
+                    <span class="category-summary-amount whitespace-nowrap text-sm font-bold text-white">${Utils.formatCurrency(displayAmount)}円</span>
                 </div>
             </div>
         `;
@@ -1422,9 +1414,9 @@ export class BudgetManager {
      */
     _renderCategoryDetails(category, displayAmount) {
         const hasSubcategories = category.subcategories.length > 0;
-        
+
         return `
-            <div class="category-details" id="details-${category.id}">
+            <div class="category-details border-t border-white/10 px-4 pb-4 pt-3" id="details-${category.id}">
                 ${this._renderCategoryHeader(category, displayAmount, hasSubcategories)}
                 ${!hasSubcategories ? this._renderCategoryNote(category) : ''}
                 ${hasSubcategories ? this._renderSubcategories(category) : ''}
@@ -1439,20 +1431,20 @@ export class BudgetManager {
      */
     _renderCategoryHeader(category, displayAmount, hasSubcategories) {
         const amountSection = hasSubcategories
-            ? `<span style="font-size: 18px; font-weight: bold;">合計: ${Utils.formatCurrency(displayAmount)}円</span>`
-            : `<input type="number" id="amount-${category.id}" value="${category.amount}" onchange="app.budget.updateAmount(${category.id}, null)"><span>円</span>`;
-        
+            ? `<span class="text-base font-bold text-white">合計: ${Utils.formatCurrency(displayAmount)}円</span>`
+            : `<input type="number" id="amount-${category.id}" value="${category.amount ?? 0}" onchange="app.budget.updateAmount(${category.id}, null)" class="w-28 rounded-lg bg-white/5 px-2.5 py-1.5 text-right text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500"><span class="text-sm text-zinc-400">円</span>`;
+
         return `
-            <div class="category-header">
-                <div>
-                    <span class="category-name">${category.name}</span>
-                    ${category.note ? `<div class="note-text">備考: ${category.note}</div>` : ''}
+            <div class="category-header flex flex-wrap items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <span class="category-name text-sm font-bold text-white">${Utils.escapeHtml(category.name)}</span>
+                    ${category.note ? `<div class="note-text mt-0.5 text-xs text-zinc-500">備考: ${Utils.escapeHtml(category.note)}</div>` : ''}
                 </div>
-                <div class="category-amount">
+                <div class="category-amount flex items-center gap-2">
                     ${amountSection}
-                    <div class="category-actions">
-                        <button class="edit-btn" onclick="app.budget.editCategory(${category.id})">編集</button>
-                        <button class="delete-btn" onclick="app.budget.deleteCategory(${category.id})">削除</button>
+                    <div class="category-actions flex gap-1.5">
+                        <button class="edit-btn rounded-md bg-white/10 px-2.5 py-1.5 text-xs font-semibold text-zinc-300 transition hover:bg-white/15" onclick="app.budget.editCategory(${category.id})">編集</button>
+                        <button class="delete-btn rounded-md bg-rose-500/10 px-2.5 py-1.5 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20" onclick="app.budget.deleteCategory(${category.id})">削除</button>
                     </div>
                 </div>
             </div>
@@ -1465,9 +1457,9 @@ export class BudgetManager {
      */
     _renderCategoryNote(category) {
         return `
-            <div style="margin-top: 10px;">
-                <input type="text" class="note-input" id="note-${category.id}" 
-                    value="${category.note || ''}" placeholder="備考を入力..." 
+            <div class="mt-3">
+                <input type="text" class="note-input w-full rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" id="note-${category.id}"
+                    value="${Utils.escapeHtml(category.note || '')}" placeholder="備考を入力..."
                     onchange="app.budget.updateNote(${category.id}, null)">
             </div>
         `;
@@ -1478,45 +1470,45 @@ export class BudgetManager {
      * @private
      */
     _renderSubcategories(category) {
-        const safeCatId = String(category.id).replace('.', '-');
-        
+        const safeCatId = String(category.id).replaceAll('.', '-');
+
         const items = category.subcategories.map(sub => {
-            const safeSubId = String(sub.id).replace('.', '-');
-            
+            const safeSubId = String(sub.id).replaceAll('.', '-');
+
             const quickInput = this.quickInputMode ? `
-                <form class="quick-input-wrapper-sub" onsubmit="return app.budget.quickInputSubmit('${safeCatId}', '${safeSubId}', event)">
-                    <input type="number" class="quick-input-field quick-input-sub" id="quick-sub-${safeCatId}-${safeSubId}" 
+                <form class="quick-input-wrapper-sub flex items-center gap-1.5" onsubmit="return app.budget.quickInputSubmit('${safeCatId}', '${safeSubId}', event)">
+                    <input type="number" class="quick-input-field quick-input-sub w-20 rounded-lg bg-white/5 px-2 py-1.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" id="quick-sub-${safeCatId}-${safeSubId}"
                         placeholder="金額" inputmode="decimal" enterkeyhint="go">
-                    <button type="submit" class="quick-add-btn">+</button>
+                    <button type="submit" class="quick-add-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500 font-bold text-white transition hover:bg-indigo-400">+</button>
                 </form>
             ` : '';
-            
+
             return `
-                <div class="subcategory-item">
-                    <div class="sub-row">
-                        <div>
-                            <span class="subcategory-name">${sub.name}</span>
-                            ${sub.note ? `<div class="note-text">備考: ${sub.note}</div>` : ''}
+                <div class="subcategory-item rounded-lg bg-white/5 p-3 ring-1 ring-inset ring-white/5">
+                    <div class="sub-row flex flex-wrap items-start justify-between gap-2">
+                        <div class="min-w-0">
+                            <span class="subcategory-name text-sm font-medium text-zinc-200">${Utils.escapeHtml(sub.name)}</span>
+                            ${sub.note ? `<div class="note-text mt-0.5 text-xs text-zinc-500">備考: ${Utils.escapeHtml(sub.note)}</div>` : ''}
                         </div>
-                        <div class="category-amount">
+                        <div class="category-amount flex items-center gap-2">
                             ${quickInput}
-                            <input type="number" id="subamount-${category.id}-${sub.id}" value="${sub.amount}" 
-                                onchange="app.budget.updateAmount(${category.id}, ${sub.id})">
-                            <span>円</span>
-                            <div class="category-actions">
-                                <button class="edit-btn" onclick="app.budget.editSubcategory(${category.id}, ${sub.id})">編集</button>
-                                <button class="delete-btn" onclick="app.budget.deleteSubcategory(${category.id}, ${sub.id})">削除</button>
+                            <input type="number" id="subamount-${category.id}-${sub.id}" value="${sub.amount ?? 0}"
+                                onchange="app.budget.updateAmount(${category.id}, ${sub.id})" class="w-24 rounded-lg bg-white/5 px-2.5 py-1.5 text-right text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
+                            <span class="text-sm text-zinc-400">円</span>
+                            <div class="category-actions flex gap-1.5">
+                                <button class="edit-btn rounded-md bg-white/10 px-2.5 py-1.5 text-xs font-semibold text-zinc-300 transition hover:bg-white/15" onclick="app.budget.editSubcategory(${category.id}, ${sub.id})">編集</button>
+                                <button class="delete-btn rounded-md bg-rose-500/10 px-2.5 py-1.5 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20" onclick="app.budget.deleteSubcategory(${category.id}, ${sub.id})">削除</button>
                             </div>
                         </div>
                     </div>
-                    <input type="text" class="note-input" id="subnote-edit-${category.id}-${sub.id}" 
-                        value="${sub.note || ''}" placeholder="備考を入力..." 
+                    <input type="text" class="note-input mt-2 w-full rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" id="subnote-edit-${category.id}-${sub.id}"
+                        value="${Utils.escapeHtml(sub.note || '')}" placeholder="備考を入力..."
                         onchange="app.budget.updateNote(${category.id}, ${sub.id})">
                 </div>
             `;
         }).join('');
-        
-        return `<div class="subcategory-list">${items}</div>`;
+
+        return `<div class="subcategory-list mt-3 space-y-2">${items}</div>`;
     }
 
     /**
@@ -1525,12 +1517,12 @@ export class BudgetManager {
      */
     _renderAddSubcategoryForm(categoryId) {
         return `
-            <div class="add-subcategory">
-                <div class="input-group">
-                    <input type="text" id="subname-${categoryId}" placeholder="小カテゴリー（例：電気）">
-                    <input type="number" id="subamount-${categoryId}" placeholder="金額">
-                    <input type="text" id="subnote-${categoryId}" placeholder="備考（任意）">
-                    <button onclick="app.budget.addSubcategory(${categoryId})">追加</button>
+            <div class="add-subcategory mt-3 rounded-lg bg-white/5 p-3 ring-1 ring-inset ring-white/5">
+                <div class="input-group flex flex-col gap-2 sm:flex-row">
+                    <input type="text" id="subname-${categoryId}" placeholder="小カテゴリー（例：電気）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+                    <input type="number" id="subamount-${categoryId}" placeholder="金額" class="min-w-0 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500 sm:w-24">
+                    <input type="text" id="subnote-${categoryId}" placeholder="備考（任意）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+                    <button onclick="app.budget.addSubcategory(${categoryId})" class="shrink-0 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400">追加</button>
                 </div>
             </div>
         `;
@@ -1594,9 +1586,8 @@ export class BudgetManager {
 
     /**
      * 同期ステータスを表示してから保存
-     * @private
      */
-    _saveWithStatus() {
+    saveWithStatus() {
         this.showSyncStatus(SYNC_STATUS.SYNCING, '同期中...');
         this.saveToFirestore();
     }

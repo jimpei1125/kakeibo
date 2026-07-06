@@ -60,18 +60,26 @@ export class SmartHome {
 
     // ==================== トークン管理 ====================
 
-    async saveToken() {
-        const token = document.getElementById('switchbotToken')?.value.trim();
-        const secret = document.getElementById('switchbotSecret')?.value.trim();
-        
-        if (!token || !secret) return Utils.showToast('トークンとシークレットを入力してください');
-        
+    /**
+     * トークン・シークレットを保持し、localStorageへ保存
+     * @param {string} token
+     * @param {string} secret
+     */
+    _saveCredentials(token, secret) {
         this.token = token;
         this.secret = secret;
         localStorage.setItem('switchbot_token', token);
         localStorage.setItem('switchbot_secret', secret);
-        
         Utils.showToast('保存しました');
+    }
+
+    async saveToken() {
+        const token = document.getElementById('switchbotToken')?.value.trim();
+        const secret = document.getElementById('switchbotSecret')?.value.trim();
+
+        if (!token || !secret) return Utils.showToast('トークンとシークレットを入力してください');
+
+        this._saveCredentials(token, secret);
         this.showDevicesView();
         await this.loadDevices();
     }
@@ -89,13 +97,8 @@ export class SmartHome {
         const secret = document.getElementById('settingsSwitchbotSecret')?.value.trim();
         
         if (!token || !secret) return Utils.showToast('トークンとシークレットを入力してください');
-        
-        this.token = token;
-        this.secret = secret;
-        localStorage.setItem('switchbot_token', token);
-        localStorage.setItem('switchbot_secret', secret);
-        
-        Utils.showToast('保存しました');
+
+        this._saveCredentials(token, secret);
         this.closeSettings();
         this.loadDevices();
     }
@@ -181,30 +184,37 @@ export class SmartHome {
     renderDevices() {
         const irListEl = document.getElementById('irDeviceList');
         const physicalListEl = document.getElementById('physicalDeviceList');
-        
+
         // 赤外線デバイス
         irListEl.innerHTML = this.infraredDevices.length === 0
-            ? '<div class="no-devices">赤外線デバイスがありません</div>'
+            ? this._renderNoDevices('赤外線デバイスがありません')
             : this.infraredDevices.map(d => this._renderDeviceCard(d, 'remoteType')).join('');
-        
+
         // 物理デバイス
         physicalListEl.innerHTML = this.devices.length === 0
-            ? '<div class="no-devices">SwitchBotデバイスがありません</div>'
+            ? this._renderNoDevices('SwitchBotデバイスがありません')
             : this.devices.map(d => this._renderDeviceCard(d, 'deviceType', true)).join('');
+    }
+
+    _renderNoDevices(message) {
+        return `<div class="no-devices col-span-full py-6 text-center text-sm text-zinc-500">${Utils.escapeHtml(message)}</div>`;
     }
 
     _renderDeviceCard(device, typeKey, isPhysical = false) {
         const type = device[typeKey];
         const icon = this.deviceIcons[type] || this.deviceIcons['default'];
-        const onclick = isPhysical
-            ? `app.smartHome.controlPhysicalDevice('${device.deviceId}','${type}','${device.deviceName}')`
-            : `app.smartHome.controlDevice('${device.deviceId}','${type}','${device.deviceName}')`;
-        
+        const method = isPhysical ? 'controlPhysicalDevice' : 'controlDevice';
+        // 引数をJS文字列リテラル化した上でHTML属性用にエスケープ（XSS対策）
+        const args = [device.deviceId, type, device.deviceName]
+            .map(v => JSON.stringify(String(v ?? '')))
+            .join(',');
+        const onclick = Utils.escapeHtml(`app.smartHome.${method}(${args})`);
+
         return `
-            <div class="device-card" onclick="${onclick}">
-                <div class="device-icon">${icon}</div>
-                <div class="device-name">${device.deviceName}</div>
-                <div class="device-type">${type}</div>
+            <div class="device-card cursor-pointer rounded-xl bg-white/5 p-4 text-center ring-1 ring-white/10 transition hover:bg-white/10" onclick="${onclick}">
+                <div class="device-icon mb-2 text-3xl">${icon}</div>
+                <div class="device-name truncate text-sm font-bold text-zinc-100">${Utils.escapeHtml(device.deviceName)}</div>
+                <div class="device-type mt-1 text-[11px] text-zinc-500">${Utils.escapeHtml(type)}</div>
             </div>
         `;
     }

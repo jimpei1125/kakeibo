@@ -27,6 +27,22 @@ const CATEGORY_KEYWORDS = {
     '日用品': ['洗剤', 'シャンプー', 'リンス', '石鹸', 'ティッシュ', 'トイレットペーパー', 'ラップ', 'アルミホイル', 'ゴミ袋', '歯磨き粉', '歯ブラシ', '綿棒']
 };
 
+/** 優先度バッジ（急ぎ=rose / 後で=sky） */
+const PRIORITY_BADGES = {
+    high: '<span class="priority-badge rounded-full bg-rose-500/15 px-2 py-0.5 text-[11px] font-semibold text-rose-300 ring-1 ring-inset ring-rose-500/20">急ぎ</span>',
+    low: '<span class="priority-badge rounded-full bg-sky-500/15 px-2 py-0.5 text-[11px] font-semibold text-sky-300 ring-1 ring-inset ring-sky-500/20">後で</span>'
+};
+
+/**
+ * onclick属性内のJS文字列引数として安全な形にエスケープする
+ * （JS文字列リテラル化 → HTML属性用エスケープの二段階）
+ * @param {*} value - エスケープする値
+ * @returns {string} 属性内に埋め込めるJS文字列リテラル
+ */
+function escapeJsArg(value) {
+    return Utils.escapeHtml(JSON.stringify(String(value ?? '')));
+}
+
 // ============================================================
 // 買い物リストクラス
 // ============================================================
@@ -60,16 +76,8 @@ export class ShoppingList {
         if (!el) return;
         
         el.textContent = message;
-        el.className = 'sync-status';
-        
-        const styles = {
-            synced: { bg: 'rgba(56,239,125,0.2)', color: '#38ef7d' },
-            syncing: { bg: 'rgba(255,193,7,0.2)', color: '#ffc107' },
-            error: { bg: 'rgba(245,87,108,0.2)', color: '#f5576c' }
-        };
-        const s = styles[status] || styles.synced;
-        el.style.background = s.bg;
-        el.style.color = s.color;
+        const state = ['synced', 'syncing', 'error'].includes(status) ? status : 'synced';
+        el.className = `sync-status ${state}`;
     }
 
     // ==================== データ読み込み ====================
@@ -129,11 +137,11 @@ export class ShoppingList {
         }
         
         suggestionsEl.innerHTML = `
-            <div class="suggestions-title">💡 過去の購入履歴から</div>
-            <div class="suggestion-items">
+            <div class="suggestions-title border-b border-white/10 px-3 py-2 text-xs font-semibold text-zinc-400">💡 過去の購入履歴から</div>
+            <div class="suggestion-items max-h-56 overflow-y-auto">
                 ${suggestions.map(i => `
-                    <div class="suggestion-item" onclick="app.shopping.selectSuggestion('${i.name}','${i.category || 'その他'}')">
-                        ${i.name}<span class="count">(${i.count}回)</span>
+                    <div class="suggestion-item cursor-pointer px-3 py-2 text-sm text-zinc-100 transition hover:bg-white/10" onclick="app.shopping.selectSuggestion(${escapeJsArg(i.name)},${escapeJsArg(i.category || 'その他')})">
+                        ${Utils.escapeHtml(i.name)}<span class="count ml-1.5 text-xs text-zinc-500">(${i.count}回)</span>
                     </div>
                 `).join('')}
             </div>
@@ -300,11 +308,11 @@ export class ShoppingList {
         
         // 未購入リスト
         if (uncompleted.length === 0) {
-            listEl.innerHTML = '<div class="shopping-empty"><div class="shopping-empty-icon">🛒</div><div class="shopping-empty-text">買い物リストは空です</div></div>';
+            listEl.innerHTML = this.renderEmptyState('買い物リストは空です', '🛒');
         } else {
             listEl.innerHTML = Object.entries(grouped).map(([cat, items]) => `
-                <div class="shopping-category-group">
-                    <div class="shopping-category-header">${this.categoryEmojis[cat] || '📦'} ${cat}</div>
+                <div class="shopping-category-group mb-5">
+                    <div class="shopping-category-header mb-2 border-b border-white/10 pb-2 text-sm font-bold text-zinc-400">${this.categoryEmojis[cat] || '📦'} ${Utils.escapeHtml(cat)}</div>
                     ${items.map(i => this.renderItem(i)).join('')}
                 </div>
             `).join('');
@@ -321,21 +329,51 @@ export class ShoppingList {
 
     renderItem(item, isCompleted = false) {
         const priorityClass = item.priority === 'high' ? 'high-priority' : item.priority === 'low' ? 'low-priority' : '';
-        
+        const surface = item.priority === 'high' && !isCompleted
+            ? 'bg-rose-500/10 ring-rose-500/20 hover:bg-rose-500/15'
+            : 'bg-white/5 ring-white/10 hover:bg-white/10';
+        const stateClass = isCompleted ? 'completed opacity-60' : item.priority === 'low' ? 'opacity-70' : '';
+
         return `
-            <div class="shopping-item ${priorityClass} ${isCompleted ? 'completed' : ''}">
-                <div class="shopping-checkbox ${isCompleted ? 'checked' : ''}" onclick="app.shopping.toggleComplete('${item.id}')"></div>
-                <div class="shopping-item-content">
-                    <div class="shopping-item-name">
-                        ${item.name}
-                        ${item.priority === 'high' ? '<span class="priority-badge">急ぎ</span>' : ''}
+            <div class="shopping-item ${priorityClass} ${stateClass} mb-2 flex items-center gap-3 rounded-xl ${surface} p-3 ring-1 transition">
+                <div class="shopping-checkbox ${isCompleted ? 'checked' : ''} flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 border-white/20 transition hover:border-indigo-400" onclick="app.shopping.toggleComplete('${item.id}')"></div>
+                <div class="shopping-item-content min-w-0 flex-1 ${isCompleted ? 'line-through' : ''}">
+                    <div class="shopping-item-name flex items-center gap-2 text-[15px] font-bold text-zinc-100">
+                        <span class="truncate">${Utils.escapeHtml(item.name)}</span>
+                        ${!isCompleted ? (PRIORITY_BADGES[item.priority] || '') : ''}
                     </div>
-                    <div class="shopping-item-meta">
-                        <span>${this.categoryEmojis[item.category] || '📦'} ${item.category}</span>
+                    <div class="shopping-item-meta mt-0.5 flex gap-2.5 text-xs text-zinc-500">
+                        <span>${this.categoryEmojis[item.category] || '📦'} ${Utils.escapeHtml(item.category)}</span>
                     </div>
                 </div>
-                <div class="shopping-item-quantity">×${item.quantity}</div>
-                <button class="shopping-item-delete" onclick="app.shopping.deleteItem('${item.id}')">✕</button>
+                <div class="shopping-item-quantity shrink-0 rounded-full bg-white/10 px-2.5 py-1 text-xs font-bold text-zinc-300">×${item.quantity}</div>
+                <button class="shopping-item-delete flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-sm text-rose-300 ring-1 ring-inset ring-rose-500/20 transition hover:bg-rose-500/20" onclick="app.shopping.deleteItem('${item.id}')">✕</button>
+            </div>
+        `;
+    }
+
+    /**
+     * 空状態の共通マークアップ
+     * @param {string} text - 表示テキスト
+     * @param {string} [icon] - 絵文字アイコン（省略可）
+     */
+    renderEmptyState(text, icon = '') {
+        return `
+            <div class="shopping-empty py-10 text-center text-zinc-500">
+                ${icon ? `<div class="shopping-empty-icon mb-3 text-5xl">${icon}</div>` : ''}
+                <div class="shopping-empty-text text-sm">${text}</div>
+            </div>
+        `;
+    }
+
+    /**
+     * テンプレート一覧アイテムの共通マークアップ（名前 + 件数）
+     */
+    renderTemplateInfo(template) {
+        return `
+            <div class="template-info min-w-0 flex-1">
+                <div class="template-name truncate font-bold text-zinc-100">${Utils.escapeHtml(template.name)}</div>
+                <div class="template-count mt-0.5 text-xs text-zinc-500">${template.items?.length || 0}件のアイテム</div>
             </div>
         `;
     }
@@ -343,20 +381,16 @@ export class ShoppingList {
     // ==================== テンプレート機能 ====================
 
     showTemplates() {
-        const modal = document.getElementById('templateSelectModal');
         const listEl = document.getElementById('templateList');
-        
+
         listEl.innerHTML = this.templates.length === 0
-            ? '<div class="shopping-empty"><div class="shopping-empty-text">テンプレートがありません</div></div>'
+            ? this.renderEmptyState('テンプレートがありません')
             : this.templates.map(t => `
-                <div class="template-list-item" onclick="app.shopping.applyTemplate('${t.id}')">
-                    <div class="template-info">
-                        <div class="template-name">${t.name}</div>
-                        <div class="template-count">${t.items?.length || 0}件のアイテム</div>
-                    </div>
+                <div class="template-list-item flex cursor-pointer items-center justify-between gap-3 rounded-xl bg-white/5 p-4 ring-1 ring-white/10 transition hover:bg-white/10" onclick="app.shopping.applyTemplate('${t.id}')">
+                    ${this.renderTemplateInfo(t)}
                 </div>
             `).join('');
-        
+
         Utils.showModal('templateSelectModal');
     }
 
@@ -370,12 +404,10 @@ export class ShoppingList {
         this.showSyncStatus('syncing', '追加中...');
         
         try {
-            for (const item of template.items) {
-                await addDoc(collection(db, 'shoppingItems'), {
-                    name: item.name, category: item.category, priority: 'normal', quantity: 1,
-                    completed: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
-                });
-            }
+            await Promise.all(template.items.map(item => addDoc(collection(db, 'shoppingItems'), {
+                name: item.name, category: item.category, priority: 'normal', quantity: 1,
+                completed: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
+            })));
             Utils.showToast(`${template.items.length}件を追加しました`);
         } catch (err) {
             console.error('テンプレート適用エラー:', err);
@@ -389,20 +421,17 @@ export class ShoppingList {
         const listEl = document.getElementById('templateManagerList');
         
         listEl.innerHTML = this.templates.length === 0
-            ? '<div class="shopping-empty"><div class="shopping-empty-text">テンプレートがありません</div></div>'
+            ? this.renderEmptyState('テンプレートがありません')
             : this.templates.map(t => `
-                <div class="template-list-item">
-                    <div class="template-info">
-                        <div class="template-name">${t.name}</div>
-                        <div class="template-count">${t.items?.length || 0}件のアイテム</div>
-                    </div>
-                    <div class="template-actions">
-                        <button class="template-edit-btn" onclick="app.shopping.editTemplate('${t.id}')">編集</button>
-                        <button class="template-delete-btn" onclick="app.shopping.deleteTemplateFromList('${t.id}')">削除</button>
+                <div class="template-list-item flex items-center justify-between gap-3 rounded-xl bg-white/5 p-4 ring-1 ring-white/10 transition hover:bg-white/10">
+                    ${this.renderTemplateInfo(t)}
+                    <div class="template-actions flex shrink-0 gap-2">
+                        <button class="template-edit-btn rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.shopping.editTemplate('${t.id}')">編集</button>
+                        <button class="template-delete-btn rounded-lg bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-300 ring-1 ring-inset ring-rose-500/20 transition hover:bg-rose-500/20" onclick="app.shopping.deleteTemplateFromList('${t.id}')">削除</button>
                     </div>
                 </div>
             `).join('');
-        
+
         Utils.showModal('templateManagerModal');
     }
 
@@ -429,15 +458,15 @@ export class ShoppingList {
         const el = document.getElementById('templateItemsList');
         
         if (this.tempTemplateItems.length === 0) {
-            el.innerHTML = '<div style="text-align:center;color:rgba(255,255,255,0.5);padding:20px;">アイテムを追加してください</div>';
+            el.innerHTML = '<div class="py-5 text-center text-sm text-zinc-500">アイテムを追加してください</div>';
             return;
         }
-        
+
         el.innerHTML = this.tempTemplateItems.map((item, idx) => `
-            <div class="template-item-row">
-                <span class="item-name">${item.name}</span>
-                <span class="item-category">${this.categoryEmojis[item.category] || '📦'} ${item.category}</span>
-                <button class="remove-item" onclick="app.shopping.removeTemplateItem(${idx})">✕</button>
+            <div class="template-item-row mb-1.5 flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2 ring-1 ring-white/10 last:mb-0">
+                <span class="item-name min-w-0 flex-1 truncate text-sm text-zinc-100">${Utils.escapeHtml(item.name)}</span>
+                <span class="item-category shrink-0 text-xs text-zinc-500">${this.categoryEmojis[item.category] || '📦'} ${Utils.escapeHtml(item.category)}</span>
+                <button class="remove-item flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-xs text-rose-300 transition hover:bg-rose-500/20" onclick="app.shopping.removeTemplateItem(${idx})">✕</button>
             </div>
         `).join('');
     }
@@ -484,30 +513,37 @@ export class ShoppingList {
         }
     }
 
-    async deleteTemplate() {
-        if (!this.editingTemplateId || !confirm('このテンプレートを削除しますか？')) return;
-        
+    /**
+     * テンプレートを確認ダイアログ付きで削除する共通処理
+     * @param {string} templateId - 削除対象のテンプレートID
+     * @returns {Promise<boolean>} 削除に成功したか
+     */
+    async removeTemplateDoc(templateId) {
+        if (!confirm('このテンプレートを削除しますか？')) return false;
+
         try {
-            await deleteDoc(doc(db, 'shoppingTemplates', this.editingTemplateId));
+            await deleteDoc(doc(db, 'shoppingTemplates', templateId));
             Utils.showToast('削除しました');
-            this.closeTemplateForm();
-            this.showTemplateManager();
+            return true;
         } catch (err) {
             console.error('テンプレート削除エラー:', err);
             Utils.showToast('削除に失敗しました');
+            return false;
+        }
+    }
+
+    async deleteTemplate() {
+        if (!this.editingTemplateId) return;
+
+        if (await this.removeTemplateDoc(this.editingTemplateId)) {
+            this.closeTemplateForm();
+            this.showTemplateManager();
         }
     }
 
     async deleteTemplateFromList(templateId) {
-        if (!confirm('このテンプレートを削除しますか？')) return;
-        
-        try {
-            await deleteDoc(doc(db, 'shoppingTemplates', templateId));
-            Utils.showToast('削除しました');
+        if (await this.removeTemplateDoc(templateId)) {
             this.showTemplateManager();
-        } catch (err) {
-            console.error('テンプレート削除エラー:', err);
-            Utils.showToast('削除に失敗しました');
         }
     }
 }

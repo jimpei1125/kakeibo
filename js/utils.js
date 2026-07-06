@@ -93,7 +93,23 @@ export class Utils {
      * @returns {string} フォーマットされた金額
      */
     static formatCurrency(amount) {
-        return amount.toLocaleString();
+        const value = Number(amount);
+        return Number.isFinite(value) ? value.toLocaleString() : '0';
+    }
+
+    /**
+     * HTMLエスケープ（XSS対策）
+     * ユーザー入力をinnerHTMLに埋め込む前に必ず通すこと
+     * @param {*} value - エスケープする値
+     * @returns {string} エスケープ済み文字列
+     */
+    static escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     /**
@@ -105,11 +121,16 @@ export class Utils {
         return JSON.parse(JSON.stringify(obj));
     }
 
+    /** @type {number} ID生成用の連番カウンター */
+    static _idCounter = 0;
+
     /**
      * 一意のIDを生成
+     * 同一ミリ秒内の連続生成でも衝突しないよう連番を付加する
      * @returns {number} ユニークID（整数）
      */
     static generateId() {
-        return Math.floor(Date.now() + Math.random() * 1000);
+        Utils._idCounter = (Utils._idCounter + 1) % 1000;
+        return Date.now() * 1000 + Utils._idCounter;
     }
 }
