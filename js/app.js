@@ -150,18 +150,6 @@ class KakeiboApp {
         this.hue.init();
     }
 
-    /**
-     * セクションを表示（ナビボタン用）
-     * @param {string} section - セクション名
-     */
-    showSection(section) {
-        // ナビボタンのアクティブ状態を更新
-        document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-        event?.target?.classList.add('active');
-        
-        if (section === 'budget') this.showBudget();
-    }
-
     // ==================== 初期化 ====================
 
     /**

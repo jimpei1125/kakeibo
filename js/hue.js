@@ -63,9 +63,9 @@ export class PhilipsHue {
 
     _renderAuthPrompt() {
         return `
-            <div class="hue-auth-prompt" style="grid-column:1/-1;text-align:center;padding:30px;">
-                <p style="margin-bottom:15px;color:rgba(255,255,255,0.7);">Philips Hueアカウントとの連携が必要です</p>
-                <button onclick="app.hue.startAuth()" style="padding:14px 28px;background:linear-gradient(135deg,#f39c12,#e67e22);color:white;border:none;border-radius:10px;font-size:15px;font-weight:bold;cursor:pointer;">
+            <div class="hue-auth-prompt col-span-full rounded-xl bg-white/5 p-8 text-center ring-1 ring-white/10">
+                <p class="mb-4 text-sm text-zinc-400">Philips Hueアカウントとの連携が必要です</p>
+                <button onclick="app.hue.startAuth()" class="rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400">
                     🔗 Hueアカウントを連携
                 </button>
             </div>
@@ -193,10 +193,10 @@ export class PhilipsHue {
 
     _renderConnectionError(message) {
         return `
-            <div class="hue-error" style="grid-column:1/-1;text-align:center;">
-                <p>😢 Hueに接続できません</p>
-                <p style="font-size:12px;margin-top:8px;opacity:0.7;">${message}</p>
-                <button onclick="app.hue.logout()" style="margin-top:15px;padding:10px 20px;background:rgba(255,255,255,0.1);color:#e0e0e0;border:1px solid rgba(255,255,255,0.2);border-radius:8px;cursor:pointer;">
+            <div class="hue-error col-span-full rounded-xl bg-rose-500/10 p-6 text-center ring-1 ring-inset ring-rose-500/20">
+                <p class="text-sm font-semibold text-rose-300">😢 Hueに接続できません</p>
+                <p class="mt-2 text-xs text-rose-300/70">${Utils.escapeHtml(message)}</p>
+                <button onclick="app.hue.logout()" class="mt-4 rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15">
                     再認証する
                 </button>
             </div>
@@ -214,23 +214,29 @@ export class PhilipsHue {
         );
         
         if (roomGroups.length === 0) {
-            listEl.innerHTML = '<div class="no-devices">グループが見つかりません</div>';
+            listEl.innerHTML = '<div class="no-devices col-span-full py-6 text-center text-sm text-zinc-500">グループが見つかりません</div>';
             return;
         }
-        
+
         listEl.innerHTML = roomGroups.map(id => {
             const g = this.groups[id];
             const isOn = g.state?.any_on;
             const allOn = g.state?.all_on;
             const icon = g.type === 'Zone' ? '🏷️' : '🏠';
-            
+            const cardState = isOn
+                ? 'bg-amber-400/10 ring-amber-400/30 hover:bg-amber-400/15'
+                : 'bg-white/5 ring-white/10 opacity-70 hover:bg-white/10';
+            const dotState = allOn
+                ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]'
+                : (isOn ? 'bg-emerald-400' : 'bg-white/20');
+
             return `
-                <div class="hue-light-card ${isOn ? 'on' : 'off'}" onclick="app.hue.showControl('${id}')">
-                    <div class="hue-light-status ${allOn ? 'all-on' : ''}"></div>
-                    <div class="hue-light-icon">${icon}</div>
-                    <div class="hue-light-name">${g.name}</div>
-                    <div class="hue-light-brightness">${isOn ? (allOn ? '全点灯' : '一部点灯') : 'OFF'}</div>
-                    <div class="hue-light-count">${g.lights?.length || 0}台</div>
+                <div class="hue-light-card ${isOn ? 'on' : 'off'} relative cursor-pointer rounded-xl p-4 text-center ring-1 transition ${cardState}" onclick="app.hue.showControl('${Utils.escapeHtml(id)}')">
+                    <div class="hue-light-status ${allOn ? 'all-on' : ''} absolute right-2.5 top-2.5 h-2 w-2 rounded-full ${dotState}"></div>
+                    <div class="hue-light-icon mb-2 text-3xl${isOn ? ' drop-shadow-[0_0_10px_rgba(251,191,36,0.5)]' : ''}">${icon}</div>
+                    <div class="hue-light-name truncate text-sm font-bold text-zinc-100">${Utils.escapeHtml(g.name)}</div>
+                    <div class="hue-light-brightness text-[11px] ${isOn ? 'text-amber-300' : 'text-zinc-500'}">${isOn ? (allOn ? '全点灯' : '一部点灯') : 'OFF'}</div>
+                    <div class="hue-light-count mt-1 text-[11px] text-zinc-500">${g.lights?.length || 0}台</div>
                 </div>
             `;
         }).join('');
@@ -262,28 +268,32 @@ export class PhilipsHue {
         if (!container) return;
         
         if (lightIds.length === 0) {
-            container.innerHTML = '<div style="color:rgba(255,255,255,0.5);text-align:center;padding:10px;">ライトがありません</div>';
+            container.innerHTML = '<div class="py-3 text-center text-sm text-zinc-500">ライトがありません</div>';
             return;
         }
-        
+
         container.innerHTML = lightIds.map(id => {
             const light = this.lights[id];
             if (!light) return '';
-            
+
             const isOn = light.state?.on;
             const brightness = light.state?.bri ? Math.round((light.state.bri / MAX_BRIGHTNESS) * 100) : 100;
-            
+            const safeId = Utils.escapeHtml(id);
+            const toggleState = isOn
+                ? 'bg-amber-400/20 ring-amber-400/30 hover:bg-amber-400/30'
+                : 'bg-white/10 ring-white/10 hover:bg-white/15';
+
             return `
-                <div class="hue-individual-light ${isOn ? 'on' : 'off'}">
-                    <button class="hue-individual-toggle ${isOn ? 'on' : 'off'}" onclick="app.hue.toggleIndividualLight('${id}')">
+                <div class="hue-individual-light ${isOn ? 'on' : 'off'} flex items-center gap-3 rounded-xl bg-white/5 p-3 ring-1 ring-white/10${isOn ? '' : ' opacity-60'}">
+                    <button class="hue-individual-toggle ${isOn ? 'on' : 'off'} flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg ring-1 ring-inset transition ${toggleState}" onclick="app.hue.toggleIndividualLight('${safeId}')">
                         ${isOn ? '💡' : '🌙'}
                     </button>
-                    <div class="hue-individual-info">
-                        <div class="hue-individual-name">${light.name}</div>
-                        <input type="range" class="hue-individual-slider" min="1" max="100" value="${brightness}" 
-                            onchange="app.hue.setIndividualBrightness('${id}',this.value)">
+                    <div class="hue-individual-info min-w-0 flex-1">
+                        <div class="hue-individual-name mb-1.5 truncate text-sm font-semibold text-zinc-100">${Utils.escapeHtml(light.name)}</div>
+                        <input type="range" class="hue-individual-slider w-full accent-indigo-500" min="1" max="100" value="${brightness}"
+                            onchange="app.hue.setIndividualBrightness('${safeId}',this.value)">
                     </div>
-                    <div class="hue-individual-brightness">${brightness}%</div>
+                    <div class="hue-individual-brightness w-10 shrink-0 text-right text-xs text-zinc-400">${brightness}%</div>
                 </div>
             `;
         }).join('');

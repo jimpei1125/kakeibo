@@ -1,0 +1,132 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
+
+/* ============================================================
+   共通スタイル
+   静的な見た目はHTML/JS内のTailwindユーティリティで指定する。
+   このファイルには「JSがclassListで切り替える状態クラス」と
+   Tailwindで表現しにくいアニメーションのみを定義する。
+   ============================================================ */
+
+/* ---------- トースト（Utils.showToast が .show を切り替え） ---------- */
+.toast {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.toast.show {
+    opacity: 1;
+}
+
+/* ---------- サイドメニュー（app.toggleMenu が .open を切り替え） ---------- */
+.side-menu {
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+}
+
+.side-menu.open {
+    transform: translateX(0);
+}
+
+.menu-overlay {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.menu-overlay.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* ---------- モーダル共通（Utils.showModal/closeModal が .show を切り替え） ---------- */
+.modal-panel {
+    display: none;
+}
+
+.modal-panel.show {
+    display: block;
+    animation: modal-in 0.2s ease-out;
+}
+
+@keyframes modal-in {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -52%) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+/* ---------- 同期ステータス（budget.js が className を直接設定） ---------- */
+.sync-status {
+    text-align: center;
+    padding: 10px;
+    margin-bottom: 20px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.sync-status.synced {
+    background: rgba(52, 211, 153, 0.1);
+    color: #34d399;
+    border: 1px solid rgba(52, 211, 153, 0.2);
+}
+
+.sync-status.syncing {
+    background: rgba(251, 191, 36, 0.1);
+    color: #fbbf24;
+    border: 1px solid rgba(251, 191, 36, 0.2);
+}
+
+.sync-status.error {
+    background: rgba(244, 63, 94, 0.1);
+    color: #fb7185;
+    border: 1px solid rgba(244, 63, 94, 0.2);
+}
+
+/* ---------- フッター（クイック入力トグルの active 状態） ---------- */
+.nav-btn.active {
+    background: #10b981;
+    color: #ffffff;
+}
+
+/* ---------- クイック入力の成功フィードバック ---------- */
+.quick-input-success {
+    animation: quick-flash 0.3s ease;
+}
+
+@keyframes quick-flash {
+    0% {
+        box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.6);
+    }
+    100% {
+        box-shadow: none;
+    }
+}
+
+/* ---------- カテゴリのアコーディオン（budget.js が .open を切り替え） ---------- */
+.accordion-icon {
+    display: inline-block;
+    transition: transform 0.2s ease;
+}
+
+.accordion-icon.open {
+    transform: rotate(90deg);
+}
+
+.category-details {
+    display: none;
+}
+
+.category-details.open {
+    display: block;
+}
+
+/* ---------- 認証ステータス（firebase-config.js が .logged-in を切り替え） ---------- */
+.menu-auth-status.logged-in .menu-auth-name {
+    color: #34d399;
+}

@@ -2,53 +2,67 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>家族アプリ</title>
-    <link rel="stylesheet" href="css/main.css">
-    <link rel="stylesheet" href="css/budget.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Noto Sans JP"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                    },
+                },
+            },
+        };
+    </script>
+    <link rel="stylesheet" href="css/app.css">
     <link rel="stylesheet" href="css/calendar.css">
     <link rel="stylesheet" href="css/shopping.css">
     <link rel="stylesheet" href="css/smarthome.css">
 </head>
-<body>
+<body class="min-h-screen bg-zinc-950 pb-28 pt-5 font-sans text-zinc-200 antialiased">
+    <!-- 背景の装飾グラデーション -->
+    <div class="pointer-events-none fixed inset-x-0 top-0 z-0 h-96 bg-gradient-to-b from-indigo-500/10 via-transparent to-transparent"></div>
+
     <!-- 右上メニューボタン -->
-    <button class="menu-btn" onclick="app.toggleMenu()">☰</button>
+    <button class="fixed right-5 top-5 z-[1100] flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900 text-xl text-zinc-200 shadow-lg ring-1 ring-white/10 transition hover:bg-zinc-800 hover:ring-white/20" onclick="app.toggleMenu()">☰</button>
 
     <!-- サイドメニュー -->
-    <div class="side-menu" id="sideMenu">
-        <button class="close-menu" onclick="app.closeMenu()">✕</button>
-        
+    <div class="side-menu fixed right-0 top-0 z-[1200] h-screen w-72 border-l border-white/10 bg-zinc-900 p-5 shadow-2xl" id="sideMenu">
+        <button class="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-lg text-zinc-300 transition hover:bg-white/20" onclick="app.closeMenu()">✕</button>
+
         <!-- 認証ステータス（メニュー内） -->
-        <div class="menu-auth-status" id="authStatus">
-            <div class="menu-auth-user">
-                <span class="menu-auth-icon" id="authIcon">👤</span>
-                <span class="menu-auth-name" id="authUserName">未ログイン</span>
+        <div class="menu-auth-status mb-3 mt-16 border-b border-white/10 pb-5" id="authStatus">
+            <div class="menu-auth-user mb-3 flex items-center gap-2.5">
+                <span class="menu-auth-icon text-2xl" id="authIcon">👤</span>
+                <span class="menu-auth-name max-w-[180px] truncate text-sm font-semibold text-zinc-400" id="authUserName">未ログイン</span>
             </div>
-            <button class="menu-auth-btn" id="authBtn" onclick="app.showLoginModal()">🔐 ログイン</button>
+            <button class="menu-auth-btn w-full rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400" id="authBtn" onclick="app.showLoginModal()">🔐 ログイン</button>
         </div>
-        
-        <div class="menu-items">
-            <div class="menu-item" id="menuCalendar" onclick="app.showCalendar(); app.closeMenu();">📅 カレンダー</div>
-            <div class="menu-item" id="menuBudget" onclick="app.showBudget(); app.closeMenu();" style="display: none;">📊 家計簿</div>
-            <div class="menu-item" id="menuShopping" onclick="app.showShopping(); app.closeMenu();">🛒 買い物リスト</div>
-            <div class="menu-item" id="menuSmartHome" onclick="app.showSmartHome(); app.closeMenu();">🏠 スマートホーム</div>
+
+        <div class="menu-items space-y-2">
+            <div class="menu-item cursor-pointer rounded-lg bg-white/5 px-5 py-3.5 text-sm font-semibold text-zinc-200 ring-1 ring-white/5 transition hover:bg-white/10 hover:ring-white/10" id="menuCalendar" onclick="app.showCalendar(); app.closeMenu();">📅 カレンダー</div>
+            <div class="menu-item cursor-pointer rounded-lg bg-white/5 px-5 py-3.5 text-sm font-semibold text-zinc-200 ring-1 ring-white/5 transition hover:bg-white/10 hover:ring-white/10" id="menuBudget" onclick="app.showBudget(); app.closeMenu();" style="display: none;">📊 家計簿</div>
+            <div class="menu-item cursor-pointer rounded-lg bg-white/5 px-5 py-3.5 text-sm font-semibold text-zinc-200 ring-1 ring-white/5 transition hover:bg-white/10 hover:ring-white/10" id="menuShopping" onclick="app.showShopping(); app.closeMenu();">🛒 買い物リスト</div>
+            <div class="menu-item cursor-pointer rounded-lg bg-white/5 px-5 py-3.5 text-sm font-semibold text-zinc-200 ring-1 ring-white/5 transition hover:bg-white/10 hover:ring-white/10" id="menuSmartHome" onclick="app.showSmartHome(); app.closeMenu();">🏠 スマートホーム</div>
         </div>
     </div>
-    <div class="menu-overlay" id="menuOverlay" onclick="app.closeMenu()"></div>
+    <div class="menu-overlay fixed inset-0 z-[1150] bg-black/50" id="menuOverlay" onclick="app.closeMenu()"></div>
 
     <!-- トーストメッセージ -->
-    <div class="toast" id="toast"></div>
+    <div class="toast fixed left-1/2 top-24 z-[2000] -translate-x-1/2 whitespace-nowrap rounded-lg bg-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg" id="toast"></div>
 
     <!-- ログインモーダル -->
-    <div class="login-modal" id="loginModal" style="display: none;">
-        <div class="login-modal-content">
-            <div class="modal-header">
-                <h2>🔐 ログイン</h2>
-                <button class="modal-close" onclick="app.closeLoginModal()">✕</button>
+    <div class="login-modal fixed inset-0 z-[2000] items-center justify-center bg-black/70 p-5 backdrop-blur-sm" id="loginModal" style="display: none;">
+        <div class="login-modal-content w-full max-w-sm rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10">
+            <div class="modal-header mb-5 flex items-center justify-between">
+                <h2 class="text-lg font-bold text-white">🔐 ログイン</h2>
+                <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.closeLoginModal()">✕</button>
             </div>
-            <div class="login-options">
-                <p class="login-description">ログインすると、データが安全に保護され、複数デバイスで同期できます。</p>
-                <button class="google-login-btn" onclick="app.signInWithGoogle()">
+            <div class="login-options flex flex-col gap-3">
+                <p class="text-center text-sm text-zinc-400">ログインすると、データが安全に保護され、複数デバイスで同期できます。</p>
+                <button class="flex items-center justify-center gap-3 rounded-xl bg-white px-5 py-3.5 text-sm font-bold text-zinc-800 transition hover:bg-zinc-100" onclick="app.signInWithGoogle()">
                     <svg viewBox="0 0 24 24" width="20" height="20">
                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                         <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -57,59 +71,59 @@
                     </svg>
                     Googleでログイン
                 </button>
-                <button class="guest-login-btn" onclick="app.signInAsGuest()">
+                <button class="rounded-xl bg-white/10 px-5 py-3.5 text-sm font-semibold text-zinc-200 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.signInAsGuest()">
                     👤 ゲストとして続ける
                 </button>
-                <p class="login-note">※ ゲストモードではデータが端末に紐づきます</p>
+                <p class="mt-1 text-center text-[11px] text-zinc-500">※ ゲストモードではデータが端末に紐づきます</p>
             </div>
         </div>
     </div>
 
-    <!-- 計算機モーダル（既存） -->
-    <div class="calculator-modal" id="calculatorModal">
-        <div class="calc-header">
-            <h2>🔢 計算機</h2>
-            <button class="calc-close" onclick="app.calculator.close()">✕</button>
+    <!-- 計算機モーダル -->
+    <div class="modal-panel calculator-modal fixed left-1/2 top-1/2 z-[1500] w-[90%] max-w-[350px] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-zinc-900 p-5 shadow-2xl ring-1 ring-white/10" id="calculatorModal">
+        <div class="calc-header mb-4 flex items-center justify-between">
+            <h2 class="text-lg font-bold text-white">🔢 計算機</h2>
+            <button class="calc-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.calculator.close()">✕</button>
         </div>
-        <div class="calc-display" id="calcDisplay" onclick="app.calculator.copyResult()">0</div>
-        <div class="calc-buttons">
-            <button class="calc-btn clear" onclick="app.calculator.clear()">C</button>
-            <button class="calc-btn" onclick="app.calculator.append('(')">(</button>
-            <button class="calc-btn" onclick="app.calculator.append(')')">)</button>
-            <button class="calc-btn operator" onclick="app.calculator.append('÷')">÷</button>
-            
-            <button class="calc-btn" onclick="app.calculator.append('7')">7</button>
-            <button class="calc-btn" onclick="app.calculator.append('8')">8</button>
-            <button class="calc-btn" onclick="app.calculator.append('9')">9</button>
-            <button class="calc-btn operator" onclick="app.calculator.append('×')">×</button>
-            
-            <button class="calc-btn" onclick="app.calculator.append('4')">4</button>
-            <button class="calc-btn" onclick="app.calculator.append('5')">5</button>
-            <button class="calc-btn" onclick="app.calculator.append('6')">6</button>
-            <button class="calc-btn operator" onclick="app.calculator.append('-')">-</button>
-            
-            <button class="calc-btn" onclick="app.calculator.append('1')">1</button>
-            <button class="calc-btn" onclick="app.calculator.append('2')">2</button>
-            <button class="calc-btn" onclick="app.calculator.append('3')">3</button>
-            <button class="calc-btn operator" onclick="app.calculator.append('+')">+</button>
-            
-            <button class="calc-btn" onclick="app.calculator.append('0')">0</button>
-            <button class="calc-btn" onclick="app.calculator.append('.')">.</button>
-            <button class="calc-btn equals" onclick="app.calculator.calculate()">=</button>
+        <div class="calc-display mb-4 min-h-[60px] cursor-pointer rounded-xl bg-white/5 p-5 text-right text-3xl font-black text-white ring-1 ring-inset ring-white/10 transition hover:bg-white/10" id="calcDisplay" onclick="app.calculator.copyResult()">0</div>
+        <div class="calc-buttons grid grid-cols-4 gap-2.5">
+            <button class="rounded-xl bg-rose-500 py-4 text-lg font-bold text-white transition hover:bg-rose-400" onclick="app.calculator.clear()">C</button>
+            <button class="rounded-xl bg-white/10 py-4 text-lg font-bold text-white transition hover:bg-white/20" onclick="app.calculator.append('(')">(</button>
+            <button class="rounded-xl bg-white/10 py-4 text-lg font-bold text-white transition hover:bg-white/20" onclick="app.calculator.append(')')">)</button>
+            <button class="rounded-xl bg-indigo-500 py-4 text-lg font-bold text-white transition hover:bg-indigo-400" onclick="app.calculator.append('÷')">÷</button>
+
+            <button class="rounded-xl bg-white/10 py-4 text-lg font-bold text-white transition hover:bg-white/20" onclick="app.calculator.append('7')">7</button>
+            <button class="rounded-xl bg-white/10 py-4 text-lg font-bold text-white transition hover:bg-white/20" onclick="app.calculator.append('8')">8</button>
+            <button class="rounded-xl bg-white/10 py-4 text-lg font-bold text-white transition hover:bg-white/20" onclick="app.calculator.append('9')">9</button>
+            <button class="rounded-xl bg-indigo-500 py-4 text-lg font-bold text-white transition hover:bg-indigo-400" onclick="app.calculator.append('×')">×</button>
+
+            <button class="rounded-xl bg-white/10 py-4 text-lg font-bold text-white transition hover:bg-white/20" onclick="app.calculator.append('4')">4</button>
+            <button class="rounded-xl bg-white/10 py-4 text-lg font-bold text-white transition hover:bg-white/20" onclick="app.calculator.append('5')">5</button>
+            <button class="rounded-xl bg-white/10 py-4 text-lg font-bold text-white transition hover:bg-white/20" onclick="app.calculator.append('6')">6</button>
+            <button class="rounded-xl bg-indigo-500 py-4 text-lg font-bold text-white transition hover:bg-indigo-400" onclick="app.calculator.append('-')">-</button>
+
+            <button class="rounded-xl bg-white/10 py-4 text-lg font-bold text-white transition hover:bg-white/20" onclick="app.calculator.append('1')">1</button>
+            <button class="rounded-xl bg-white/10 py-4 text-lg font-bold text-white transition hover:bg-white/20" onclick="app.calculator.append('2')">2</button>
+            <button class="rounded-xl bg-white/10 py-4 text-lg font-bold text-white transition hover:bg-white/20" onclick="app.calculator.append('3')">3</button>
+            <button class="rounded-xl bg-indigo-500 py-4 text-lg font-bold text-white transition hover:bg-indigo-400" onclick="app.calculator.append('+')">+</button>
+
+            <button class="rounded-xl bg-white/10 py-4 text-lg font-bold text-white transition hover:bg-white/20" onclick="app.calculator.append('0')">0</button>
+            <button class="rounded-xl bg-white/10 py-4 text-lg font-bold text-white transition hover:bg-white/20" onclick="app.calculator.append('.')">.</button>
+            <button class="col-span-2 rounded-xl bg-emerald-500 py-4 text-lg font-bold text-white transition hover:bg-emerald-400" onclick="app.calculator.calculate()">=</button>
         </div>
     </div>
 
     <!-- CSV出力モーダル -->
-    <div class="csv-modal" id="csvModal">
-        <div class="modal-header">
-            <h2>📥 CSV出力</h2>
-            <button class="modal-close" onclick="app.csv.closeModal()">✕</button>
+    <div class="modal-panel csv-modal fixed left-1/2 top-1/2 z-[1500] max-h-[80vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="csvModal">
+        <div class="modal-header mb-5 flex items-center justify-between">
+            <h2 class="text-lg font-bold text-white">📥 CSV出力</h2>
+            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.csv.closeModal()">✕</button>
         </div>
 
-        <div style="background: rgba(255, 255, 255, 0.08); padding: 20px; border-radius: 12px; margin-bottom: 15px;">
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 8px; color: #e0e0e0; font-weight: 700;">出力範囲</label>
-                <select id="csvRangeType" onchange="app.csv.toggleDateRange()" style="width: 100%;">
+        <div class="mb-4 space-y-4 rounded-xl bg-white/5 p-5 ring-1 ring-white/5">
+            <div>
+                <label class="mb-2 block text-sm font-semibold text-zinc-300">出力範囲</label>
+                <select id="csvRangeType" onchange="app.csv.toggleDateRange()" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500 [&>option]:bg-zinc-900">
                     <option value="current">今月のみ</option>
                     <option value="range">期間を指定</option>
                     <option value="all">全期間</option>
@@ -117,180 +131,170 @@
             </div>
 
             <div id="dateRangeInputs" style="display: none;">
-                <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-direction: column;">
+                <div class="flex flex-col gap-3">
                     <div>
-                        <label style="display: block; margin-bottom: 8px; color: #e0e0e0; font-weight: 700;">開始年月</label>
-                        <input type="month" id="csvStartDate" style="width: 100%;">
+                        <label class="mb-2 block text-sm font-semibold text-zinc-300">開始年月</label>
+                        <input type="month" id="csvStartDate" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
                     <div>
-                        <label style="display: block; margin-bottom: 8px; color: #e0e0e0; font-weight: 700;">終了年月</label>
-                        <input type="month" id="csvEndDate" style="width: 100%;">
+                        <label class="mb-2 block text-sm font-semibold text-zinc-300">終了年月</label>
+                        <input type="month" id="csvEndDate" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
                 </div>
             </div>
 
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 8px; color: #e0e0e0; font-weight: 700;">
-                    <input type="checkbox" id="csvIncludeNotes" checked style="margin-right: 8px;">
-                    備考を含める
-                </label>
-            </div>
+            <label class="flex items-center gap-2.5 text-sm font-semibold text-zinc-300">
+                <input type="checkbox" id="csvIncludeNotes" checked class="h-4 w-4 rounded border-white/20 bg-white/5 text-indigo-500 focus:ring-indigo-500">
+                備考を含める
+            </label>
 
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 8px; color: #e0e0e0; font-weight: 700;">
-                    <input type="checkbox" id="csvIncludeHalf" checked style="margin-right: 8px;">
-                    折半金額を含める
-                </label>
-            </div>
+            <label class="flex items-center gap-2.5 text-sm font-semibold text-zinc-300">
+                <input type="checkbox" id="csvIncludeHalf" checked class="h-4 w-4 rounded border-white/20 bg-white/5 text-indigo-500 focus:ring-indigo-500">
+                折半金額を含める
+            </label>
         </div>
 
-        <button onclick="app.csv.export()" style="width: 100%; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); box-shadow: 0 4px 15px rgba(240, 147, 251, 0.4);">
+        <button onclick="app.csv.export()" class="w-full rounded-lg bg-indigo-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition hover:bg-indigo-400">
             📥 CSVダウンロード
         </button>
     </div>
 
     <!-- CSVインポートモーダル -->
-    <div class="csv-modal" id="csvImportModal">
-        <div class="modal-header">
-            <h2>📤 CSVインポート</h2>
-            <button class="modal-close" onclick="app.csvImporter.closeModal()">✕</button>
+    <div class="modal-panel csv-modal fixed left-1/2 top-1/2 z-[1500] max-h-[80vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="csvImportModal">
+        <div class="modal-header mb-5 flex items-center justify-between">
+            <h2 class="text-lg font-bold text-white">📤 CSVインポート</h2>
+            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.csvImporter.closeModal()">✕</button>
         </div>
 
-        <div style="background: rgba(255, 255, 255, 0.08); padding: 20px; border-radius: 12px; margin-bottom: 15px;">
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 8px; color: #e0e0e0; font-weight: 700;">CSVファイルを選択</label>
-                <input type="file" id="csvFileInput" accept=".csv,text/csv,application/csv,text/comma-separated-values" onchange="app.csvImporter.handleFileSelect(event)" style="display: none;">
+        <div class="mb-4 space-y-4 rounded-xl bg-white/5 p-5 ring-1 ring-white/5">
+            <div>
+                <label class="mb-2 block text-sm font-semibold text-zinc-300">CSVファイルを選択</label>
+                <input type="file" id="csvFileInput" accept=".csv,text/csv,application/csv,text/comma-separated-values" onchange="app.csvImporter.handleFileSelect(event)" class="hidden">
                 <button onclick="document.getElementById('csvFileInput').click()" type="button"
-                    style="width: 100%; padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); -webkit-tap-highlight-color: transparent;">
+                    class="w-full rounded-lg bg-white/10 px-4 py-3 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15">
                     📁 CSVファイルを選択
                 </button>
-                <div id="csvFileName" style="margin-top: 10px; color: #4caf50; font-size: 14px; display: none;"></div>
-                <p style="margin-top: 8px; color: #aaa; font-size: 12px;">※ クレジットカードの利用明細CSVファイルを選択してください</p>
+                <div id="csvFileName" class="mt-2.5 text-sm text-emerald-400" style="display: none;"></div>
+                <p class="mt-2 text-xs text-zinc-500">※ クレジットカードの利用明細CSVファイルを選択してください</p>
             </div>
 
-            <div id="csvTotalDisplay" style="display: none; margin-bottom: 15px; padding: 15px; background: rgba(76, 175, 80, 0.2); border-radius: 8px; color: #4caf50; font-weight: bold; text-align: center; font-size: 18px;">
-            </div>
+            <div id="csvTotalDisplay" class="rounded-lg bg-emerald-500/10 p-4 text-center text-lg font-bold text-emerald-400 ring-1 ring-inset ring-emerald-500/20" style="display: none;"></div>
 
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 8px; color: #e0e0e0; font-weight: 700;">項目名</label>
+            <div>
+                <label class="mb-2 block text-sm font-semibold text-zinc-300">項目名</label>
                 <input type="text" id="csvCategoryName" placeholder="例：クレジットカード（楽天）"
-                    style="width: 100%; padding: 10px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; color: #e0e0e0;">
-                <p style="margin-top: 8px; color: #aaa; font-size: 12px;">※ この名前でカテゴリが作成されます</p>
+                    class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+                <p class="mt-2 text-xs text-zinc-500">※ この名前でカテゴリが作成されます</p>
             </div>
         </div>
 
         <button id="csvImportBtn" onclick="app.csvImporter.importData()" disabled
-            style="width: 100%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); box-shadow: 0 4px 15px rgba(79, 172, 254, 0.4); opacity: 0.5; transition: opacity 0.3s;">
+            class="w-full rounded-lg bg-indigo-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-40">
             📤 インポート
         </button>
     </div>
 
     <!-- メインコンテンツ -->
-    <div class="container">
+    <div class="container relative mx-auto max-w-3xl px-5 pb-5">
         <!-- 家計簿セクション -->
         <div class="content-section" id="budgetSection">
             <div class="sync-status" id="syncStatus">接続中...</div>
 
-            <div class="month-selector">
-                <div class="month-nav">
-                    <button onclick="app.budget.changeMonth(-1)">◀</button>
-                    <div class="month-display" id="currentMonth"></div>
-                    <button onclick="app.budget.changeMonth(1)">▶</button>
+            <div class="month-selector mb-6 flex flex-col items-center gap-3 rounded-2xl bg-white/5 p-5 ring-1 ring-white/10">
+                <div class="month-nav flex items-center gap-4">
+                    <button class="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-200 transition hover:bg-white/20" onclick="app.budget.changeMonth(-1)">◀</button>
+                    <div class="month-display min-w-[140px] text-center text-xl font-bold text-white" id="currentMonth"></div>
+                    <button class="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-200 transition hover:bg-white/20" onclick="app.budget.changeMonth(1)">▶</button>
                 </div>
-                <button onclick="app.budget.copyFromPreviousMonth()" style="width: 100%; background: #ffc107; color: #333;">📋 先月分をコピー</button>
+                <button class="w-full rounded-lg bg-amber-400/10 px-4 py-2.5 text-sm font-semibold text-amber-300 ring-1 ring-inset ring-amber-400/20 transition hover:bg-amber-400/20" onclick="app.budget.copyFromPreviousMonth()">📋 先月分をコピー</button>
             </div>
 
-            <div class="add-category">
-                <div class="input-group">
-                    <input type="text" id="newCategoryName" placeholder="大カテゴリー名（例：光熱費）">
-                    <input type="number" id="newCategoryAmount" placeholder="金額">
-                    <input type="text" id="newCategoryNote" placeholder="備考（任意）">
-                    <button onclick="app.budget.addCategory()">追加</button>
+            <div class="add-category mb-6 rounded-2xl bg-white/5 p-5 ring-1 ring-white/10">
+                <div class="input-group flex flex-col gap-2.5 sm:flex-row">
+                    <input type="text" id="newCategoryName" placeholder="大カテゴリー名（例：光熱費）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+                    <input type="number" id="newCategoryAmount" placeholder="金額" class="min-w-0 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500 sm:w-28">
+                    <input type="text" id="newCategoryNote" placeholder="備考（任意）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+                    <button onclick="app.budget.addCategory()" class="shrink-0 rounded-lg bg-indigo-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400">追加</button>
                 </div>
             </div>
 
-            <div class="category-list simple-mode" id="categoryList"></div>
+            <div class="category-list space-y-2.5" id="categoryList"></div>
 
-            <div class="total-section" onclick="app.budget.copyHalfAmount()">
-                <h2>合計金額</h2>
-                <div class="total-amount" id="totalAmount">¥0</div>
-                <div class="half-amount" id="halfAmount">折半: ¥0</div>
-                <div class="copy-hint">タップで折半金額をコピー</div>
+            <div class="total-section mt-6 cursor-pointer rounded-2xl bg-gradient-to-br from-indigo-500/15 to-white/5 p-6 text-center ring-1 ring-indigo-500/20 transition hover:ring-indigo-500/40" onclick="app.budget.copyHalfAmount()">
+                <h2 class="text-sm font-semibold text-zinc-400">合計金額</h2>
+                <div class="total-amount mt-1 text-4xl font-black tracking-tight text-white" id="totalAmount">¥0</div>
+                <div class="half-amount mt-2 text-base font-bold text-indigo-300" id="halfAmount">折半: ¥0</div>
+                <div class="copy-hint mt-2 text-xs text-zinc-500">タップで折半金額をコピー</div>
             </div>
 
-            <div class="output-section">
-                <h2 style="margin-bottom: 15px;">テキスト出力</h2>
-                <div class="output-text" id="outputText"></div>
-                <button class="copy-btn" onclick="app.budget.copyOutput()">📋 コピー</button>
-                <div class="copy-success" id="copySuccess" style="display: none;">コピーしました！</div>
-                <button class="discord-btn" onclick="window.open('https://discord.com/channels/1360206899278118972/1366013675051159564', '_blank')">
-                    <svg class="discord-icon" viewBox="0 0 71 55" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M60.1045 4.8978C55.5792 2.8214 50.7265 1.2916 45.6527 0.41542C45.5603 0.39851 45.468 0.440769 45.4204 0.525289C44.7963 1.6353 44.105 3.0834 43.6209 4.2216C38.1637 3.4046 32.7345 3.4046 27.3892 4.2216C26.905 3.0581 26.1886 1.6353 25.5617 0.525289C25.5141 0.443589 25.4218 0.40133 25.3294 0.41542C20.2584 1.2888 15.4057 2.8186 10.8776 4.8978C10.8384 4.9147 10.8048 4.9429 10.7825 4.9795C1.57795 18.7309 -0.943561 32.1443 0.293408 45.3914C0.299005 45.4562 0.335386 45.5182 0.385761 45.5576C6.45866 50.0174 12.3413 52.7249 18.1147 54.5195C18.2071 54.5477 18.305 54.5139 18.3638 54.4378C19.7295 52.5728 20.9469 50.6063 21.9907 48.5383C22.0523 48.4172 21.9935 48.2735 21.8676 48.2256C19.9366 47.4931 18.0979 46.6 16.3292 45.5858C16.1893 45.5041 16.1781 45.304 16.3068 45.2082C16.679 44.9293 17.0513 44.6391 17.4067 44.3461C17.471 44.2926 17.5606 44.2813 17.6362 44.3151C29.2558 49.6202 41.8354 49.6202 53.3179 44.3151C53.3## 44.2785 53.4831 44.287 53.5502 44.3433C53.9057 44.6363 54.2779 44.9293 54.6529 45.2082C54.7816 45.304 54.7732 45.5041 54.6333 45.5858C52.8646 46.6197 51.0259 47.4931 49.0921 48.2228C48.9662 48.2707 48.9102 48.4172 48.9718 48.5383C50.0384 50.6034 51.2558 52.5699 52.5959 54.435C52.6519 54.5139 52.7526 54.5477 52.845 54.5195C58.6464 52.7249 64.529 50.0174 70.6019 45.5576C70.6551 45.5182 70.6887 45.459 70.6943 45.3942C72.1747 30.0791 68.2147 16.7757 60.1968 4.9823C60.1772 4.9429 60.1437 4.9147 60.1045 4.8978ZM23.7259 37.3253C20.2276 37.3253 17.3451 34.1136 17.3451 30.1693C17.3451 26.225 20.1717 23.0133 23.7259 23.0133C27.308 23.0133 30.1626 26.2532 30.1099 30.1693C30.1099 34.1136 27.2739 37.3253 23.7259 37.3253ZM47.3178 37.3253C43.8196 37.3253 40.9371 34.1136 40.9371 30.1693C40.9371 26.225 43.7636 23.0133 47.3178 23.0133C50.9 23.0133 53.7545 26.2532 53.7018 30.1693C53.7018 34.1136 50.9 37.3253 47.3178 37.3253Z" fill="white"/>
-                    </svg>
-                    Discordに送る
+            <div class="output-section mt-6 rounded-2xl bg-white/5 p-5 ring-1 ring-white/10">
+                <h2 class="mb-4 text-base font-bold text-white">テキスト出力</h2>
+                <div class="output-text whitespace-pre-wrap rounded-xl bg-zinc-950/60 p-4 text-sm leading-relaxed text-zinc-300 ring-1 ring-inset ring-white/5" id="outputText"></div>
+                <button class="copy-btn mt-3 w-full rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.budget.copyOutput()">📋 コピー</button>
+                <div class="copy-success mt-2 text-center text-sm font-semibold text-emerald-400" id="copySuccess" style="display: none;">コピーしました！</div>
+                <button class="discord-btn mt-3 w-full rounded-lg bg-[#5865F2] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#4752c4]" onclick="window.open('https://discord.com/channels/1360206899278118972/1366013675051159564', '_blank')">
+                    💬 Discordに送る
                 </button>
             </div>
         </div>
 
         <!-- カレンダーセクション -->
         <div class="content-section" id="calendarSection" style="display: none;">
-            <h2 style="text-align: center; margin-bottom: 15px;">📅 休日カレンダー</h2>
-            
+            <h2 class="mb-4 text-center text-xl font-bold text-white">📅 休日カレンダー</h2>
+
             <!-- Googleカレンダー連携ステータス -->
-            <div class="gcal-status" id="gcalStatus">
-                <span id="gcalStatusText">Googleカレンダー: 未連携</span>
-                <button class="gcal-link-btn" id="gcalLinkBtn" onclick="app.holidayCalendar.toggleGoogleCalendar()">🔗 連携</button>
+            <div class="gcal-status mb-4 flex items-center justify-between gap-3 rounded-xl bg-white/5 px-4 py-3 ring-1 ring-white/10" id="gcalStatus">
+                <span class="text-sm text-zinc-300" id="gcalStatusText">Googleカレンダー: 未連携</span>
+                <button class="gcal-link-btn shrink-0 rounded-lg bg-indigo-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-400" id="gcalLinkBtn" onclick="app.holidayCalendar.toggleGoogleCalendar()">🔗 連携</button>
             </div>
-            
+
             <div class="users-list" id="usersList"></div>
 
-            <div class="calendar-month-selector">
-                <button class="calendar-month-btn" onclick="app.holidayCalendar.changeMonth(-1)">◀</button>
-                <span class="calendar-current-month" id="calendarCurrentMonth"></span>
-                <button class="calendar-month-btn" onclick="app.holidayCalendar.changeMonth(1)">▶</button>
+            <div class="calendar-month-selector my-4 flex items-center justify-center gap-4">
+                <button class="calendar-month-btn flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-200 transition hover:bg-white/20" onclick="app.holidayCalendar.changeMonth(-1)">◀</button>
+                <span class="calendar-current-month min-w-[120px] text-center text-lg font-bold text-white" id="calendarCurrentMonth"></span>
+                <button class="calendar-month-btn flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-200 transition hover:bg-white/20" onclick="app.holidayCalendar.changeMonth(1)">▶</button>
             </div>
 
             <div class="holiday-calendar" id="holidayCalendar"></div>
 
-            <div class="calendar-actions">
-                <button class="action-btn user-edit-btn" onclick="app.holidayCalendar.showUserManagement()">👥 ユーザー管理</button>
-                <button class="action-btn memo-add-btn" onclick="app.holidayCalendar.showMemoForm()">📝 メモ記入</button>
-            </div>
-            <div class="calendar-actions" style="margin-top: 10px;">
-                <button class="action-btn holiday-edit-btn" onclick="app.holidayCalendar.showHolidayUserSelect()">📅 休日編集</button>
-                <button class="action-btn memo-view-btn" onclick="app.holidayCalendar.toggleMemoList()">📋 メモ確認</button>
+            <div class="calendar-actions mt-4 grid grid-cols-2 gap-2.5">
+                <button class="action-btn user-edit-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.holidayCalendar.showUserManagement()">👥 ユーザー管理</button>
+                <button class="action-btn memo-add-btn rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.holidayCalendar.showMemoForm()">📝 メモ記入</button>
+                <button class="action-btn holiday-edit-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.holidayCalendar.showHolidayUserSelect()">📅 休日編集</button>
+                <button class="action-btn memo-view-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.holidayCalendar.toggleMemoList()">📋 メモ確認</button>
             </div>
 
             <!-- メモ一覧エリア -->
-            <div class="memo-list-container" id="memoListContainer" style="display: none;">
+            <div class="memo-list-container mt-4" id="memoListContainer" style="display: none;">
                 <div class="memo-list" id="memoList"></div>
             </div>
         </div>
 
         <!-- 買い物リストセクション -->
         <div class="content-section" id="shoppingSection" style="display: none;">
-            <h2 style="text-align: center; margin-bottom: 15px;">🛒 買い物リスト</h2>
-            
+            <h2 class="mb-4 text-center text-xl font-bold text-white">🛒 買い物リスト</h2>
+
             <div class="sync-status" id="shoppingSyncStatus" style="display: none;">接続中...</div>
 
-            <div class="shopping-header">
-                <div class="shopping-count">
+            <div class="shopping-header mb-4 flex items-center justify-between gap-3">
+                <div class="shopping-count flex items-center gap-2 text-sm font-semibold text-zinc-300">
                     <span>買い物リスト</span>
-                    <span class="count-badge" id="shoppingCount">0件</span>
+                    <span class="count-badge rounded-full bg-indigo-500/15 px-2.5 py-0.5 text-xs font-bold text-indigo-300 ring-1 ring-inset ring-indigo-500/20" id="shoppingCount">0件</span>
                 </div>
-                <select id="shoppingFilter" onchange="app.shopping.filterItems()">
+                <select id="shoppingFilter" onchange="app.shopping.filterItems()" class="rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500 [&>option]:bg-zinc-900">
                     <option value="all">すべて</option>
                     <option value="high">急ぎのみ</option>
                 </select>
             </div>
 
-            <div class="shopping-add-form">
-                <div class="shopping-input-row">
-                    <input type="text" id="newItemName" placeholder="商品名" autocomplete="off">
-                    <div class="shopping-suggestions" id="shoppingSuggestions" style="display: none;"></div>
+            <div class="shopping-add-form mb-4 space-y-2.5 rounded-2xl bg-white/5 p-5 ring-1 ring-white/10">
+                <div class="shopping-input-row relative">
+                    <input type="text" id="newItemName" placeholder="商品名" autocomplete="off" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+                    <div class="shopping-suggestions absolute inset-x-0 top-full z-10 mt-1 overflow-hidden rounded-lg bg-zinc-800 shadow-xl ring-1 ring-white/10" id="shoppingSuggestions" style="display: none;"></div>
                 </div>
-                <div class="shopping-input-row">
-                    <select id="newItemCategory">
+                <div class="shopping-input-row flex gap-2.5">
+                    <select id="newItemCategory" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500 [&>option]:bg-zinc-900">
                         <option value="野菜・果物">🥬 野菜・果物</option>
                         <option value="肉・魚">🍖 肉・魚</option>
                         <option value="乳製品・卵">🥛 乳製品・卵</option>
@@ -300,54 +304,54 @@
                         <option value="日用品">🧴 日用品</option>
                         <option value="その他">📦 その他</option>
                     </select>
-                    <select id="newItemPriority">
+                    <select id="newItemPriority" class="rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500 [&>option]:bg-zinc-900">
                         <option value="normal">普通</option>
                         <option value="high">急ぎ</option>
                         <option value="low">後で</option>
                     </select>
-                    <input type="number" id="newItemQuantity" value="1" min="1" style="width: 60px;">
+                    <input type="number" id="newItemQuantity" value="1" min="1" class="w-16 rounded-lg bg-white/5 px-3 py-2.5 text-center text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
                 </div>
-                <button class="shopping-add-btn" onclick="app.shopping.addItem()">➕ 追加</button>
+                <button class="shopping-add-btn w-full rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.shopping.addItem()">➕ 追加</button>
             </div>
 
-            <div class="shopping-template-actions">
-                <button class="template-btn" onclick="app.shopping.showTemplates()">📋 テンプレートから追加</button>
-                <button class="template-btn" onclick="app.shopping.showTemplateManager()">⚙️ テンプレート管理</button>
+            <div class="shopping-template-actions mb-4 grid grid-cols-2 gap-2.5">
+                <button class="template-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.shopping.showTemplates()">📋 テンプレートから追加</button>
+                <button class="template-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.shopping.showTemplateManager()">⚙️ テンプレート管理</button>
             </div>
 
             <div class="shopping-list" id="shoppingList"></div>
 
-            <div class="shopping-completed-section" id="completedSection" style="display: none;">
-                <div class="completed-header" onclick="app.shopping.toggleCompleted()">
+            <div class="shopping-completed-section mt-4 overflow-hidden rounded-2xl bg-white/5 ring-1 ring-white/10" id="completedSection" style="display: none;">
+                <div class="completed-header flex cursor-pointer items-center justify-between px-4 py-3 text-sm font-semibold text-zinc-300 transition hover:bg-white/5" onclick="app.shopping.toggleCompleted()">
                     <span>✅ 購入済み (<span id="completedCount">0</span>)</span>
-                    <span class="completed-toggle" id="completedToggle">▼</span>
+                    <span class="completed-toggle text-xs text-zinc-500" id="completedToggle">▼</span>
                 </div>
-                <div class="completed-list" id="completedList" style="display: none;"></div>
+                <div class="completed-list border-t border-white/10 p-3" id="completedList" style="display: none;"></div>
             </div>
 
-            <div class="shopping-actions">
-                <button class="clear-completed-btn" onclick="app.shopping.clearCompleted()">🗑️ 購入済みを削除</button>
+            <div class="shopping-actions mt-4">
+                <button class="clear-completed-btn w-full rounded-lg bg-rose-500/10 px-4 py-2.5 text-sm font-semibold text-rose-300 ring-1 ring-inset ring-rose-500/20 transition hover:bg-rose-500/20" onclick="app.shopping.clearCompleted()">🗑️ 購入済みを削除</button>
             </div>
         </div>
 
         <!-- スマートホームセクション -->
         <div class="content-section smarthome-page" id="smartHomeSection" style="display: none;">
-            <h2 style="text-align: center; margin-bottom: 20px;">🏠 スマートホーム</h2>
+            <h2 class="mb-5 text-center text-xl font-bold text-white">🏠 スマートホーム</h2>
 
             <!-- SwitchBotセットアップ -->
             <div class="smarthome-setup" id="smartHomeSetup">
-                <div class="setup-card">
-                    <h3>🤖 SwitchBot API設定</h3>
-                    <p>SwitchBotデバイスを操作するには、APIトークンとシークレットが必要です。</p>
-                    <div class="setup-form">
-                        <input type="password" id="switchbotToken" placeholder="トークン">
-                        <input type="password" id="switchbotSecret" placeholder="シークレット">
-                        <button onclick="app.smartHome.saveToken()">保存して接続</button>
+                <div class="setup-card rounded-2xl bg-white/5 p-5 ring-1 ring-white/10">
+                    <h3 class="text-base font-bold text-white">🤖 SwitchBot API設定</h3>
+                    <p class="mt-2 text-sm text-zinc-400">SwitchBotデバイスを操作するには、APIトークンとシークレットが必要です。</p>
+                    <div class="setup-form mt-4 flex flex-col gap-2.5">
+                        <input type="password" id="switchbotToken" placeholder="トークン" class="rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+                        <input type="password" id="switchbotSecret" placeholder="シークレット" class="rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+                        <button onclick="app.smartHome.saveToken()" class="rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400">保存して接続</button>
                     </div>
-                    <div class="setup-help">
+                    <div class="setup-help mt-4 text-sm text-zinc-400">
                         <details>
-                            <summary>トークンの取得方法</summary>
-                            <ol>
+                            <summary class="cursor-pointer font-semibold text-zinc-300">トークンの取得方法</summary>
+                            <ol class="mt-2 list-inside list-decimal space-y-1 text-zinc-400">
                                 <li>SwitchBotアプリを開く</li>
                                 <li>プロフィール → 設定 → アプリバージョンを10回タップ</li>
                                 <li>開発者向けオプション → トークンを取得</li>
@@ -359,202 +363,202 @@
 
             <!-- デバイス一覧 -->
             <div class="smarthome-devices" id="smartHomeDevices" style="display: none;">
-                <div class="devices-header">
-                    <span class="devices-status" id="devicesStatus">読み込み中...</span>
-                    <button class="refresh-btn" onclick="app.smartHome.loadDevices()">🔄 更新</button>
+                <div class="devices-header mb-4 flex items-center justify-between gap-3">
+                    <span class="devices-status text-sm text-zinc-400" id="devicesStatus">読み込み中...</span>
+                    <button class="refresh-btn shrink-0 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.smartHome.loadDevices()">🔄 更新</button>
                 </div>
 
-                <div class="device-section">
-                    <h3>📡 赤外線リモコン</h3>
+                <div class="device-section mb-5">
+                    <h3 class="mb-3 text-base font-bold text-white">📡 赤外線リモコン</h3>
                     <div class="device-grid" id="irDeviceList"></div>
                 </div>
 
-                <div class="device-section">
-                    <h3>🤖 SwitchBotデバイス</h3>
+                <div class="device-section mb-5">
+                    <h3 class="mb-3 text-base font-bold text-white">🤖 SwitchBotデバイス</h3>
                     <div class="device-grid" id="physicalDeviceList"></div>
                 </div>
 
                 <div class="smarthome-settings">
-                    <button class="settings-btn" onclick="app.smartHome.showSettings()">⚙️ API設定</button>
+                    <button class="settings-btn w-full rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.smartHome.showSettings()">⚙️ API設定</button>
                 </div>
             </div>
 
             <!-- Philips Hue -->
-            <div class="hue-section">
-                <h3 style="margin-bottom: 15px;">💡 Philips Hue</h3>
-                <div class="hue-loading" id="hueLoading">読み込み中...</div>
+            <div class="hue-section mt-6 rounded-2xl bg-white/5 p-5 ring-1 ring-white/10">
+                <h3 class="mb-4 text-base font-bold text-white">💡 Philips Hue</h3>
+                <div class="hue-loading text-sm text-zinc-400" id="hueLoading">読み込み中...</div>
                 <div class="hue-light-grid" id="hueLightList"></div>
-                <div class="hue-actions" style="margin-top: 15px;">
-                    <button class="hue-all-btn on" onclick="app.hue.allLightsOn()">💡 全ON</button>
-                    <button class="hue-all-btn off" onclick="app.hue.allLightsOff()">🌙 全OFF</button>
+                <div class="hue-actions mt-4 grid grid-cols-2 gap-2.5">
+                    <button class="hue-all-btn on rounded-lg bg-amber-400/10 px-4 py-2.5 text-sm font-semibold text-amber-300 ring-1 ring-inset ring-amber-400/20 transition hover:bg-amber-400/20" onclick="app.hue.allLightsOn()">💡 全ON</button>
+                    <button class="hue-all-btn off rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.hue.allLightsOff()">🌙 全OFF</button>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- ユーザー管理モーダル -->
-    <div class="user-modal" id="userModal">
-        <div class="modal-header">
-            <h2>👥 ユーザー管理</h2>
-            <button class="modal-close" onclick="app.holidayCalendar.closeUserModal()">✕</button>
+    <div class="modal-panel user-modal fixed left-1/2 top-1/2 z-[1500] max-h-[80vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="userModal">
+        <div class="modal-header mb-5 flex items-center justify-between">
+            <h2 class="text-lg font-bold text-white">👥 ユーザー管理</h2>
+            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.holidayCalendar.closeUserModal()">✕</button>
         </div>
-        <button class="new-user-btn" onclick="app.holidayCalendar.showUserForm()">✨ 新規登録</button>
+        <button class="new-user-btn mb-4 w-full rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.holidayCalendar.showUserForm()">✨ 新規登録</button>
         <div class="user-list-container">
             <div class="user-list" id="userListModal"></div>
         </div>
     </div>
 
     <!-- ユーザーフォームモーダル -->
-    <div class="user-form-modal" id="userFormModal">
-        <div class="modal-header">
-            <h2 id="userFormTitle">✨ ユーザー新規登録</h2>
-            <button class="modal-close" onclick="app.holidayCalendar.closeUserForm()">✕</button>
+    <div class="modal-panel user-form-modal fixed left-1/2 top-1/2 z-[1500] max-h-[80vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="userFormModal">
+        <div class="modal-header mb-5 flex items-center justify-between">
+            <h2 class="text-lg font-bold text-white" id="userFormTitle">✨ ユーザー新規登録</h2>
+            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.holidayCalendar.closeUserForm()">✕</button>
         </div>
-        <div class="user-form">
-            <label>名前</label>
-            <input type="text" id="userName" placeholder="名前を入力">
-            
-            <label>カラー</label>
+        <div class="user-form space-y-3">
+            <label class="block text-sm font-semibold text-zinc-300">名前</label>
+            <input type="text" id="userName" placeholder="名前を入力" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+
+            <label class="block text-sm font-semibold text-zinc-300">カラー</label>
             <div class="color-palette" id="colorPalette"></div>
-            
-            <div class="form-actions">
-                <button class="save-btn" onclick="app.holidayCalendar.saveUser()">保存</button>
-                <button class="cancel-btn" onclick="app.holidayCalendar.closeUserForm()">キャンセル</button>
-                <button class="delete-user-btn" id="deleteUserBtn" onclick="app.holidayCalendar.deleteUser()" style="display: none;">削除</button>
+
+            <div class="form-actions flex gap-2.5 pt-2">
+                <button class="save-btn flex-1 rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.holidayCalendar.saveUser()">保存</button>
+                <button class="cancel-btn flex-1 rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.holidayCalendar.closeUserForm()">キャンセル</button>
+                <button class="delete-user-btn rounded-lg bg-rose-500/10 px-4 py-2.5 text-sm font-semibold text-rose-300 ring-1 ring-inset ring-rose-500/20 transition hover:bg-rose-500/20" id="deleteUserBtn" onclick="app.holidayCalendar.deleteUser()" style="display: none;">削除</button>
             </div>
         </div>
     </div>
 
     <!-- 休日ユーザー選択モーダル -->
-    <div class="holiday-user-select-modal" id="holidayUserSelectModal">
-        <div class="modal-header">
-            <h2>👤 ユーザーを選択</h2>
-            <button class="modal-close" onclick="app.holidayCalendar.closeHolidayUserSelect()">✕</button>
+    <div class="modal-panel holiday-user-select-modal fixed left-1/2 top-1/2 z-[1500] max-h-[80vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="holidayUserSelectModal">
+        <div class="modal-header mb-5 flex items-center justify-between">
+            <h2 class="text-lg font-bold text-white">👤 ユーザーを選択</h2>
+            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.holidayCalendar.closeHolidayUserSelect()">✕</button>
         </div>
         <div class="holiday-user-select">
-            <p>休日を編集するユーザーを選択してください</p>
+            <p class="mb-3 text-sm text-zinc-400">休日を編集するユーザーを選択してください</p>
             <div class="holiday-user-list" id="holidayUserSelectList"></div>
         </div>
     </div>
 
     <!-- 休日編集モーダル -->
-    <div class="holiday-edit-modal" id="holidayEditModal">
-        <div class="modal-header">
-            <h2 id="holidayEditTitle">📅 休日編集</h2>
-            <button class="modal-close" onclick="app.holidayCalendar.cancelHolidayEdit()">✕</button>
+    <div class="modal-panel holiday-edit-modal fixed left-1/2 top-1/2 z-[1500] max-h-[85vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="holidayEditModal">
+        <div class="modal-header mb-5 flex items-center justify-between">
+            <h2 class="text-lg font-bold text-white" id="holidayEditTitle">📅 休日編集</h2>
+            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.holidayCalendar.cancelHolidayEdit()">✕</button>
         </div>
-        <div class="edit-calendar-nav">
-            <button onclick="app.holidayCalendar.changeEditMonth(-1)">◀</button>
-            <span id="editCalendarMonth"></span>
-            <button onclick="app.holidayCalendar.changeEditMonth(1)">▶</button>
+        <div class="edit-calendar-nav mb-4 flex items-center justify-center gap-4">
+            <button class="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xs text-zinc-200 transition hover:bg-white/20" onclick="app.holidayCalendar.changeEditMonth(-1)">◀</button>
+            <span class="min-w-[110px] text-center text-base font-bold text-white" id="editCalendarMonth"></span>
+            <button class="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xs text-zinc-200 transition hover:bg-white/20" onclick="app.holidayCalendar.changeEditMonth(1)">▶</button>
         </div>
         <div class="edit-calendar" id="editCalendar"></div>
-        <div class="edit-calendar-actions">
-            <button class="complete-btn" onclick="app.holidayCalendar.saveHolidays()">✓ 保存</button>
-            <button class="cancel-btn" onclick="app.holidayCalendar.cancelHolidayEdit()">キャンセル</button>
+        <div class="edit-calendar-actions mt-4 flex gap-2.5">
+            <button class="complete-btn flex-1 rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-400" onclick="app.holidayCalendar.saveHolidays()">✓ 保存</button>
+            <button class="cancel-btn flex-1 rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.holidayCalendar.cancelHolidayEdit()">キャンセル</button>
         </div>
     </div>
 
     <!-- メモ記入モーダル -->
-    <div class="memo-form-modal" id="memoFormModal">
-        <div class="modal-header">
-            <h2>📝 メモ記入</h2>
-            <button class="modal-close" onclick="app.holidayCalendar.closeMemoForm()">✕</button>
+    <div class="modal-panel memo-form-modal fixed left-1/2 top-1/2 z-[1500] max-h-[85vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="memoFormModal">
+        <div class="modal-header mb-5 flex items-center justify-between">
+            <h2 class="text-lg font-bold text-white">📝 メモ記入</h2>
+            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.holidayCalendar.closeMemoForm()">✕</button>
         </div>
-        <div class="memo-form">
-            <label>種類</label>
-            <div class="memo-type-selector">
-                <button class="memo-type-btn active" data-type="task" onclick="app.holidayCalendar.selectMemoType('task')">📌 タスク</button>
-                <button class="memo-type-btn" data-type="schedule" onclick="app.holidayCalendar.selectMemoType('schedule')">🗓️ 予定</button>
+        <div class="memo-form space-y-3">
+            <label class="block text-sm font-semibold text-zinc-300">種類</label>
+            <div class="memo-type-selector grid grid-cols-2 gap-2.5">
+                <button class="memo-type-btn active rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-type="task" onclick="app.holidayCalendar.selectMemoType('task')">📌 タスク</button>
+                <button class="memo-type-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-type="schedule" onclick="app.holidayCalendar.selectMemoType('schedule')">🗓️ 予定</button>
             </div>
 
-            <label>日付</label>
-            <input type="date" id="memoDate">
+            <label class="block text-sm font-semibold text-zinc-300">日付</label>
+            <input type="date" id="memoDate" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
 
-            <div class="memo-time-section" id="memoTimeSection" style="display: none;">
-                <label>開始時刻</label>
-                <input type="time" id="memoStartTime">
-                <label>終了時刻</label>
-                <input type="time" id="memoEndTime">
+            <div class="memo-time-section space-y-3" id="memoTimeSection" style="display: none;">
+                <label class="block text-sm font-semibold text-zinc-300">開始時刻</label>
+                <input type="time" id="memoStartTime" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
+                <label class="block text-sm font-semibold text-zinc-300">終了時刻</label>
+                <input type="time" id="memoEndTime" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
 
-            <div class="memo-time-section" id="memoTaskTimeSection" style="display: none;">
-                <label>通知時刻（タスク）</label>
-                <input type="time" id="memoTaskTime">
+            <div class="memo-time-section space-y-3" id="memoTaskTimeSection" style="display: none;">
+                <label class="block text-sm font-semibold text-zinc-300">通知時刻（タスク）</label>
+                <input type="time" id="memoTaskTime" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
 
-            <label>内容</label>
-            <textarea id="memoContent" placeholder="メモ内容を入力" rows="3"></textarea>
+            <label class="block text-sm font-semibold text-zinc-300">内容</label>
+            <textarea id="memoContent" placeholder="メモ内容を入力" rows="3" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500"></textarea>
 
-            <div class="memo-notification-section">
-                <label>
-                    <input type="checkbox" id="memoNotification" checked>
+            <div class="memo-notification-section rounded-lg bg-white/5 p-3 ring-1 ring-inset ring-white/5">
+                <label class="flex items-center gap-2.5 text-sm font-semibold text-zinc-300">
+                    <input type="checkbox" id="memoNotification" checked class="h-4 w-4 rounded border-white/20 bg-white/5 text-indigo-500 focus:ring-indigo-500">
                     🔔 Googleカレンダーに登録して通知する
                 </label>
-                <p class="gcal-notification-note" id="gcalNotificationNote">
+                <p class="gcal-notification-note mt-2 text-xs text-zinc-500" id="gcalNotificationNote">
                     ※ 予定: 1時間前に通知 / タスク: 設定時刻に通知
                 </p>
             </div>
 
-            <div class="form-actions">
-                <button class="save-btn" onclick="app.holidayCalendar.saveMemo()">保存</button>
-                <button class="cancel-btn" onclick="app.holidayCalendar.closeMemoForm()">キャンセル</button>
-                <button class="delete-memo-btn" id="memoDeleteBtn" onclick="app.holidayCalendar.deleteMemoFromForm()" style="display: none;">🗑️ 削除</button>
+            <div class="form-actions flex gap-2.5 pt-2">
+                <button class="save-btn flex-1 rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.holidayCalendar.saveMemo()">保存</button>
+                <button class="cancel-btn flex-1 rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.holidayCalendar.closeMemoForm()">キャンセル</button>
+                <button class="delete-memo-btn rounded-lg bg-rose-500/10 px-4 py-2.5 text-sm font-semibold text-rose-300 ring-1 ring-inset ring-rose-500/20 transition hover:bg-rose-500/20" id="memoDeleteBtn" onclick="app.holidayCalendar.deleteMemoFromForm()" style="display: none;">🗑️ 削除</button>
             </div>
         </div>
     </div>
 
     <!-- 日付詳細モーダル -->
-    <div class="date-detail-modal" id="dateDetailModal">
-        <div class="modal-header">
-            <h2 id="dateDetailTitle">📅 日付詳細</h2>
-            <button class="modal-close" onclick="app.holidayCalendar.closeDateDetail()">✕</button>
+    <div class="modal-panel date-detail-modal fixed left-1/2 top-1/2 z-[1500] max-h-[80vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="dateDetailModal">
+        <div class="modal-header mb-5 flex items-center justify-between">
+            <h2 class="text-lg font-bold text-white" id="dateDetailTitle">📅 日付詳細</h2>
+            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.holidayCalendar.closeDateDetail()">✕</button>
         </div>
-        <div class="date-detail-content">
+        <div class="date-detail-content space-y-4">
             <div class="date-detail-holidays" id="dateDetailHolidays"></div>
             <div class="date-detail-memos" id="dateDetailMemos"></div>
         </div>
-        <div class="form-actions">
-            <button class="save-btn" onclick="app.holidayCalendar.showMemoFormForDate()">📝 メモを追加</button>
-            <button class="cancel-btn" onclick="app.holidayCalendar.closeDateDetail()">閉じる</button>
+        <div class="form-actions mt-5 flex gap-2.5">
+            <button class="save-btn flex-1 rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.holidayCalendar.showMemoFormForDate()">📝 メモを追加</button>
+            <button class="cancel-btn flex-1 rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.holidayCalendar.closeDateDetail()">閉じる</button>
         </div>
     </div>
 
     <!-- テンプレート選択モーダル -->
-    <div class="template-select-modal" id="templateSelectModal">
-        <div class="modal-header">
-            <h2>📋 テンプレートから追加</h2>
-            <button class="modal-close" onclick="app.shopping.closeTemplateSelect()">✕</button>
+    <div class="modal-panel template-select-modal fixed left-1/2 top-1/2 z-[1500] max-h-[80vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="templateSelectModal">
+        <div class="modal-header mb-5 flex items-center justify-between">
+            <h2 class="text-lg font-bold text-white">📋 テンプレートから追加</h2>
+            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.shopping.closeTemplateSelect()">✕</button>
         </div>
         <div class="template-list" id="templateList"></div>
     </div>
 
     <!-- テンプレート管理モーダル -->
-    <div class="template-manager-modal" id="templateManagerModal">
-        <div class="modal-header">
-            <h2>⚙️ テンプレート管理</h2>
-            <button class="modal-close" onclick="app.shopping.closeTemplateManager()">✕</button>
+    <div class="modal-panel template-manager-modal fixed left-1/2 top-1/2 z-[1500] max-h-[80vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="templateManagerModal">
+        <div class="modal-header mb-5 flex items-center justify-between">
+            <h2 class="text-lg font-bold text-white">⚙️ テンプレート管理</h2>
+            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.shopping.closeTemplateManager()">✕</button>
         </div>
-        <button class="new-user-btn" onclick="app.shopping.showTemplateForm()">➕ 新規作成</button>
+        <button class="new-user-btn mb-4 w-full rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.shopping.showTemplateForm()">➕ 新規作成</button>
         <div class="template-list" id="templateManagerList"></div>
     </div>
 
     <!-- テンプレートフォームモーダル -->
-    <div class="template-form-modal" id="templateFormModal">
-        <div class="modal-header">
-            <h2 id="templateFormTitle">➕ 新規テンプレート作成</h2>
-            <button class="modal-close" onclick="app.shopping.closeTemplateForm()">✕</button>
+    <div class="modal-panel template-form-modal fixed left-1/2 top-1/2 z-[1500] max-h-[85vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="templateFormModal">
+        <div class="modal-header mb-5 flex items-center justify-between">
+            <h2 class="text-lg font-bold text-white" id="templateFormTitle">➕ 新規テンプレート作成</h2>
+            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.shopping.closeTemplateForm()">✕</button>
         </div>
-        <div class="template-form">
-            <label>テンプレート名:</label>
-            <input type="text" id="templateName" placeholder="例: 週末の買い出し">
-            
-            <label>アイテム:</label>
+        <div class="template-form space-y-3">
+            <label class="block text-sm font-semibold text-zinc-300">テンプレート名:</label>
+            <input type="text" id="templateName" placeholder="例: 週末の買い出し" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+
+            <label class="block text-sm font-semibold text-zinc-300">アイテム:</label>
             <div class="template-items-list" id="templateItemsList"></div>
-            
-            <div class="template-item-add">
-                <input type="text" id="templateItemName" placeholder="商品名">
-                <select id="templateItemCategory">
+
+            <div class="template-item-add flex gap-2.5">
+                <input type="text" id="templateItemName" placeholder="商品名" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+                <select id="templateItemCategory" class="min-w-0 rounded-lg bg-white/5 px-2 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500 [&>option]:bg-zinc-900">
                     <option value="野菜・果物">🥬 野菜・果物</option>
                     <option value="肉・魚">🍖 肉・魚</option>
                     <option value="乳製品・卵">🥛 乳製品・卵</option>
@@ -564,129 +568,129 @@
                     <option value="日用品">🧴 日用品</option>
                     <option value="その他">📦 その他</option>
                 </select>
-                <button onclick="app.shopping.addTemplateItem()">追加</button>
+                <button onclick="app.shopping.addTemplateItem()" class="shrink-0 rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400">追加</button>
             </div>
-            
-            <div class="template-form-actions">
-                <button class="save-btn" onclick="app.shopping.saveTemplate()">保存</button>
-                <button class="cancel-btn" onclick="app.shopping.closeTemplateForm()">キャンセル</button>
-                <button class="delete-template-btn" id="deleteTemplateBtn" onclick="app.shopping.deleteTemplate()" style="display: none;">削除</button>
+
+            <div class="template-form-actions flex gap-2.5 pt-2">
+                <button class="save-btn flex-1 rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.shopping.saveTemplate()">保存</button>
+                <button class="cancel-btn flex-1 rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.shopping.closeTemplateForm()">キャンセル</button>
+                <button class="delete-template-btn rounded-lg bg-rose-500/10 px-4 py-2.5 text-sm font-semibold text-rose-300 ring-1 ring-inset ring-rose-500/20 transition hover:bg-rose-500/20" id="deleteTemplateBtn" onclick="app.shopping.deleteTemplate()" style="display: none;">削除</button>
             </div>
         </div>
     </div>
 
     <!-- エアコン操作モーダル -->
-    <div class="ac-control-modal" id="acControlModal">
-        <div class="modal-header">
-            <h2 id="acControlTitle">❄️ エアコン操作</h2>
-            <button class="modal-close" onclick="app.smartHome.closeAcControl()">✕</button>
+    <div class="modal-panel ac-control-modal fixed left-1/2 top-1/2 z-[1500] max-h-[85vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="acControlModal">
+        <div class="modal-header mb-5 flex items-center justify-between">
+            <h2 class="text-lg font-bold text-white" id="acControlTitle">❄️ エアコン操作</h2>
+            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.smartHome.closeAcControl()">✕</button>
         </div>
-        <div class="ac-control-content">
-            <div class="ac-power-section">
-                <button class="ac-power-btn on" onclick="app.smartHome.acCommand('turnOn')">
-                    <span class="power-icon">⏻</span>
+        <div class="ac-control-content space-y-5">
+            <div class="ac-power-section grid grid-cols-2 gap-2.5">
+                <button class="ac-power-btn on flex flex-col items-center gap-1 rounded-xl bg-emerald-500/10 px-4 py-4 text-sm font-bold text-emerald-300 ring-1 ring-inset ring-emerald-500/20 transition hover:bg-emerald-500/20" onclick="app.smartHome.acCommand('turnOn')">
+                    <span class="power-icon text-2xl">⏻</span>
                     <span>ON</span>
                 </button>
-                <button class="ac-power-btn off" onclick="app.smartHome.acCommand('turnOff')">
-                    <span class="power-icon">⏻</span>
+                <button class="ac-power-btn off flex flex-col items-center gap-1 rounded-xl bg-white/5 px-4 py-4 text-sm font-bold text-zinc-300 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.smartHome.acCommand('turnOff')">
+                    <span class="power-icon text-2xl">⏻</span>
                     <span>OFF</span>
                 </button>
             </div>
-            
+
             <div class="ac-temp-section">
-                <label>温度設定</label>
-                <div class="ac-temp-controls">
-                    <button class="temp-btn" onclick="app.smartHome.adjustTemp(-1)">−</button>
-                    <span class="temp-display" id="acTempDisplay">26°C</span>
-                    <button class="temp-btn" onclick="app.smartHome.adjustTemp(1)">+</button>
+                <label class="mb-2 block text-sm font-semibold text-zinc-300">温度設定</label>
+                <div class="ac-temp-controls flex items-center justify-center gap-5">
+                    <button class="temp-btn flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-xl font-bold text-zinc-100 transition hover:bg-white/20" onclick="app.smartHome.adjustTemp(-1)">−</button>
+                    <span class="temp-display min-w-[90px] text-center text-3xl font-black text-white" id="acTempDisplay">26°C</span>
+                    <button class="temp-btn flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-xl font-bold text-zinc-100 transition hover:bg-white/20" onclick="app.smartHome.adjustTemp(1)">+</button>
                 </div>
             </div>
-            
+
             <div class="ac-mode-section">
-                <label>モード</label>
-                <div class="ac-mode-buttons">
-                    <button class="mode-btn" data-mode="1" onclick="app.smartHome.setAcMode(1)">🔥 暖房</button>
-                    <button class="mode-btn active" data-mode="2" onclick="app.smartHome.setAcMode(2)">❄️ 冷房</button>
-                    <button class="mode-btn" data-mode="3" onclick="app.smartHome.setAcMode(3)">💨 送風</button>
-                    <button class="mode-btn" data-mode="5" onclick="app.smartHome.setAcMode(5)">💧 除湿</button>
+                <label class="mb-2 block text-sm font-semibold text-zinc-300">モード</label>
+                <div class="ac-mode-buttons grid grid-cols-2 gap-2.5">
+                    <button class="mode-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-mode="1" onclick="app.smartHome.setAcMode(1)">🔥 暖房</button>
+                    <button class="mode-btn active rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-mode="2" onclick="app.smartHome.setAcMode(2)">❄️ 冷房</button>
+                    <button class="mode-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-mode="3" onclick="app.smartHome.setAcMode(3)">💨 送風</button>
+                    <button class="mode-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-mode="5" onclick="app.smartHome.setAcMode(5)">💧 除湿</button>
                 </div>
             </div>
-            
+
             <div class="ac-fan-section">
-                <label>風量</label>
-                <div class="ac-fan-buttons">
-                    <button class="fan-btn" data-fan="1" onclick="app.smartHome.setAcFan(1)">自動</button>
-                    <button class="fan-btn" data-fan="2" onclick="app.smartHome.setAcFan(2)">弱</button>
-                    <button class="fan-btn" data-fan="3" onclick="app.smartHome.setAcFan(3)">中</button>
-                    <button class="fan-btn" data-fan="4" onclick="app.smartHome.setAcFan(4)">強</button>
+                <label class="mb-2 block text-sm font-semibold text-zinc-300">風量</label>
+                <div class="ac-fan-buttons grid grid-cols-4 gap-2.5">
+                    <button class="fan-btn rounded-lg bg-white/10 px-3 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-fan="1" onclick="app.smartHome.setAcFan(1)">自動</button>
+                    <button class="fan-btn rounded-lg bg-white/10 px-3 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-fan="2" onclick="app.smartHome.setAcFan(2)">弱</button>
+                    <button class="fan-btn rounded-lg bg-white/10 px-3 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-fan="3" onclick="app.smartHome.setAcFan(3)">中</button>
+                    <button class="fan-btn rounded-lg bg-white/10 px-3 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-fan="4" onclick="app.smartHome.setAcFan(4)">強</button>
                 </div>
             </div>
-            
-            <button class="ac-apply-btn" onclick="app.smartHome.applyAcSettings()">設定を送信</button>
+
+            <button class="ac-apply-btn w-full rounded-lg bg-indigo-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition hover:bg-indigo-400" onclick="app.smartHome.applyAcSettings()">設定を送信</button>
         </div>
     </div>
 
     <!-- スマートホームAPI設定モーダル -->
-    <div class="smarthome-settings-modal" id="smartHomeSettingsModal">
-        <div class="modal-header">
-            <h2>⚙️ API設定</h2>
-            <button class="modal-close" onclick="app.smartHome.closeSettings()">✕</button>
+    <div class="modal-panel smarthome-settings-modal fixed left-1/2 top-1/2 z-[1500] max-h-[80vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="smartHomeSettingsModal">
+        <div class="modal-header mb-5 flex items-center justify-between">
+            <h2 class="text-lg font-bold text-white">⚙️ API設定</h2>
+            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.smartHome.closeSettings()">✕</button>
         </div>
-        <div class="settings-content">
-            <div class="settings-section">
-                <h3>SwitchBot API</h3>
-                <div class="settings-form">
-                    <label>トークン</label>
-                    <input type="password" id="settingsSwitchbotToken" placeholder="トークン">
-                    <label>シークレット</label>
-                    <input type="password" id="settingsSwitchbotSecret" placeholder="シークレット">
+        <div class="settings-content space-y-4">
+            <div class="settings-section rounded-xl bg-white/5 p-4 ring-1 ring-white/5">
+                <h3 class="mb-3 text-sm font-bold text-white">SwitchBot API</h3>
+                <div class="settings-form space-y-2.5">
+                    <label class="block text-sm font-semibold text-zinc-300">トークン</label>
+                    <input type="password" id="settingsSwitchbotToken" placeholder="トークン" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+                    <label class="block text-sm font-semibold text-zinc-300">シークレット</label>
+                    <input type="password" id="settingsSwitchbotSecret" placeholder="シークレット" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
                 </div>
             </div>
-            <div class="settings-actions">
-                <button class="save-btn" onclick="app.smartHome.updateToken()">保存</button>
-                <button class="danger-btn" onclick="app.smartHome.clearToken()">トークンを削除</button>
+            <div class="settings-actions flex gap-2.5">
+                <button class="save-btn flex-1 rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.smartHome.updateToken()">保存</button>
+                <button class="danger-btn flex-1 rounded-lg bg-rose-500/10 px-4 py-2.5 text-sm font-semibold text-rose-300 ring-1 ring-inset ring-rose-500/20 transition hover:bg-rose-500/20" onclick="app.smartHome.clearToken()">トークンを削除</button>
             </div>
         </div>
     </div>
 
     <!-- Hueライト操作モーダル -->
-    <div class="hue-control-modal" id="hueControlModal">
-        <div class="modal-header">
-            <h2 id="hueControlTitle">💡 ライト操作</h2>
-            <button class="modal-close" onclick="app.hue.closeControl()">✕</button>
+    <div class="modal-panel hue-control-modal fixed left-1/2 top-1/2 z-[1500] max-h-[85vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="hueControlModal">
+        <div class="modal-header mb-5 flex items-center justify-between">
+            <h2 class="text-lg font-bold text-white" id="hueControlTitle">💡 ライト操作</h2>
+            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.hue.closeControl()">✕</button>
         </div>
-        <div class="hue-control-content">
-            <div class="hue-power-section">
-                <button class="hue-power-btn on" onclick="app.hue.setPower(true)">
-                    <span class="power-icon">💡</span>
+        <div class="hue-control-content space-y-5">
+            <div class="hue-power-section grid grid-cols-2 gap-2.5">
+                <button class="hue-power-btn on flex flex-col items-center gap-1 rounded-xl bg-amber-400/10 px-4 py-4 text-sm font-bold text-amber-300 ring-1 ring-inset ring-amber-400/20 transition hover:bg-amber-400/20" onclick="app.hue.setPower(true)">
+                    <span class="power-icon text-2xl">💡</span>
                     <span>ON</span>
                 </button>
-                <button class="hue-power-btn off" onclick="app.hue.setPower(false)">
-                    <span class="power-icon">🌙</span>
+                <button class="hue-power-btn off flex flex-col items-center gap-1 rounded-xl bg-white/5 px-4 py-4 text-sm font-bold text-zinc-300 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.hue.setPower(false)">
+                    <span class="power-icon text-2xl">🌙</span>
                     <span>OFF</span>
                 </button>
             </div>
-            
+
             <div class="hue-brightness-section">
-                <label>グループ明るさ: <span id="hueBrightnessValue">100</span>%</label>
-                <input type="range" id="hueBrightnessSlider" min="1" max="100" value="100" oninput="app.hue.updateBrightnessLabel()">
-                <button class="hue-apply-btn" onclick="app.hue.applyBrightness()">明るさを適用</button>
+                <label class="mb-2 block text-sm font-semibold text-zinc-300">グループ明るさ: <span id="hueBrightnessValue">100</span>%</label>
+                <input type="range" id="hueBrightnessSlider" min="1" max="100" value="100" oninput="app.hue.updateBrightnessLabel()" class="w-full accent-indigo-500">
+                <button class="hue-apply-btn mt-3 w-full rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.hue.applyBrightness()">明るさを適用</button>
             </div>
-            
+
             <div class="hue-individual-section">
-                <label>個別ライト調整</label>
+                <label class="mb-2 block text-sm font-semibold text-zinc-300">個別ライト調整</label>
                 <div class="hue-individual-lights" id="hueIndividualLights"></div>
             </div>
         </div>
     </div>
 
     <!-- フッター -->
-    <div class="footer">
-        <div class="footer-nav">
-            <button class="nav-btn" id="footerQuickInput" onclick="app.budget.toggleQuickInputMode()">⚡ クイック入力</button>
-            <button class="nav-btn" onclick="app.calculator.show()">🔢 計算機</button>
-            <button class="nav-btn" onclick="app.csv.showModal()">📥 CSV出力</button>
-            <button class="nav-btn" onclick="app.csvImporter.showModal()">📤 CSV取込</button>
+    <div class="footer fixed inset-x-0 bottom-0 z-[1000] border-t border-white/10 bg-zinc-950/85 px-4 pt-2.5 backdrop-blur" style="padding-bottom: max(10px, env(safe-area-inset-bottom));">
+        <div class="footer-nav mx-auto flex max-w-lg items-center justify-evenly gap-2">
+            <button class="nav-btn max-w-[140px] flex-1 whitespace-nowrap rounded-lg bg-white/10 px-3 py-2.5 text-[13px] font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" id="footerQuickInput" onclick="app.budget.toggleQuickInputMode()">⚡ クイック入力</button>
+            <button class="nav-btn max-w-[140px] flex-1 whitespace-nowrap rounded-lg bg-white/10 px-3 py-2.5 text-[13px] font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.calculator.show()">🔢 計算機</button>
+            <button class="nav-btn max-w-[140px] flex-1 whitespace-nowrap rounded-lg bg-white/10 px-3 py-2.5 text-[13px] font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.csv.showModal()">📥 CSV出力</button>
+            <button class="nav-btn max-w-[140px] flex-1 whitespace-nowrap rounded-lg bg-white/10 px-3 py-2.5 text-[13px] font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.csvImporter.showModal()">📤 CSV取込</button>
         </div>
     </div>
 

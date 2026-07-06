@@ -140,8 +140,8 @@ export class HolidayCalendar {
         
         const indicator = document.createElement('div');
         indicator.id = 'pullToRefreshIndicator';
-        indicator.className = 'pull-to-refresh-indicator';
-        indicator.innerHTML = '<span class="pull-icon">↓</span><span class="pull-text">引っ張って更新</span>';
+        indicator.className = 'pull-to-refresh-indicator mb-2.5 flex items-center justify-center gap-2.5 overflow-hidden rounded-xl bg-indigo-500/10';
+        indicator.innerHTML = '<span class="pull-icon text-xl">↓</span><span class="pull-text text-sm font-semibold text-zinc-300">引っ張って更新</span>';
         calendarSection.insertBefore(indicator, calendarSection.firstChild);
 
         calendarSection.addEventListener('touchstart', (e) => this.handlePullStart(e), { passive: true });
@@ -272,26 +272,29 @@ export class HolidayCalendar {
         const linkBtn = document.getElementById('gcalLinkBtn');
         if (!statusText || !linkBtn) return;
         statusText.textContent = this.gcalConnected ? 'Googleカレンダー: 連携中 ✓' : 'Googleカレンダー: 未連携';
-        statusText.style.color = this.gcalConnected ? '#38EF7D' : 'rgba(255,255,255,0.6)';
+        statusText.style.color = this.gcalConnected ? '#34d399' : '';
         linkBtn.textContent = this.gcalConnected ? '🔓 解除' : '🔗 連携';
         linkBtn.classList.toggle('connected', this.gcalConnected);
+    }
+
+    _buildGcalEvent(memo) {
+        const isSchedule = memo.type === 'schedule';
+        return {
+            summary: isSchedule ? memo.content : `📌 ${memo.content}`,
+            description: isSchedule ? '家計簿アプリから登録' : 'タスク - 家計簿アプリから登録',
+            start: { dateTime: `${memo.date}T${memo.startTime || memo.taskTime || '09:00'}:00`, timeZone: 'Asia/Tokyo' },
+            end: { dateTime: `${memo.date}T${memo.endTime || memo.taskTime || '10:00'}:00`, timeZone: 'Asia/Tokyo' },
+            reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: isSchedule ? 60 : 0 }] }
+        };
     }
 
     async createGoogleCalendarEvent(memo) {
         if (!this.gcalConnected || !this.gcalAccessToken) return null;
         try {
-            const isSchedule = memo.type === 'schedule';
-            const event = {
-                summary: isSchedule ? memo.content : `📌 ${memo.content}`,
-                description: isSchedule ? '家計簿アプリから登録' : 'タスク - 家計簿アプリから登録',
-                start: { dateTime: `${memo.date}T${memo.startTime || memo.taskTime || '09:00'}:00`, timeZone: 'Asia/Tokyo' },
-                end: { dateTime: `${memo.date}T${memo.endTime || memo.taskTime || '10:00'}:00`, timeZone: 'Asia/Tokyo' },
-                reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: isSchedule ? 60 : 0 }] }
-            };
             const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${this.gcalAccessToken}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify(event)
+                body: JSON.stringify(this._buildGcalEvent(memo))
             });
             if (res.ok) return (await res.json()).id;
             if (res.status === 401) this._handleTokenExpired();
@@ -302,18 +305,10 @@ export class HolidayCalendar {
     async updateGoogleCalendarEvent(eventId, memo) {
         if (!this.gcalConnected || !this.gcalAccessToken || !eventId) return false;
         try {
-            const isSchedule = memo.type === 'schedule';
-            const event = {
-                summary: isSchedule ? memo.content : `📌 ${memo.content}`,
-                description: isSchedule ? '家計簿アプリから登録' : 'タスク - 家計簿アプリから登録',
-                start: { dateTime: `${memo.date}T${memo.startTime || memo.taskTime || '09:00'}:00`, timeZone: 'Asia/Tokyo' },
-                end: { dateTime: `${memo.date}T${memo.endTime || memo.taskTime || '10:00'}:00`, timeZone: 'Asia/Tokyo' },
-                reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: isSchedule ? 60 : 0 }] }
-            };
             const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`, {
                 method: 'PUT',
                 headers: { 'Authorization': `Bearer ${this.gcalAccessToken}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify(event)
+                body: JSON.stringify(this._buildGcalEvent(memo))
             });
             if (res.status === 401) this._handleTokenExpired();
             return res.ok;
@@ -368,8 +363,8 @@ export class HolidayCalendar {
         const el = document.getElementById('usersList');
         if (!el) return;
         el.innerHTML = this.users.length === 0
-            ? '<span class="no-users">ユーザーが登録されていません</span>'
-            : this.users.map(u => `<div class="user-tag"><div class="user-color-dot" style="background-color:${u.color}"></div><span>${u.name}</span></div>`).join('');
+            ? '<span class="no-users text-sm text-zinc-500">ユーザーが登録されていません</span>'
+            : this.users.map(u => `<div class="user-tag inline-flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-1 text-xs font-semibold text-zinc-300 ring-1 ring-inset ring-white/10"><div class="user-color-dot h-2.5 w-2.5 shrink-0 rounded-full" style="background-color:${u.color}"></div><span>${Utils.escapeHtml(u.name)}</span></div>`).join('');
     }
 
     // ==================== 月切り替え ====================
@@ -406,42 +401,45 @@ export class HolidayCalendar {
         const todayStr = Utils.formatDateString(new Date());
         const prevDays = new Date(this.currentYear, this.currentMonth - 1, 0).getDate();
 
-        let html = WEEKDAYS.map(d => `<div class="calendar-weekday">${d}</div>`).join('');
-        
-        for (let i = startDow - 1; i >= 0; i--) {
-            html += `<div class="calendar-date-cell other-month"><div class="calendar-date-number">${prevDays - i}</div></div>`;
-        }
+        const numberClass = 'calendar-date-number mb-0.5 text-[10px] font-bold leading-none text-white sm:text-[11px]';
+        const otherMonthCell = (n) => `<div class="calendar-date-cell other-month min-h-[25px] rounded-md bg-white/5 p-0.5 opacity-30 sm:min-h-[30px]"><div class="${numberClass}">${n}</div></div>`;
+
+        let html = WEEKDAYS.map(d => `<div class="calendar-weekday py-1.5 text-center text-[9px] font-bold text-zinc-500 sm:text-[10px]">${d}</div>`).join('');
+
+        for (let i = startDow - 1; i >= 0; i--) html += otherMonthCell(prevDays - i);
 
         for (let day = 1; day <= daysInMonth; day++) {
             const dateStr = `${this.currentYear}-${String(this.currentMonth).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
             const isToday = dateStr === todayStr;
             const dayH = this.holidays.filter(h => h.date === dateStr);
             const dayM = this.memos.filter(m => m.date === dateStr);
-            
-            html += `<div class="calendar-date-cell${isToday ? ' today' : ''}${dayM.length ? ' has-memo' : ''}" data-date="${dateStr}" onclick="app.holidayCalendar.showDateDetail('${dateStr}')" ondragover="app.holidayCalendar.handleDragOver(event)" ondragleave="app.holidayCalendar.handleDragLeave(event)" ondrop="app.holidayCalendar.handleDrop(event, '${dateStr}')">`;
-            html += `<div class="calendar-date-number">${day}</div><div class="calendar-holiday-users">`;
-            
+
+            let cellClass = 'calendar-date-cell flex min-h-[85px] cursor-pointer flex-col rounded-md p-0.5 transition sm:min-h-[95px]';
+            cellClass += isToday ? ' today bg-indigo-500/15 ring-2 ring-inset ring-indigo-500' : ' bg-white/5 hover:bg-white/10';
+            if (dayM.length) cellClass += ' has-memo';
+
+            html += `<div class="${cellClass}" data-date="${dateStr}" onclick="app.holidayCalendar.showDateDetail('${dateStr}')" ondragover="app.holidayCalendar.handleDragOver(event)" ondragleave="app.holidayCalendar.handleDragLeave(event)" ondrop="app.holidayCalendar.handleDrop(event, '${dateStr}')">`;
+            html += `<div class="${numberClass}">${day}</div><div class="calendar-holiday-users flex flex-col gap-px">`;
+
             if (dayM.length) {
                 const tc = dayM.filter(m => m.type === 'task').length;
                 const sc = dayM.filter(m => m.type === 'schedule').length;
-                html += '<div class="calendar-memo-indicator">';
-                if (tc) html += `<span class="memo-badge task">📌${tc}</span>`;
-                if (sc) html += `<span class="memo-badge schedule">🗓️${sc}</span>`;
+                html += '<div class="calendar-memo-indicator mb-px flex flex-wrap gap-px">';
+                if (tc) html += `<span class="memo-badge task rounded-sm bg-black/40 px-0.5 text-[5px] leading-snug text-rose-300 sm:text-[6px]">📌${tc}</span>`;
+                if (sc) html += `<span class="memo-badge schedule rounded-sm bg-black/40 px-0.5 text-[5px] leading-snug text-sky-300 sm:text-[6px]">🗓️${sc}</span>`;
                 html += '</div>';
             }
-            
+
             dayH.slice(0, 3).forEach(h => {
                 const u = this.users.find(x => x.id === h.userId);
-                if (u) html += `<div class="calendar-holiday-user"><div class="calendar-holiday-dot" style="background-color:${u.color}"></div><span class="calendar-holiday-name">${u.name}</span></div>`;
+                if (u) html += `<div class="calendar-holiday-user flex items-center gap-0.5 rounded-sm bg-black/30 px-0.5 text-[6px] leading-tight sm:text-[7px]"><div class="calendar-holiday-dot h-1 w-1 shrink-0 rounded-full sm:h-[5px] sm:w-[5px]" style="background-color:${u.color}"></div><span class="calendar-holiday-name truncate">${Utils.escapeHtml(u.name)}</span></div>`;
             });
-            if (dayH.length > 3) html += `<div class="calendar-more-users">+${dayH.length - 3}</div>`;
+            if (dayH.length > 3) html += `<div class="calendar-more-users mt-px text-center text-[8px] text-zinc-400">+${dayH.length - 3}</div>`;
             html += '</div></div>';
         }
 
         const remain = CALENDAR_CELLS - (startDow + daysInMonth);
-        for (let i = 1; i <= remain; i++) {
-            html += `<div class="calendar-date-cell other-month"><div class="calendar-date-number">${i}</div></div>`;
-        }
+        for (let i = 1; i <= remain; i++) html += otherMonthCell(i);
         calEl.innerHTML = html;
     }
 
@@ -604,32 +602,37 @@ export class HolidayCalendar {
         if (this.memoFilter !== 'all') memos = memos.filter(m => m.type === this.memoFilter);
         memos = memos.sort((a,b) => a.date !== b.date ? a.date.localeCompare(b.date) : (a.type === 'task' ? -1 : 1));
         
-        let html = `<div class="memo-filter-section">
-            <button class="memo-filter-btn${this.memoFilter === 'all' ? ' active' : ''}" data-filter="all" onclick="app.holidayCalendar.setMemoFilter('all')">すべて</button>
-            <button class="memo-filter-btn${this.memoFilter === 'task' ? ' active' : ''}" data-filter="task" onclick="app.holidayCalendar.setMemoFilter('task')">📌 タスク</button>
-            <button class="memo-filter-btn${this.memoFilter === 'schedule' ? ' active' : ''}" data-filter="schedule" onclick="app.holidayCalendar.setMemoFilter('schedule')">🗓️ 予定</button>
+        const filterBtnClass = 'memo-filter-btn flex-1 rounded-lg bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-400 transition hover:bg-white/15';
+        let html = `<div class="memo-filter-section mb-3 flex gap-2 rounded-xl bg-white/5 p-2 ring-1 ring-inset ring-white/5">
+            <button class="${filterBtnClass}${this.memoFilter === 'all' ? ' active' : ''}" data-filter="all" onclick="app.holidayCalendar.setMemoFilter('all')">すべて</button>
+            <button class="${filterBtnClass}${this.memoFilter === 'task' ? ' active' : ''}" data-filter="task" onclick="app.holidayCalendar.setMemoFilter('task')">📌 タスク</button>
+            <button class="${filterBtnClass}${this.memoFilter === 'schedule' ? ' active' : ''}" data-filter="schedule" onclick="app.holidayCalendar.setMemoFilter('schedule')">🗓️ 予定</button>
         </div>`;
-        
-        if (!memos.length) { c.innerHTML = html + '<div class="no-memos">この月のメモはありません</div>'; return; }
-        
+
+        if (!memos.length) { c.innerHTML = html + '<div class="no-memos p-5 text-center text-sm text-zinc-500">この月のメモはありません</div>'; return; }
+
         let curDate = '';
         const todayStr = Utils.formatDateString(new Date());
         memos.forEach(m => {
             if (m.date !== curDate) {
                 curDate = m.date;
                 const isToday = m.date === todayStr;
-                html += `<div class="memo-date-header${isToday ? ' today' : ''}">${isToday ? '📍 今日 - ' : ''}${m.date.substring(5).replace('-','/')} (${WEEKDAYS[new Date(m.date).getDay()]})</div>`;
+                const headerClass = isToday
+                    ? ' today rounded-md border-l-2 border-l-indigo-400 bg-indigo-500/15 pl-3'
+                    : '';
+                html += `<div class="memo-date-header mt-2.5 border-b border-white/10 pb-1 pt-2 text-sm font-bold text-indigo-300 first:mt-0${headerClass}">${isToday ? '📍 今日 - ' : ''}${m.date.substring(5).replace('-','/')} (${WEEKDAYS[new Date(m.date).getDay()]})</div>`;
             }
             const icon = m.type === 'task' ? '📌' : '🗓️';
-            const time = m.type === 'schedule' && m.startTime ? `<span class="memo-time">${m.startTime}${m.endTime ? ' - '+m.endTime : ''}</span>` : m.taskTime ? `<span class="memo-time">🔔 ${m.taskTime}</span>` : '';
-            html += `<div class="memo-item ${m.type}" draggable="true" ondragstart="app.holidayCalendar.handleDragStart(event, '${m.id}')" ondragend="app.holidayCalendar.handleDragEnd(event)">
-                <div class="memo-item-content" onclick="app.holidayCalendar.editMemoFromList('${m.id}')">
-                    <span class="memo-icon">${icon}</span>
-                    <div class="memo-details"><span class="memo-text">${m.content}</span>${time}</div>
-                    ${m.gcalEventId ? '<span class="memo-gcal-icon">📅</span>' : ''}
-                    <span class="memo-edit-hint">✏️</span>
+            const timeText = m.type === 'schedule' && m.startTime ? `${m.startTime}${m.endTime ? ' - '+m.endTime : ''}` : m.taskTime ? `🔔 ${m.taskTime}` : '';
+            const time = timeText ? `<span class="memo-time text-[11px] text-zinc-400">${timeText}</span>` : '';
+            html += `<div class="memo-item ${m.type} mb-2 flex cursor-grab items-center justify-between gap-2 rounded-lg border-l-[3px] ${m.type === 'task' ? 'border-amber-400' : 'border-sky-400'} bg-white/5 p-3 ring-1 ring-inset ring-white/10" draggable="true" ondragstart="app.holidayCalendar.handleDragStart(event, '${m.id}')" ondragend="app.holidayCalendar.handleDragEnd(event)">
+                <div class="memo-item-content group flex min-w-0 flex-1 cursor-pointer items-center gap-2" onclick="app.holidayCalendar.editMemoFromList('${m.id}')">
+                    <span class="memo-icon shrink-0 text-sm">${icon}</span>
+                    <div class="memo-details flex min-w-0 flex-col"><span class="memo-text truncate text-[13px] text-zinc-100">${Utils.escapeHtml(m.content)}</span>${time}</div>
+                    ${m.gcalEventId ? '<span class="memo-gcal-icon ml-1 text-xs">📅</span>' : ''}
+                    <span class="memo-edit-hint ml-auto pl-2 text-xs opacity-0 transition group-hover:opacity-70">✏️</span>
                 </div>
-                <button class="memo-delete-btn" onclick="event.stopPropagation(); app.holidayCalendar.deleteMemo('${m.id}')">❌</button>
+                <button class="memo-delete-btn shrink-0 p-1 text-sm opacity-60 transition hover:opacity-100" onclick="event.stopPropagation(); app.holidayCalendar.deleteMemo('${m.id}')">❌</button>
             </div>`;
         });
         c.innerHTML = html;
@@ -658,25 +661,27 @@ export class HolidayCalendar {
         const d = new Date(dateStr);
         document.getElementById('dateDetailTitle').textContent = `📅 ${d.getMonth()+1}/${d.getDate()} (${WEEKDAYS[d.getDay()]})`;
         
+        const sectionTitleClass = 'detail-section-title mb-2.5 border-b border-white/10 pb-2 text-sm font-bold text-indigo-300';
         const holidays = this.holidays.filter(h => h.date === dateStr);
-        let hHtml = holidays.length ? '<div class="detail-section-title">🏖️ 休日</div>' + holidays.map(h => {
+        let hHtml = holidays.length ? `<div class="${sectionTitleClass}">🏖️ 休日</div>` + holidays.map(h => {
             const u = this.users.find(x => x.id === h.userId);
-            return u ? `<div class="detail-holiday-user"><div class="user-color-dot" style="background-color:${u.color}"></div><span>${u.name}</span></div>` : '';
+            return u ? `<div class="detail-holiday-user mb-2 flex items-center gap-2.5 rounded-lg bg-white/5 p-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10"><div class="user-color-dot h-3 w-3 shrink-0 rounded-full" style="background-color:${u.color}"></div><span>${Utils.escapeHtml(u.name)}</span></div>` : '';
         }).join('') : '';
         document.getElementById('dateDetailHolidays').innerHTML = hHtml;
 
         const memos = this.memos.filter(m => m.date === dateStr).sort((a,b) => a.type === 'task' ? -1 : 1);
-        let mHtml = memos.length ? '<div class="detail-section-title">📝 メモ</div>' : '<div class="no-memos">メモはありません</div>';
+        let mHtml = memos.length ? `<div class="${sectionTitleClass}">📝 メモ</div>` : '<div class="no-memos p-5 text-center text-sm text-zinc-500">メモはありません</div>';
         memos.forEach(m => {
             const icon = m.type === 'task' ? '📌' : '🗓️';
-            const time = m.type === 'schedule' && m.startTime ? `<div class="detail-memo-time">${m.startTime}${m.endTime ? ' - '+m.endTime : ''}</div>` : m.taskTime ? `<div class="detail-memo-time">🔔 ${m.taskTime}</div>` : '';
-            mHtml += `<div class="detail-memo-item ${m.type}" draggable="true" ondragstart="app.holidayCalendar.handleDragStart(event, '${m.id}')" ondragend="app.holidayCalendar.handleDragEnd(event)">
-                <div class="detail-memo-main" onclick="app.holidayCalendar.editMemo('${m.id}')">
-                    <span class="memo-icon">${icon}</span>
-                    <span class="detail-memo-content">${m.content}${m.gcalEventId ? ' 📅' : ''}</span>
-                    <span class="memo-edit-hint">✏️</span>
+            const timeText = m.type === 'schedule' && m.startTime ? `${m.startTime}${m.endTime ? ' - '+m.endTime : ''}` : m.taskTime ? `🔔 ${m.taskTime}` : '';
+            const time = timeText ? `<div class="detail-memo-time ml-6 mt-1 text-xs text-zinc-400">${timeText}</div>` : '';
+            mHtml += `<div class="detail-memo-item ${m.type} relative mb-2 flex cursor-grab flex-col rounded-lg border-l-[3px] ${m.type === 'task' ? 'border-amber-400' : 'border-sky-400'} bg-white/5 p-3 ring-1 ring-inset ring-white/10" draggable="true" ondragstart="app.holidayCalendar.handleDragStart(event, '${m.id}')" ondragend="app.holidayCalendar.handleDragEnd(event)">
+                <div class="detail-memo-main group flex flex-1 cursor-pointer items-center gap-2 pr-7" onclick="app.holidayCalendar.editMemo('${m.id}')">
+                    <span class="memo-icon shrink-0 text-sm">${icon}</span>
+                    <span class="detail-memo-content break-words text-sm text-zinc-100">${Utils.escapeHtml(m.content)}${m.gcalEventId ? ' 📅' : ''}</span>
+                    <span class="memo-edit-hint ml-auto pl-2 text-xs opacity-0 transition group-hover:opacity-70">✏️</span>
                 </div>${time}
-                <button class="memo-delete-btn small" onclick="event.stopPropagation(); app.holidayCalendar.deleteMemoFromDetail('${m.id}')">❌</button>
+                <button class="memo-delete-btn small absolute right-2 top-2 p-0.5 text-xs opacity-60 transition hover:opacity-100" onclick="event.stopPropagation(); app.holidayCalendar.deleteMemoFromDetail('${m.id}')">❌</button>
             </div>`;
         });
         document.getElementById('dateDetailMemos').innerHTML = mHtml;
@@ -695,8 +700,8 @@ export class HolidayCalendar {
         const el = document.getElementById('userListModal');
         if (!el) return;
         el.innerHTML = this.users.length === 0
-            ? '<p style="text-align:center;color:rgba(255,255,255,0.5);">ユーザーが登録されていません</p>'
-            : this.users.map(u => `<div class="user-item" onclick="app.holidayCalendar.editUser('${u.id}')"><div class="user-color-dot" style="background-color:${u.color}"></div><span>${u.name}</span></div>`).join('');
+            ? '<p class="py-4 text-center text-sm text-zinc-500">ユーザーが登録されていません</p>'
+            : this.users.map(u => `<div class="user-item flex cursor-pointer items-center gap-2.5 rounded-xl bg-white/5 p-3.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.holidayCalendar.editUser('${u.id}')"><div class="user-color-dot h-3 w-3 shrink-0 rounded-full" style="background-color:${u.color}"></div><span>${Utils.escapeHtml(u.name)}</span></div>`).join('');
     }
 
     showUserForm(userId = null) {
@@ -720,7 +725,10 @@ export class HolidayCalendar {
         const usedColors = this.users.filter(u => u.id !== this.editingUserId).map(u => u.color);
         el.innerHTML = this.colors.map(c => {
             const used = usedColors.includes(c.value), sel = this.selectedColor === c.value;
-            return `<div class="color-option${used ? ' disabled' : ''}${sel ? ' selected' : ''}" style="background-color:${c.value}" onclick="app.holidayCalendar.selectColor('${c.value}',${used})">${sel ? '✓' : c.emoji}</div>`;
+            let cls = 'color-option flex aspect-square items-center justify-center rounded-xl text-xl transition';
+            cls += used ? ' disabled cursor-not-allowed opacity-30' : ' cursor-pointer hover:scale-105';
+            if (sel) cls += ' selected ring-2 ring-white shadow-[0_0_20px_rgba(255,255,255,0.4)]';
+            return `<div class="${cls}" style="background-color:${c.value}" onclick="app.holidayCalendar.selectColor('${c.value}',${used})">${sel ? '✓' : c.emoji}</div>`;
         }).join('');
     }
 
@@ -764,8 +772,8 @@ export class HolidayCalendar {
         const el = document.getElementById('holidayUserSelectList');
         if (!el) return;
         el.innerHTML = this.users.length === 0
-            ? '<p style="text-align:center;color:rgba(255,255,255,0.5);">先にユーザーを登録してください</p>'
-            : this.users.map(u => `<button class="holiday-user-btn" onclick="app.holidayCalendar.selectHolidayUser('${u.id}')" style="border-left:4px solid ${u.color}"><span class="user-emoji">👤</span> ${u.name}</button>`).join('');
+            ? '<p class="py-4 text-center text-sm text-zinc-500">先にユーザーを登録してください</p>'
+            : this.users.map(u => `<button class="holiday-user-btn flex w-full items-center gap-2.5 rounded-xl bg-white/5 p-3.5 text-sm font-bold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.holidayCalendar.selectHolidayUser('${u.id}')" style="border-left:4px solid ${u.color}"><span class="user-emoji">👤</span> ${Utils.escapeHtml(u.name)}</button>`).join('');
     }
 
     selectHolidayUser(userId) {
@@ -789,13 +797,17 @@ export class HolidayCalendar {
         const daysInMonth = new Date(this.editYear, this.editMonth, 0).getDate();
         const startDow = new Date(this.editYear, this.editMonth - 1, 1).getDay();
         
-        let html = WEEKDAYS.map(d => `<div class="edit-calendar-weekday">${d}</div>`).join('');
+        let html = WEEKDAYS.map(d => `<div class="edit-calendar-weekday p-1.5 text-center text-[11px] font-bold text-zinc-500 sm:text-xs">${d}</div>`).join('');
         for (let i = 0; i < startDow; i++) html += '<div class="edit-calendar-cell empty"></div>';
-        
+
+        const cellBase = 'edit-calendar-cell flex aspect-square min-h-[35px] cursor-pointer items-center justify-center rounded-md p-0.5 text-xs font-bold transition sm:min-h-[40px] sm:text-[13px]';
         for (let day = 1; day <= daysInMonth; day++) {
             const dateStr = `${this.editYear}-${String(this.editMonth).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
             const sel = this.tempHolidays.includes(dateStr);
-            html += `<div class="edit-calendar-cell${sel ? ' selected' : ''}" onclick="app.holidayCalendar.toggleHoliday('${dateStr}')">${day}</div>`;
+            const cls = sel
+                ? `${cellBase} selected bg-indigo-500 text-white shadow-lg shadow-indigo-500/30`
+                : `${cellBase} bg-white/5 text-zinc-100 hover:scale-105 hover:bg-white/15`;
+            html += `<div class="${cls}" onclick="app.holidayCalendar.toggleHoliday('${dateStr}')">${day}</div>`;
         }
         document.getElementById('editCalendar').innerHTML = html;
     }

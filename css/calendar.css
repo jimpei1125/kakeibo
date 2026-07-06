@@ -1,485 +1,33 @@
-/* カレンダー月選択 */
-.calendar-month-selector {
+/* ============================================================
+   カレンダー用スタイル
+   静的な見た目は index.html / js/calendar.js 内のTailwind
+   ユーティリティで指定する。このファイルには
+   (1) JSが classList で切り替える状態クラスとアニメーション
+   (2) index.html側の「器」要素（JSがinnerHTMLを流し込むだけの
+       コンテナ）のグリッド/レイアウト
+   のみを定義する。
+   カラートークン: zinc-900/zinc-950背景, white/5サーフェス,
+   white/10ボーダー, indigo #6366f1, emerald #34d399, rose #f43f5e
+   ============================================================ */
+
+/* ---------- ユーザー一覧（#usersList） ---------- */
+.users-list {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    padding: 15px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
 }
 
-.calendar-month-btn {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 16px;
-    font-weight: 700;
-    transition: all 0.3s ease;
-}
-
-.calendar-month-btn:hover {
-    transform: scale(1.05);
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.5);
-}
-
-.calendar-current-month {
-    font-size: 20px;
-    font-weight: 900;
-    color: #ffffff;
-}
-
-/* カレンダーグリッド */
+/* ---------- メインカレンダーグリッド（#holidayCalendar） ---------- */
 .holiday-calendar {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: 3px;
-    background: rgba(255, 255, 255, 0.05);
     padding: 8px;
-    border-radius: 12px;
-    margin-bottom: 20px;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-.calendar-weekday {
-    text-align: center;
-    padding: 6px 2px;
-    font-weight: 700;
-    color: #888;
-    font-size: 10px;
-}
-
-.calendar-date-cell {
-    display: flex;
-    flex-direction: column;
-    padding: 3px;
     background: rgba(255, 255, 255, 0.05);
-    border-radius: 6px;
-    min-height: 95px;
-    position: relative;
-    transition: all 0.3s ease;
-    box-sizing: border-box;
-    cursor: pointer;
-    overflow: visible;
-}
-
-.calendar-date-cell:hover:not(.other-month) {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.calendar-date-cell.other-month {
-    opacity: 0.3;
-    min-height: 30px;
-    cursor: default;
-}
-
-.calendar-date-cell.today {
-    background: linear-gradient(135deg, #667eea20 0%, #764ba240 100%);
-    border: 2px solid #667eea;
-}
-
-.calendar-date-number {
-    font-size: 11px;
-    font-weight: 700;
-    margin-bottom: 2px;
-    color: #ffffff;
-    line-height: 1;
-}
-
-.calendar-holiday-users {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-}
-
-.calendar-holiday-user {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    font-size: 7px;
-    padding: 1px 2px;
-    border-radius: 2px;
-    background: rgba(0, 0, 0, 0.3);
-    line-height: 1.2;
-}
-
-.calendar-holiday-dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-.calendar-holiday-name {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-size: 7px;
-}
-
-.calendar-more-users {
-    font-size: 8px;
-    color: rgba(255, 255, 255, 0.7);
-    text-align: center;
-    margin-top: 1px;
-}
-
-/* カレンダーアクション */
-.calendar-actions {
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-}
-
-.action-btn {
-    flex: 1;
-    max-width: 200px;
-    padding: 15px 20px;
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 16px;
-    font-weight: 700;
-    transition: all 0.3s ease;
-}
-
-.user-edit-btn {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-}
-
-.user-edit-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
-}
-
-.holiday-edit-btn {
-    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-    color: white;
-    box-shadow: 0 4px 15px rgba(56, 239, 125, 0.4);
-}
-
-.holiday-edit-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(56, 239, 125, 0.6);
-}
-
-/* モーダル共通 */
-.user-modal,
-.user-form-modal,
-.holiday-user-select-modal,
-.holiday-edit-modal {
-    display: none;
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: rgba(15, 12, 41, 0.98);
-    backdrop-filter: blur(10px);
-    border-radius: 20px;
-    padding: 20px;
-    z-index: 1500;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    width: 95%;
-    max-width: 600px;
-    max-height: 90vh;
-    overflow-y: auto;
-    box-sizing: border-box;
-}
-
-.user-modal.show,
-.user-form-modal.show,
-.holiday-user-select-modal.show,
-.holiday-edit-modal.show {
-    display: block;
-    animation: modalFadeIn 0.3s ease-out;
-}
-
-@keyframes modalFadeIn {
-    from {
-        opacity: 0;
-        transform: translate(-50%, -60%);
-    }
-    to {
-        opacity: 1;
-        transform: translate(-50%, -50%);
-    }
-}
-
-/* ユーザー管理モーダル */
-.user-list-container {
-    margin-top: 20px;
-}
-
-.new-user-btn {
-    width: 100%;
-    padding: 15px;
-    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-    color: white;
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 16px;
-    font-weight: 700;
-    margin-bottom: 20px;
-    transition: all 0.3s ease;
-}
-
-.new-user-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(56, 239, 125, 0.6);
-}
-
-.user-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.user-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 15px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.user-item:hover {
-    background: rgba(255, 255, 255, 0.15);
-    transform: translateX(5px);
-}
-
-/* ユーザーフォーム */
-.user-form {
-    margin-top: 20px;
-}
-
-.user-form label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 700;
-    color: #e0e0e0;
-}
-
-.user-form input {
-    width: 100%;
-    padding: 12px;
-    border: 2px solid rgba(255, 255, 255, 0.15);
-    border-radius: 10px;
-    font-size: 16px;
-    background: rgba(255, 255, 255, 0.05);
-    color: #ffffff;
-    margin-bottom: 20px;
-    transition: all 0.3s ease;
-}
-
-.user-form input:focus {
-    outline: none;
-    border-color: #667eea;
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.color-palette {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
-    margin-bottom: 20px;
-}
-
-.color-option {
-    aspect-ratio: 1;
-    border-radius: 10px;
-    cursor: pointer;
-    border: 3px solid transparent;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-}
-
-.color-option:hover {
-    transform: scale(1.1);
-}
-
-.color-option.selected {
-    border-color: #ffffff;
-    box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
-}
-
-.color-option.disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
-}
-
-.form-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.save-btn,
-.complete-btn {
-    width: 100%;
-    padding: 14px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 16px;
-    font-weight: 700;
-    transition: all 0.3s ease;
-}
-
-.save-btn:hover,
-.complete-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
-}
-
-.cancel-btn {
-    width: 100%;
-    padding: 14px;
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 16px;
-    font-weight: 700;
-    transition: all 0.3s ease;
-}
-
-.cancel-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
-}
-
-.delete-user-btn {
-    width: 100%;
-    padding: 14px;
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    color: white;
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 16px;
-    font-weight: 700;
-    transition: all 0.3s ease;
-}
-
-.delete-user-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(245, 87, 108, 0.6);
-}
-
-/* 休日ユーザー選択 */
-.holiday-user-select p {
-    text-align: center;
-    margin-bottom: 20px;
-    color: #e0e0e0;
-    font-size: 16px;
-}
-
-.holiday-user-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-bottom: 20px;
-}
-
-.holiday-user-btn {
-    width: 100%;
-    padding: 15px;
-    background: rgba(255, 255, 255, 0.08);
-    color: white;
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 16px;
-    font-weight: 700;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.holiday-user-btn:hover {
-    background: rgba(255, 255, 255, 0.15);
-    transform: translateX(5px);
-}
-
-/* 休日編集モード */
-.holiday-edit-modal {
-    max-width: 600px;
-}
-
-.holiday-edit-month-selector {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-    padding: 10px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
-}
-
-.holiday-edit-calendar {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 3px;
-    background: rgba(255, 255, 255, 0.05);
-    padding: 8px;
-    border-radius: 12px;
-    margin-bottom: 15px;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-.edit-date-cell {
-    aspect-ratio: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 4px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    font-weight: 700;
-    min-height: 40px;
-    font-size: 13px;
-    box-sizing: border-box;
-}
-
-.edit-date-cell:hover:not(.other-month) {
-    background: rgba(255, 255, 255, 0.15);
-    transform: scale(1.05);
-}
-
-.edit-date-cell.other-month {
-    opacity: 0.3;
-    cursor: default;
-}
-
-.edit-date-cell.holiday {
-    color: white;
-    font-weight: 900;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-}
-
-.holiday-edit-actions {
-    display: flex;
-    gap: 10px;
+    border-radius: 16px;
+    transition: transform 0.15s ease-out, opacity 0.15s ease-out;
 }
 
 @media (max-width: 768px) {
@@ -487,794 +35,9 @@
         gap: 2px;
         padding: 6px;
     }
-
-    .holiday-edit-calendar {
-        gap: 2px;
-        padding: 6px;
-    }
-
-    .calendar-date-cell {
-        min-height: 85px;
-        padding: 2px;
-    }
-
-    .calendar-date-cell.other-month {
-        min-height: 25px;
-    }
-
-    .edit-date-cell {
-        min-height: 35px;
-        padding: 2px;
-        font-size: 12px;
-    }
-
-    .calendar-date-number {
-        font-size: 10px;
-    }
-
-    .calendar-weekday {
-        font-size: 9px;
-        padding: 4px 1px;
-    }
-
-    .calendar-holiday-user {
-        font-size: 6px;
-        padding: 1px;
-    }
-
-    .calendar-holiday-dot {
-        width: 4px;
-        height: 4px;
-    }
-
-    .calendar-holiday-name {
-        font-size: 6px;
-    }
-
-    .memo-badge {
-        font-size: 5px;
-        padding: 0px 1px;
-    }
-
-    .calendar-memo-indicator {
-        gap: 1px;
-    }
-
-    .holiday-edit-modal {
-        width: 98%;
-        padding: 15px;
-        max-height: 95vh;
-    }
-
-    .holiday-edit-month-selector {
-        padding: 8px;
-        margin-bottom: 10px;
-    }
-}
-
-/* テンプレートボタン */
-.shopping-template-buttons {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-}
-
-.template-btn {
-    flex: 1;
-    padding: 12px 16px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    border-radius: 10px;
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-}
-
-.template-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-}
-
-.template-btn.secondary {
-    background: rgba(255, 255, 255, 0.1);
-    box-shadow: none;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.template-btn.secondary:hover {
-    background: rgba(255, 255, 255, 0.2);
-    box-shadow: none;
-}
-
-/* 買い物リストコンテナ */
-.shopping-list-container {
-    background: rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(10px);
-    border-radius: 16px;
-    padding: 15px;
-    margin-bottom: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.shopping-list-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.shopping-count {
-    font-size: 14px;
-    color: rgba(255, 255, 255, 0.7);
-}
-
-.shopping-filter select {
-    padding: 8px 12px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 8px;
-    color: #e0e0e0;
-    font-size: 13px;
-    font-family: 'Noto Sans JP', sans-serif;
-}
-
-/* 買い物リストアイテム */
-.shopping-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.shopping-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 15px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    transition: all 0.3s ease;
-}
-
-.shopping-item:hover {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.shopping-item.high-priority {
-    border-left: 4px solid #f5576c;
-    background: rgba(245, 87, 108, 0.1);
-}
-
-/* ========================================
-   休日編集モーダル用の追加スタイル
-   ======================================== */
-
-/* 編集カレンダーのナビゲーション */
-.edit-calendar-nav {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-    padding: 10px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
-}
-
-.edit-calendar-nav button {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 16px;
-    font-weight: 700;
-    transition: all 0.3s ease;
-}
-
-.edit-calendar-nav button:hover {
-    transform: scale(1.05);
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.5);
-}
-
-.edit-calendar-nav span {
-    font-size: 18px;
-    font-weight: 900;
-    color: #ffffff;
-}
-
-/* 編集カレンダーグリッド */
-.edit-calendar {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 3px;
-    background: rgba(255, 255, 255, 0.05);
-    padding: 8px;
-    border-radius: 12px;
-    margin-bottom: 15px;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-/* 編集カレンダーの曜日ヘッダー */
-.edit-calendar-weekday {
-    text-align: center;
-    padding: 8px 2px;
-    font-weight: 700;
-    color: #888;
-    font-size: 12px;
-}
-
-/* 編集カレンダーの日付セル */
-.edit-calendar-cell {
-    aspect-ratio: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 4px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    font-weight: 700;
-    min-height: 40px;
-    font-size: 13px;
-    box-sizing: border-box;
-    color: #ffffff;
-}
-
-.edit-calendar-cell:hover:not(.empty) {
-    background: rgba(255, 255, 255, 0.15);
-    transform: scale(1.05);
-}
-
-.edit-calendar-cell.empty {
-    background: transparent;
-    cursor: default;
-}
-
-.edit-calendar-cell.selected {
-    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-    color: white;
-    font-weight: 900;
-    box-shadow: 0 4px 15px rgba(56, 239, 125, 0.4);
-}
-
-/* 編集カレンダーのアクションボタン */
-.edit-calendar-actions {
-    display: flex;
-    gap: 10px;
-}
-
-/* レスポンシブ対応 */
-@media (max-width: 768px) {
-    .edit-calendar {
-        gap: 2px;
-        padding: 6px;
-    }
-
-    .edit-calendar-cell {
-        min-height: 35px;
-        padding: 2px;
-        font-size: 12px;
-    }
-
-    .edit-calendar-weekday {
-        font-size: 11px;
-        padding: 6px 2px;
-    }
-
-    .edit-calendar-nav {
-        padding: 8px;
-        margin-bottom: 10px;
-    }
-
-    .edit-calendar-nav button {
-        padding: 8px 15px;
-        font-size: 14px;
-    }
-
-    .edit-calendar-nav span {
-        font-size: 16px;
-    }
-}
-
-/* ========================================
-   メモ機能用スタイル
-   ======================================== */
-
-/* メモボタン */
-.memo-add-btn {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    color: white;
-    box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
-}
-
-.memo-add-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(245, 87, 108, 0.6);
-}
-
-.memo-view-btn {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-}
-
-.memo-view-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
-}
-
-/* カレンダー日付セルのメモインジケーター */
-.calendar-date-cell.has-memo {
-    border: 1px solid rgba(240, 147, 251, 0.5);
-}
-
-.calendar-memo-indicator {
-    display: flex;
-    gap: 1px;
-    flex-wrap: wrap;
-    margin-bottom: 1px;
-}
-
-.memo-badge {
-    font-size: 6px;
-    padding: 0px 2px;
-    border-radius: 2px;
-    background: rgba(0, 0, 0, 0.4);
-    line-height: 1.3;
-}
-
-.memo-badge.task {
-    color: #f5576c;
-}
-
-.memo-badge.schedule {
-    color: #4FACFE;
-}
-
-/* メモ一覧コンテナ */
-.memo-list-container {
-    margin-top: 20px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 12px;
-    padding: 15px;
-    max-height: 400px;
-    overflow-y: auto;
-}
-
-.memo-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.memo-date-header {
-    font-weight: 700;
-    color: #4FACFE;
-    padding: 8px 0 4px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    margin-top: 10px;
-}
-
-.memo-date-header:first-child {
-    margin-top: 0;
-}
-
-.memo-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 12px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
-    border-left: 3px solid;
-}
-
-.memo-item.task {
-    border-left-color: #f5576c;
-}
-
-.memo-item.schedule {
-    border-left-color: #4FACFE;
-}
-
-.memo-item-content {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex: 1;
-    min-width: 0;
-}
-
-.memo-icon {
-    font-size: 14px;
-    flex-shrink: 0;
-}
-
-.memo-details {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-}
-
-.memo-text {
-    font-size: 13px;
-    color: #ffffff;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.memo-time {
-    font-size: 11px;
-    color: rgba(255, 255, 255, 0.6);
-}
-
-.memo-notification-icon {
-    font-size: 12px;
-    margin-left: 5px;
-}
-
-.memo-delete-btn {
-    background: transparent;
-    border: none;
-    font-size: 14px;
-    cursor: pointer;
-    padding: 5px;
-    opacity: 0.7;
-    transition: opacity 0.2s;
-}
-
-.memo-delete-btn:hover {
-    opacity: 1;
-}
-
-.memo-delete-btn.small {
-    font-size: 12px;
-    padding: 3px;
-}
-
-.no-memos {
-    text-align: center;
-    color: rgba(255, 255, 255, 0.5);
-    padding: 20px;
-}
-
-/* メモフォームモーダル */
-.memo-form-modal,
-.date-detail-modal {
-    display: none;
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: rgba(15, 12, 41, 0.98);
-    backdrop-filter: blur(10px);
-    border-radius: 20px;
-    padding: 20px;
-    z-index: 1500;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    width: 95%;
-    max-width: 500px;
-    max-height: 90vh;
-    overflow-y: auto;
-    box-sizing: border-box;
-}
-
-.memo-form-modal.show,
-.date-detail-modal.show {
-    display: block;
-    animation: modalFadeIn 0.3s ease-out;
-}
-
-.memo-form {
-    margin-top: 15px;
-}
-
-.memo-form label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 700;
-    color: #e0e0e0;
-    margin-top: 15px;
-}
-
-.memo-form label:first-of-type {
-    margin-top: 0;
-}
-
-.memo-type-selector {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 10px;
-}
-
-.memo-type-btn {
-    flex: 1;
-    padding: 12px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 2px solid transparent;
-    border-radius: 10px;
-    color: #ffffff;
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.memo-type-btn:hover {
-    background: rgba(255, 255, 255, 0.15);
-}
-
-.memo-type-btn.active {
-    border-color: #667eea;
-    background: rgba(102, 126, 234, 0.2);
-}
-
-.memo-form input[type="date"],
-.memo-form input[type="time"],
-.memo-form textarea {
-    width: 100%;
-    padding: 12px;
-    border: 2px solid rgba(255, 255, 255, 0.15);
-    border-radius: 10px;
-    font-size: 16px;
-    background: rgba(255, 255, 255, 0.05);
-    color: #ffffff;
-    transition: all 0.3s ease;
-    box-sizing: border-box;
-    font-family: 'Noto Sans JP', sans-serif;
-}
-
-.memo-form input[type="date"]:focus,
-.memo-form input[type="time"]:focus,
-.memo-form textarea:focus {
-    outline: none;
-    border-color: #667eea;
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.memo-form textarea {
-    resize: vertical;
-    min-height: 80px;
-}
-
-.memo-time-section {
-    background: rgba(255, 255, 255, 0.05);
-    padding: 15px;
-    border-radius: 10px;
-    margin-top: 10px;
-}
-
-.memo-time-section label {
-    margin-top: 10px;
-}
-
-.memo-time-section label:first-child {
-    margin-top: 0;
-}
-
-.memo-notification-section {
-    margin-top: 15px;
-    padding: 15px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 10px;
-}
-
-.memo-notification-section label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0;
-    cursor: pointer;
-}
-
-.memo-notification-section input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
-    cursor: pointer;
-}
-
-.notification-time-input {
-    margin-top: 10px;
-}
-
-.notification-time-input label {
-    margin-top: 0;
-    margin-bottom: 5px;
-}
-
-/* 日付詳細モーダル */
-.date-detail-content {
-    margin-top: 15px;
-}
-
-.detail-section-title {
-    font-weight: 700;
-    color: #4FACFE;
-    padding: 10px 0 8px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    margin-bottom: 10px;
-}
-
-.detail-holiday-user {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
-    margin-bottom: 8px;
-}
-
-.detail-memo-item {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    padding: 12px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
-    border-left: 3px solid;
-    margin-bottom: 8px;
-}
-
-.detail-memo-item.task {
-    border-left-color: #f5576c;
-}
-
-.detail-memo-item.schedule {
-    border-left-color: #4FACFE;
-}
-
-.detail-memo-main {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    flex: 1;
-}
-
-.detail-memo-content {
-    font-size: 14px;
-    color: #ffffff;
-    word-break: break-word;
-}
-
-.detail-memo-time {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.6);
-    margin-top: 4px;
-    margin-left: 22px;
-}
-
-/* レスポンシブ対応 */
-@media (max-width: 768px) {
-    .memo-list-container {
-        max-height: 300px;
-    }
-
-    .memo-form-modal,
-    .date-detail-modal {
-        width: 98%;
-        padding: 15px;
-        max-height: 95vh;
-    }
-
-    .memo-type-btn {
-        padding: 10px;
-        font-size: 13px;
-    }
-
-    .memo-badge {
-        font-size: 6px;
-    }
-}
-
-/* ========================================
-   Googleカレンダー連携用スタイル
-   ======================================== */
-
-.gcal-status {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 15px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 10px;
-    margin-bottom: 15px;
-}
-
-#gcalStatusText {
-    font-size: 13px;
-    font-weight: 600;
-}
-
-.gcal-link-btn {
-    padding: 8px 15px;
-    background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.gcal-link-btn:hover {
-    transform: scale(1.05);
-    box-shadow: 0 4px 15px rgba(66, 133, 244, 0.4);
-}
-
-.gcal-link-btn.connected {
-    background: linear-gradient(135deg, #ea4335 0%, #fbbc05 100%);
-}
-
-.gcal-notification-note {
-    font-size: 11px;
-    color: rgba(255, 255, 255, 0.5);
-    margin-top: 8px;
-    margin-bottom: 0;
-}
-
-.memo-gcal-icon {
-    font-size: 12px;
-    margin-left: 5px;
-}
-
-/* ==================== Pull to Refresh ==================== */
-
-.pull-to-refresh-indicator {
-    height: 0;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
-    border-radius: 12px;
-    margin-bottom: 10px;
-    transition: height 0.2s ease, opacity 0.2s ease;
-    opacity: 0;
-}
-
-.pull-to-refresh-indicator .pull-icon {
-    font-size: 20px;
-    transition: transform 0.3s ease;
-}
-
-.pull-to-refresh-indicator.ready .pull-icon {
-    transform: rotate(180deg);
-}
-
-.pull-to-refresh-indicator.refreshing .pull-icon {
-    animation: spin 1s linear infinite;
-}
-
-.pull-to-refresh-indicator .pull-text {
-    color: rgba(255, 255, 255, 0.8);
-    font-size: 14px;
-    font-weight: 600;
-}
-
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
-
-/* ==================== スワイプアニメーション ==================== */
-
-.holiday-calendar {
-    transition: transform 0.15s ease-out, opacity 0.15s ease-out;
 }
 
+/* スワイプ月送り（JSが slide-* を切り替え） */
 .holiday-calendar.slide-left {
     transform: translateX(-30px);
     opacity: 0;
@@ -1294,33 +57,30 @@
 }
 
 @keyframes slideInLeft {
-    from {
-        transform: translateX(30px);
-        opacity: 0;
-    }
-    to {
-        transform: translateX(0);
-        opacity: 1;
-    }
+    from { transform: translateX(30px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
 }
 
 @keyframes slideInRight {
-    from {
-        transform: translateX(-30px);
-        opacity: 0;
-    }
-    to {
-        transform: translateX(0);
-        opacity: 1;
-    }
+    from { transform: translateX(-30px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
 }
 
-/* ==================== ドラッグ&ドロップ ==================== */
-
+/* ---------- ドラッグ&ドロップ（JSが drag-over / dragging を切り替え） ---------- */
 .calendar-date-cell.drag-over {
-    background: rgba(102, 126, 234, 0.3) !important;
-    border: 2px dashed #667eea;
+    background: rgba(99, 102, 241, 0.3) !important;
+    box-shadow: inset 0 0 0 2px #6366f1;
     transform: scale(1.02);
+}
+
+.memo-item,
+.detail-memo-item {
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.memo-item:active,
+.detail-memo-item:active {
+    cursor: grabbing;
 }
 
 .memo-item.dragging,
@@ -1329,160 +89,93 @@
     transform: scale(0.95);
 }
 
-.memo-item,
-.detail-memo-item {
-    cursor: grab;
-    transition: transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease;
-}
-
-.memo-item:active,
-.detail-memo-item:active {
-    cursor: grabbing;
-}
-
-/* ==================== メモ編集ヒント ==================== */
-
-.memo-edit-hint {
+/* ---------- Pull to Refresh（JSが ready / refreshing とheight/opacityを制御） ---------- */
+.pull-to-refresh-indicator {
+    height: 0;
     opacity: 0;
-    font-size: 12px;
-    margin-left: auto;
-    padding-left: 8px;
-    transition: opacity 0.2s ease;
+    transition: height 0.2s ease, opacity 0.2s ease;
 }
 
-.memo-item-content:hover .memo-edit-hint,
-.detail-memo-main:hover .memo-edit-hint {
-    opacity: 0.7;
+.pull-to-refresh-indicator .pull-icon {
+    transition: transform 0.3s ease;
 }
 
-.memo-item-content,
-.detail-memo-main {
-    cursor: pointer;
-    flex: 1;
-    display: flex;
-    align-items: center;
+.pull-to-refresh-indicator.ready .pull-icon {
+    transform: rotate(180deg);
 }
 
-.memo-item-content:hover,
-.detail-memo-main:hover {
+.pull-to-refresh-indicator.refreshing .pull-icon {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ---------- メモ一覧コンテナ（#memoListContainer） ---------- */
+.memo-list-container {
+    padding: 15px;
     background: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    max-height: 400px;
+    overflow-y: auto;
 }
 
-/* ==================== メモフィルター ==================== */
-
-.memo-filter-section {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 15px;
-    padding: 10px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 10px;
+@media (max-width: 768px) {
+    .memo-list-container {
+        max-height: 300px;
+    }
 }
 
-.memo-filter-btn {
-    flex: 1;
-    padding: 8px 12px;
-    background: rgba(255, 255, 255, 0.1);
-    border: none;
-    border-radius: 8px;
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.memo-filter-btn:hover {
-    background: rgba(255, 255, 255, 0.15);
+/* ---------- メモ種類/フィルターの選択状態（JSが active を切り替え） ---------- */
+.memo-type-btn.active {
+    background-color: rgba(99, 102, 241, 0.25);
+    box-shadow: inset 0 0 0 2px #6366f1;
+    color: #ffffff;
 }
 
 .memo-filter-btn.active {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    box-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
+    background-color: #6366f1;
+    color: #ffffff;
 }
 
-/* ==================== メモ日付ヘッダー（今日ハイライト） ==================== */
-
-.memo-date-header.today {
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.3) 100%);
-    border-left: 3px solid #667eea;
-    padding-left: 12px;
+/* ---------- Googleカレンダー連携ボタン（JSが connected を切り替え） ---------- */
+.gcal-link-btn.connected {
+    background-color: #f43f5e;
 }
 
-/* ==================== メモ削除ボタン（フォーム内） ==================== */
-
-.delete-memo-btn {
-    width: 100%;
-    margin-top: 10px;
-    padding: 12px;
-    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
-    color: white;
-    border: none;
-    border-radius: 10px;
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.3s ease;
+.gcal-link-btn.connected:hover {
+    background-color: #fb7185;
 }
 
-.delete-memo-btn:hover {
-    transform: scale(1.02);
-    box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+/* ---------- モーダル内の「器」レイアウト ---------- */
+.color-palette {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
 }
 
-/* ==================== メモアイテム改善 ==================== */
-
-.memo-item {
-    display: flex;
-    align-items: center;
-    padding: 12px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
-    margin-bottom: 8px;
-    border-left: 3px solid transparent;
-}
-
-.memo-item.task {
-    border-left-color: #FFC300;
-}
-
-.memo-item.schedule {
-    border-left-color: #4FACFE;
-}
-
-.detail-memo-item {
+.user-list,
+.holiday-user-list {
     display: flex;
     flex-direction: column;
-    padding: 12px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
-    margin-bottom: 8px;
-    border-left: 3px solid transparent;
-    position: relative;
+    gap: 10px;
 }
 
-.detail-memo-item.task {
-    border-left-color: #FFC300;
+.edit-calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
 }
 
-.detail-memo-item.schedule {
-    border-left-color: #4FACFE;
+@media (max-width: 768px) {
+    .edit-calendar {
+        gap: 2px;
+        padding: 6px;
+    }
 }
-
-.detail-memo-main {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px;
-    border-radius: 6px;
-    transition: background 0.2s ease;
-}
-
-.detail-memo-item .memo-delete-btn.small {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-}
-
