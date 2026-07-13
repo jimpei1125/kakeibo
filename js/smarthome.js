@@ -4,6 +4,7 @@
  */
 
 import { Utils } from './utils.js';
+import { Icons } from './icons.js';
 
 // ============================================================
 // 定数定義
@@ -246,7 +247,7 @@ export class SmartHome {
 
     showAcControl(deviceId, deviceName) {
         this.currentAcDevice = { id: deviceId, name: deviceName };
-        document.getElementById('acControlTitle').textContent = `❄️ ${deviceName}`;
+        document.getElementById('acControlTitle').innerHTML = `${Icons.svg('snowflake')} ${Utils.escapeHtml(deviceName)}`;
         document.getElementById('acTempDisplay').textContent = `${this.acSettings.temperature}°C`;
         
         this._updateButtonSelection('.mode-btn', 'mode', this.acSettings.mode);

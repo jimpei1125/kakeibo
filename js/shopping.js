@@ -5,6 +5,7 @@
 
 import { db, doc, collection, addDoc, updateDoc, deleteDoc, query, orderBy, onSnapshot } from './firebase-config.js';
 import { Utils } from './utils.js';
+import { Icons } from './icons.js';
 
 // ============================================================
 // 定数定義
@@ -137,7 +138,7 @@ export class ShoppingList {
         }
         
         suggestionsEl.innerHTML = `
-            <div class="suggestions-title border-b border-white/10 px-3 py-2 text-xs font-semibold text-zinc-400">💡 過去の購入履歴から</div>
+            <div class="suggestions-title border-b border-white/10 px-3 py-2 text-xs font-semibold text-zinc-400">${Icons.svg('lightbulb')} 過去の購入履歴から</div>
             <div class="suggestion-items max-h-56 overflow-y-auto">
                 ${suggestions.map(i => `
                     <div class="suggestion-item cursor-pointer px-3 py-2 text-sm text-zinc-100 transition hover:bg-white/10" onclick="app.shopping.selectSuggestion(${escapeJsArg(i.name)},${escapeJsArg(i.category || 'その他')})">
@@ -441,7 +442,7 @@ export class ShoppingList {
         this.editingTemplateId = templateId;
         const template = templateId ? this.templates.find(t => t.id === templateId) : null;
         
-        document.getElementById('templateFormTitle').textContent = templateId ? '✏️ テンプレート編集' : '➕ 新規テンプレート作成';
+        document.getElementById('templateFormTitle').innerHTML = templateId ? `${Icons.svg('pencil')} テンプレート編集` : `${Icons.svg('plus')} 新規テンプレート作成`;
         document.getElementById('templateName').value = template?.name || '';
         document.getElementById('deleteTemplateBtn').style.display = templateId ? 'block' : 'none';
         this.tempTemplateItems = template?.items ? [...template.items] : [];

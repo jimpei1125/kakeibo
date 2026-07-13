@@ -5,6 +5,7 @@
 
 import { db, doc, setDoc, onSnapshot } from './firebase-config.js';
 import { Utils } from './utils.js';
+import { Icons } from './icons.js';
 
 // ============================================================
 // 定数定義
@@ -1210,7 +1211,7 @@ export class BudgetManager {
         const footerBtn = document.getElementById('footerQuickInput');
         if (footerBtn) {
             footerBtn.classList.toggle('active', this.quickInputMode);
-            footerBtn.textContent = this.quickInputMode ? '⚡ ON' : '⚡ クイック入力';
+            footerBtn.innerHTML = `${Icons.svg('zap')} ${this.quickInputMode ? 'ON' : 'クイック入力'}`;
         }
         
         if (this.quickInputMode) {
@@ -1904,7 +1905,7 @@ export class BudgetManager {
         return `
             <div class="category-summary flex cursor-pointer items-center justify-between gap-3 px-4 py-3 transition hover:bg-white/5" onclick="app.budget.toggleAccordion(${category.id})">
                 <div class="category-summary-left flex min-w-0 items-center gap-2.5">
-                    <span class="accordion-icon text-[10px] text-zinc-500" id="icon-${category.id}">▶</span>
+                    <span class="accordion-icon text-xs text-zinc-500" id="icon-${category.id}">${Icons.svg('chevron-right')}</span>
                     <span class="category-summary-name truncate text-sm font-semibold text-zinc-100">${Utils.escapeHtml(category.name)}</span>
                 </div>
                 <div class="category-summary-right flex shrink-0 items-center gap-2">

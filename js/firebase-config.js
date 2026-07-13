@@ -26,6 +26,7 @@ import {
     onAuthStateChanged,
     signOut
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+import { Icons } from './icons.js';
 
 /** Firebase プロジェクト設定 */
 const firebaseConfig = {
@@ -100,10 +101,11 @@ class AuthManager {
                 authUserName.textContent = user.displayName || user.email || 'ゲスト';
             }
             if (authIcon) {
-                authIcon.textContent = '✅';
+                authIcon.innerHTML = Icons.svg('check-circle');
+                authIcon.classList.add('text-emerald-400');
             }
             if (authBtn) {
-                authBtn.textContent = '🚪 ログアウト';
+                authBtn.innerHTML = `${Icons.svg('log-out')} ログアウト`;
                 authBtn.onclick = () => this.signOut();
             }
         } else {
@@ -112,10 +114,11 @@ class AuthManager {
                 authUserName.textContent = '未ログイン';
             }
             if (authIcon) {
-                authIcon.textContent = '👤';
+                authIcon.innerHTML = Icons.svg('user');
+                authIcon.classList.remove('text-emerald-400');
             }
             if (authBtn) {
-                authBtn.textContent = '🔐 ログイン';
+                authBtn.innerHTML = `${Icons.svg('log-in')} ログイン`;
                 authBtn.onclick = () => this.showLoginModal();
             }
         }
