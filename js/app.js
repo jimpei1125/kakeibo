@@ -165,6 +165,9 @@ class KakeiboApp {
         // データ読み込み
         this.budget.loadFromFirestore();
         this.budget.updateDisplay();
+
+        // CSVインポートの店名→カテゴリルールを購読
+        this.csvImporter.init();
         
         // 各モジュールの初期化
         this.holidayCalendar.init();

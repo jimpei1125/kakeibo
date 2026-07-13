@@ -416,8 +416,19 @@ export class CSVExporter {
 // CSVインポートクラス
 // ============================================================
 
+/** カテゴリ候補のデフォルト値（既存カテゴリ・学習済みルールに追加で表示） */
+const DEFAULT_CATEGORY_SUGGESTIONS = ['食費', '日用品', '外食', '光熱費', '通信費', '交際費', 'その他'];
+
 /**
- * CSVファイルから利用金額を読み込んで合計を計算し、項目として追加するクラス
+ * クレジットカード明細CSVを読み込み、明細ごとにカテゴリを割り当てて
+ * 家計簿に取り込むクラス
+ *
+ * フロー:
+ * 1. CSVファイル選択 → 明細（利用日/店名/金額）を一覧表示
+ * 2. 明細にチェックを入れ、カテゴリチップをタップして割り当て
+ * 3. 取込先の月（「当月お支払日」から自動設定）を確認してインポート
+ *
+ * 店名→カテゴリの割り当てはFirestoreに保存され、次回から自動分類される。
  */
 export class CSVImporter {
     /**
@@ -426,8 +437,46 @@ export class CSVImporter {
     constructor(budgetManager) {
         /** @type {BudgetManager} */
         this.budgetManager = budgetManager;
-        /** @type {number|null} 計算された合計金額 */
-        this.calculatedTotal = null;
+        /** @type {Array<{id: number, date: string, store: string, amount: number, category: string|null, checked: boolean}>} 読み込んだ明細 */
+        this.transactions = [];
+        /** @type {string|null} 当月お支払日から検出した取込先の月（YYYY-MM） */
+        this.payMonth = null;
+        /** @type {Object<string, string>} 店名→カテゴリ名の学習済みルール */
+        this.rules = {};
+        /** @type {Array<{name: string, existing: boolean}>} カテゴリチップの候補 */
+        this._chips = [];
+    }
+
+    /**
+     * 店名→カテゴリのルールをFirestoreから購読開始
+     */
+    init() {
+        onSnapshot(
+            doc(db, 'budgetData', 'csvImportRules'),
+            (snap) => {
+                this.rules = {};
+                const stored = snap.exists() ? snap.data().rules : null;
+                (stored || []).forEach(rule => {
+                    if (rule.store && rule.category) {
+                        this.rules[rule.store] = rule.category;
+                    }
+                });
+            },
+            (error) => console.error('CSVインポートルール読み込みエラー:', error)
+        );
+    }
+
+    /**
+     * 店名→カテゴリのルールをFirestoreに保存
+     * @private
+     */
+    async _saveRules() {
+        const rules = Object.entries(this.rules).map(([store, category]) => ({ store, category }));
+        try {
+            await setDoc(doc(db, 'budgetData', 'csvImportRules'), { rules });
+        } catch (error) {
+            console.error('CSVインポートルール保存エラー:', error);
+        }
     }
 
     /**
@@ -451,24 +500,24 @@ export class CSVImporter {
      * @private
      */
     _resetImportState() {
-        this.calculatedTotal = null;
+        this.transactions = [];
+        this.payMonth = null;
+        this._chips = [];
+
         const fileInput = document.getElementById('csvFileInput');
-        const categoryName = document.getElementById('csvCategoryName');
-        const totalDisplay = document.getElementById('csvTotalDisplay');
-        const importBtn = document.getElementById('csvImportBtn');
         const fileNameDisplay = document.getElementById('csvFileName');
+        const setup = document.getElementById('csvImportSetup');
+        const importBtn = document.getElementById('csvImportBtn');
+        const newCategoryInput = document.getElementById('csvNewCategoryInput');
 
         if (fileInput) fileInput.value = '';
-        if (categoryName) categoryName.value = '';
-        if (totalDisplay) {
-            totalDisplay.textContent = '';
-            totalDisplay.style.display = 'none';
-        }
         if (fileNameDisplay) {
             fileNameDisplay.textContent = '';
             fileNameDisplay.style.display = 'none';
         }
+        if (setup) setup.style.display = 'none';
         if (importBtn) importBtn.disabled = true;
+        if (newCategoryInput) newCategoryInput.value = '';
     }
 
     /**
@@ -494,15 +543,17 @@ export class CSVImporter {
         try {
             Utils.showToast('CSV読み込み中...');
             const content = await this._readFile(file);
-            this.calculatedTotal = this._parseCSVAndCalculateTotal(content);
-            this._displayTotal();
+            this._parseTransactions(content);
+            this._setupImportUI();
+
+            const autoAssigned = this.transactions.filter(t => t.category).length;
+            Utils.showToast(autoAssigned > 0
+                ? `${this.transactions.length}件読み込み（${autoAssigned}件を自動分類）`
+                : `${this.transactions.length}件読み込みました`);
         } catch (error) {
             console.error('CSV読み込みエラー:', error);
             alert(`CSVファイルの読み込みに失敗しました: ${error.message}`);
-            // エラー時はファイル名表示をクリア
-            if (fileNameDisplay) {
-                fileNameDisplay.style.display = 'none';
-            }
+            this._resetImportState();
         }
     }
 
@@ -549,45 +600,119 @@ export class CSVImporter {
     }
 
     /**
-     * CSVをパースして利用金額の合計を計算
+     * CSVをパースして明細リストを作成
+     * PayPayカード形式（利用日/利用店名・商品名/利用金額/当月支払金額/当月お支払日）を
+     * 基本に、他社カードのCSVもヘッダー名のゆらぎをある程度吸収する
      * @private
      * @param {string} content - CSV内容
-     * @returns {number} 合計金額
      */
-    _parseCSVAndCalculateTotal(content) {
+    _parseTransactions(content) {
         const lines = content.split(/\r?\n/).filter(line => line.trim());
-        if (lines.length === 0) {
-            throw new Error('CSVファイルが空です');
+        if (lines.length < 2) {
+            throw new Error('CSVファイルにデータ行がありません');
         }
 
-        // ヘッダー行から「利用金額」列のインデックスを取得
         const headers = this._parseCSVLine(lines[0]);
-        const amountIndex = headers.findIndex(h =>
-            h.includes('利用金額') || h.includes('金額') || h.includes('Amount')
-        );
+        const findCol = (...keywords) =>
+            headers.findIndex(h => keywords.some(k => h.includes(k)));
 
-        if (amountIndex === -1) {
-            throw new Error('「利用金額」列が見つかりません。ヘッダー行を確認してください。');
+        const storeCol = findCol('利用店名', 'ご利用先', '摘要', '内容', '店名');
+        const amountCol = findCol('利用金額', 'ご利用金額');
+        const payAmountCol = findCol('当月支払金額', '当月請求額');
+        const dateCol = findCol('利用日');
+        const payDateCol = findCol('当月お支払日', 'お支払日', '支払日');
+
+        if (storeCol === -1 || (amountCol === -1 && payAmountCol === -1)) {
+            throw new Error('「利用店名」または「利用金額」の列が見つかりません。ヘッダー行を確認してください。');
         }
 
-        // データ行から金額を抽出して合計
-        let total = 0;
+        const transactions = [];
+        const payDates = [];
+
         for (let i = 1; i < lines.length; i++) {
             const row = this._parseCSVLine(lines[i]);
-            if (row.length > amountIndex) {
-                const amountStr = row[amountIndex].replace(/[,¥円]/g, '').trim();
-                const amount = parseFloat(amountStr);
-                if (!isNaN(amount) && amount > 0) {
-                    total += amount;
-                }
+            if (row.length <= storeCol) continue;
+
+            const store = (row[storeCol] || '').trim();
+            if (!store) continue;
+
+            // 当月支払金額を優先（分割・リボでも当月の実支払額を取り込める）
+            const amount = this._pickAmount(row, payAmountCol, amountCol);
+            if (amount === null || amount === 0) continue;
+
+            transactions.push({
+                id: transactions.length,
+                date: dateCol !== -1 ? (row[dateCol] || '').trim() : '',
+                store,
+                amount,
+                category: this.rules[store] || null,
+                checked: false
+            });
+
+            if (payDateCol !== -1 && row[payDateCol]?.trim()) {
+                payDates.push(row[payDateCol].trim());
             }
         }
 
-        if (total === 0) {
-            throw new Error('有効な金額データが見つかりませんでした');
+        if (transactions.length === 0) {
+            throw new Error('有効な明細が見つかりませんでした');
         }
 
-        return total;
+        this.transactions = transactions;
+        this.payMonth = this._detectPayMonth(payDates);
+    }
+
+    /**
+     * 金額文字列を数値に変換
+     * @private
+     * @param {string} str - 金額文字列
+     * @returns {number|null} 数値（変換不能ならnull）
+     */
+    _parseAmount(str) {
+        if (str == null) return null;
+        const cleaned = String(str).replace(/[,¥円\s]/g, '');
+        if (!cleaned) return null;
+        const num = parseFloat(cleaned);
+        return Number.isFinite(num) ? num : null;
+    }
+
+    /**
+     * 行から取り込む金額を選択（当月支払金額 → 利用金額の順で優先）
+     * @private
+     */
+    _pickAmount(row, payAmountCol, amountCol) {
+        if (payAmountCol !== -1) {
+            const value = this._parseAmount(row[payAmountCol]);
+            if (value !== null) return value;
+        }
+        if (amountCol !== -1) {
+            return this._parseAmount(row[amountCol]);
+        }
+        return null;
+    }
+
+    /**
+     * 「当月お支払日」から取込先の月を検出（最頻値を採用）
+     * @private
+     * @param {string[]} payDates - 支払日文字列の配列（例: "2026/7/27"）
+     * @returns {string} YYYY-MM形式の月キー
+     */
+    _detectPayMonth(payDates) {
+        const counts = {};
+        payDates.forEach(dateStr => {
+            const m = dateStr.match(/^(\d{4})[\/\-](\d{1,2})/);
+            if (m) {
+                const key = Utils.getMonthKey(parseInt(m[1]), parseInt(m[2]));
+                counts[key] = (counts[key] || 0) + 1;
+            }
+        });
+
+        const best = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+        if (best) return best[0];
+
+        // 支払日が読み取れなければ今月をデフォルトに
+        const now = Utils.getJSTDate();
+        return Utils.getMonthKey(now.getFullYear(), now.getMonth() + 1);
     }
 
     /**
@@ -623,52 +748,426 @@ export class CSVImporter {
         return result;
     }
 
+    // ----------------------------------------
+    // 取込設定UIの描画
+    // ----------------------------------------
+
     /**
-     * 計算された合計金額を表示
+     * 明細読み込み後の取込設定UIを表示
      * @private
      */
-    _displayTotal() {
-        const totalDisplay = document.getElementById('csvTotalDisplay');
-        const importBtn = document.getElementById('csvImportBtn');
+    _setupImportUI() {
+        const setup = document.getElementById('csvImportSetup');
+        if (setup) setup.style.display = 'block';
 
-        if (totalDisplay) {
-            totalDisplay.textContent = `利用金額合計: ¥${Utils.formatCurrency(this.calculatedTotal)}`;
-            totalDisplay.style.display = 'block';
+        // 取込先の月（当月お支払日から自動設定）
+        const monthInput = document.getElementById('csvImportMonth');
+        if (monthInput) monthInput.value = this.payMonth;
+
+        const monthHint = document.getElementById('csvImportMonthHint');
+        if (monthHint) {
+            monthHint.textContent = this.payMonth
+                ? '※ CSVの「当月お支払日」から自動設定しています'
+                : '';
         }
 
-        if (importBtn) importBtn.disabled = false;
-
-        Utils.showToast('CSV読み込み完了！');
+        this._renderAll();
     }
 
     /**
-     * CSVデータをインポート
+     * 取込先の月から選択中の月キーを取得
+     * @private
+     * @returns {string} YYYY-MM形式
      */
-    importData() {
-        if (this.calculatedTotal === null) {
-            alert('CSVファイルを選択してください');
-            return;
-        }
+    _getSelectedMonthKey() {
+        return document.getElementById('csvImportMonth')?.value || this.payMonth || '';
+    }
 
-        const categoryName = document.getElementById('csvCategoryName')?.value.trim();
-        if (!categoryName) {
-            alert('項目名を入力してください');
-            return;
-        }
+    /**
+     * 取込先の月が変更されたときの処理（既存カテゴリのチップを更新）
+     */
+    onMonthChange() {
+        this._renderAll();
+    }
 
-        // 新しいカテゴリとして追加
-        this.budgetManager.getCurrentMonthData().categories.push({
-            id: Utils.generateId(),
-            name: categoryName,
-            amount: this.calculatedTotal,
-            note: 'CSVインポート',
-            subcategories: []
+    /**
+     * 取込設定UI全体を再描画
+     * @private
+     */
+    _renderAll() {
+        this._buildChipCategories();
+        this._renderChips();
+        this._renderToolbar();
+        this._renderTable();
+        this._renderPreview();
+        this._updateImportButton();
+    }
+
+    /**
+     * カテゴリチップの候補リストを構築
+     * 優先順: 取込先の月の既存カテゴリ → 割り当て済み → 学習済みルール → デフォルト候補
+     * @private
+     */
+    _buildChipCategories() {
+        const monthKey = this._getSelectedMonthKey();
+        const monthCategories = (this.budgetManager.data[monthKey]?.categories || []).map(c => c.name);
+        const assignedCategories = this.transactions.map(t => t.category).filter(Boolean);
+        const ruleCategories = Object.values(this.rules);
+
+        const seen = new Set();
+        this._chips = [];
+        [...monthCategories, ...assignedCategories, ...ruleCategories, ...DEFAULT_CATEGORY_SUGGESTIONS]
+            .forEach(name => {
+                if (name && !seen.has(name)) {
+                    seen.add(name);
+                    this._chips.push({ name, existing: monthCategories.includes(name) });
+                }
+            });
+    }
+
+    /**
+     * カテゴリチップを描画
+     * @private
+     */
+    _renderChips() {
+        const container = document.getElementById('csvCategoryChips');
+        if (!container) return;
+
+        container.innerHTML = this._chips.map((chip, index) => {
+            const style = chip.existing
+                ? 'bg-indigo-500/20 text-indigo-300 ring-1 ring-inset ring-indigo-400/30 hover:bg-indigo-500/30'
+                : 'bg-white/10 text-zinc-300 ring-1 ring-inset ring-white/10 hover:bg-white/15';
+            return `<button type="button" onclick="app.csvImporter.assignChip(${index})"
+                class="rounded-full px-3 py-1.5 text-xs font-semibold transition ${style}">${Utils.escapeHtml(chip.name)}</button>`;
+        }).join('');
+    }
+
+    /**
+     * 明細リストのツールバー（全選択・選択件数）を描画
+     * @private
+     */
+    _renderToolbar() {
+        const toolbar = document.getElementById('csvTxToolbar');
+        if (!toolbar) return;
+
+        const checkedCount = this.transactions.filter(t => t.checked).length;
+        const allChecked = checkedCount === this.transactions.length && this.transactions.length > 0;
+
+        toolbar.innerHTML = `
+            <label class="flex cursor-pointer items-center gap-2.5 text-xs font-semibold text-zinc-300">
+                <input type="checkbox" ${allChecked ? 'checked' : ''}
+                    onchange="app.csvImporter.toggleAll(this.checked)"
+                    class="h-4 w-4 rounded border-white/20 bg-white/5 text-indigo-500 focus:ring-indigo-500">
+                全選択（選択中 ${checkedCount}件）
+            </label>
+            <button type="button" onclick="app.csvImporter.selectUnassigned()"
+                class="rounded-md bg-white/10 px-2.5 py-1.5 text-xs font-semibold text-zinc-300 transition hover:bg-white/15">
+                未分類を選択
+            </button>
+        `;
+    }
+
+    /**
+     * 明細リストを描画
+     * @private
+     */
+    _renderTable() {
+        const list = document.getElementById('csvTxList');
+        if (!list) return;
+
+        list.innerHTML = this.transactions.map(t => {
+            const shortDate = t.date.replace(/^\d{4}[\/\-]/, '');
+            const amountClass = t.amount < 0 ? 'text-rose-400' : 'text-white';
+            const badge = t.category
+                ? `<span class="inline-flex max-w-full items-center gap-1 rounded-full bg-indigo-500/20 px-2 py-0.5 text-xs font-semibold text-indigo-300">
+                        <span class="truncate">${Utils.escapeHtml(t.category)}</span>
+                        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); app.csvImporter.clearCategory(${t.id})"
+                            class="shrink-0 text-indigo-300/70 hover:text-indigo-200">✕</button>
+                   </span>`
+                : '<span class="rounded-full bg-white/10 px-2 py-0.5 text-xs text-zinc-500">未分類</span>';
+
+            return `
+                <label class="flex cursor-pointer items-center gap-3 px-3 py-2.5 transition hover:bg-white/5 ${t.checked ? 'bg-indigo-500/10' : ''}" id="csv-row-${t.id}">
+                    <input type="checkbox" ${t.checked ? 'checked' : ''}
+                        onchange="app.csvImporter.toggleRow(${t.id}, this.checked)"
+                        class="h-4 w-4 shrink-0 rounded border-white/20 bg-white/5 text-indigo-500 focus:ring-indigo-500">
+                    <div class="min-w-0 flex-1">
+                        <div class="truncate text-sm text-zinc-100">${Utils.escapeHtml(t.store)}</div>
+                        <div class="text-xs text-zinc-500">${Utils.escapeHtml(shortDate)}</div>
+                    </div>
+                    <div class="whitespace-nowrap text-sm font-bold ${amountClass}">¥${Utils.formatCurrency(t.amount)}</div>
+                    <div class="w-28 shrink-0 text-right">${badge}</div>
+                </label>
+            `;
+        }).join('');
+    }
+
+    /**
+     * カテゴリ別の集計プレビューを描画
+     * @private
+     */
+    _renderPreview() {
+        const preview = document.getElementById('csvPreview');
+        if (!preview) return;
+
+        const total = this.transactions.reduce((sum, t) => sum + t.amount, 0);
+        const unassigned = this.transactions.filter(t => !t.category);
+
+        // カテゴリごとに集計
+        const groups = {};
+        this.transactions.forEach(t => {
+            if (!t.category) return;
+            if (!groups[t.category]) groups[t.category] = { count: 0, sum: 0 };
+            groups[t.category].count++;
+            groups[t.category].sum += t.amount;
         });
 
-        this.budgetManager.saveWithStatus();
+        const chips = Object.entries(groups).map(([name, g]) =>
+            `<span class="rounded-lg bg-emerald-500/10 px-2.5 py-1.5 text-xs font-semibold text-emerald-300 ring-1 ring-inset ring-emerald-500/20">
+                ${Utils.escapeHtml(name)} ¥${Utils.formatCurrency(g.sum)}（${g.count}件）
+            </span>`
+        ).join('');
 
-        Utils.showToast(`「${categoryName}」を追加しました！`);
+        const unassignedChip = unassigned.length > 0
+            ? `<span class="rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-xs font-semibold text-amber-300 ring-1 ring-inset ring-amber-500/20">
+                    未分類 ¥${Utils.formatCurrency(unassigned.reduce((s, t) => s + t.amount, 0))}（${unassigned.length}件）
+               </span>`
+            : '';
+
+        preview.innerHTML = `
+            <div class="mb-2 text-xs font-semibold text-zinc-400">全${this.transactions.length}件 / 合計 ¥${Utils.formatCurrency(total)}</div>
+            <div class="flex flex-wrap gap-2">${chips}${unassignedChip}</div>
+        `;
+    }
+
+    /**
+     * インポートボタンの有効/無効を更新
+     * @private
+     */
+    _updateImportButton() {
+        const importBtn = document.getElementById('csvImportBtn');
+        if (importBtn) {
+            importBtn.disabled = !this.transactions.some(t => t.category);
+        }
+    }
+
+    // ----------------------------------------
+    // 明細の選択・カテゴリ割り当て
+    // ----------------------------------------
+
+    /**
+     * 明細のチェック状態を切り替え
+     * @param {number} id - 明細ID
+     * @param {boolean} checked - チェック状態
+     */
+    toggleRow(id, checked) {
+        const transaction = this.transactions.find(t => t.id === id);
+        if (!transaction) return;
+        transaction.checked = checked;
+
+        // 行のハイライトとツールバーだけ更新（リスト全体は再描画しない＝スクロール位置維持）
+        const row = document.getElementById(`csv-row-${id}`);
+        if (row) row.classList.toggle('bg-indigo-500/10', checked);
+        this._renderToolbar();
+    }
+
+    /**
+     * 全明細のチェック状態を一括切り替え
+     * @param {boolean} checked - チェック状態
+     */
+    toggleAll(checked) {
+        this.transactions.forEach(t => { t.checked = checked; });
+        this._renderToolbar();
+        this._renderTable();
+    }
+
+    /**
+     * 未分類の明細のみを選択
+     */
+    selectUnassigned() {
+        this.transactions.forEach(t => { t.checked = !t.category; });
+        this._renderToolbar();
+        this._renderTable();
+    }
+
+    /**
+     * チップをタップしてチェック済み明細にカテゴリを割り当て
+     * @param {number} index - チップのインデックス
+     */
+    assignChip(index) {
+        const chip = this._chips[index];
+        if (chip) this._assignToChecked(chip.name);
+    }
+
+    /**
+     * 新規カテゴリ名を入力してチェック済み明細に割り当て
+     */
+    assignNewCategory() {
+        const input = document.getElementById('csvNewCategoryInput');
+        const name = input?.value.trim();
+        if (!name) {
+            Utils.showToast('カテゴリ名を入力してください');
+            return;
+        }
+        if (this._assignToChecked(name) && input) input.value = '';
+    }
+
+    /**
+     * チェック済み明細にカテゴリを割り当てる
+     * @private
+     * @param {string} categoryName - カテゴリ名
+     * @returns {boolean} 割り当てできたか
+     */
+    _assignToChecked(categoryName) {
+        const checked = this.transactions.filter(t => t.checked);
+        if (checked.length === 0) {
+            Utils.showToast('明細にチェックを入れてからカテゴリを選択してください');
+            return false;
+        }
+
+        checked.forEach(t => {
+            t.category = categoryName;
+            t.checked = false;
+        });
+
+        this._renderAll();
+        Utils.showToast(`${checked.length}件を「${categoryName}」に割り当てました`);
+        return true;
+    }
+
+    /**
+     * 明細のカテゴリ割り当てを解除
+     * @param {number} id - 明細ID
+     */
+    clearCategory(id) {
+        const transaction = this.transactions.find(t => t.id === id);
+        if (!transaction) return;
+        transaction.category = null;
+        this._renderAll();
+    }
+
+    // ----------------------------------------
+    // インポート実行
+    // ----------------------------------------
+
+    /**
+     * カテゴリ割り当て済みの明細を家計簿に取り込む
+     */
+    importData() {
+        const monthKey = this._getSelectedMonthKey();
+        if (!/^\d{4}-\d{2}$/.test(monthKey)) {
+            alert('取込先の月を選択してください');
+            return;
+        }
+
+        const assigned = this.transactions.filter(t => t.category);
+        if (assigned.length === 0) {
+            alert('カテゴリを割り当てた明細がありません');
+            return;
+        }
+
+        const skipped = this.transactions.length - assigned.length;
+        if (skipped > 0 && !confirm(`未分類の${skipped}件は取り込まれません。続行しますか？`)) {
+            return;
+        }
+
+        const detailMode = document.querySelector('input[name="csvImportMode"]:checked')?.value !== 'sum';
+        const monthData = this.budgetManager.getMonthData(monthKey);
+
+        // カテゴリごとにグループ化して登録
+        const groups = new Map();
+        assigned.forEach(t => {
+            if (!groups.has(t.category)) groups.set(t.category, []);
+            groups.get(t.category).push(t);
+        });
+
+        groups.forEach((rows, name) => {
+            if (detailMode) {
+                this._importAsDetails(monthData, name, rows);
+            } else {
+                this._importAsSum(monthData, name, rows);
+            }
+        });
+
+        // 店名→カテゴリのルールを学習して保存
+        assigned.forEach(t => { this.rules[t.store] = t.category; });
+        this._saveRules();
+
+        // 取込先の月に表示を切り替えて保存
+        const [year, month] = monthKey.split('-');
+        this.budgetManager.currentYear = parseInt(year);
+        this.budgetManager.currentMonth = parseInt(month);
+        this.budgetManager.saveWithStatus();
+        this.budgetManager.updateDisplay();
+
+        Utils.showToast(`${assigned.length}件を${parseInt(month)}月に取り込みました！`);
         this.closeModal();
+    }
+
+    /**
+     * 明細を小カテゴリーとして取り込む
+     * @private
+     */
+    _importAsDetails(monthData, categoryName, rows) {
+        let category = monthData.categories.find(c => c.name === categoryName);
+
+        if (!category) {
+            category = {
+                id: Utils.generateId(),
+                name: categoryName,
+                amount: 0,
+                note: '',
+                subcategories: []
+            };
+            monthData.categories.push(category);
+        } else if (category.subcategories.length === 0 && category.amount > 0) {
+            // 直接金額を持つカテゴリに小カテゴリーを追加すると合計から漏れるため、
+            // 既存金額を小カテゴリーに退避する
+            category.subcategories.push({
+                id: Utils.generateId(),
+                name: '既存分',
+                amount: category.amount,
+                note: ''
+            });
+            category.amount = 0;
+        }
+
+        rows.forEach(t => {
+            category.subcategories.push({
+                id: Utils.generateId(),
+                name: t.store,
+                amount: t.amount,
+                note: t.date
+            });
+        });
+    }
+
+    /**
+     * カテゴリごとの合計金額のみ取り込む
+     * @private
+     */
+    _importAsSum(monthData, categoryName, rows) {
+        const sum = rows.reduce((total, t) => total + t.amount, 0);
+        const category = monthData.categories.find(c => c.name === categoryName);
+
+        if (!category) {
+            monthData.categories.push({
+                id: Utils.generateId(),
+                name: categoryName,
+                amount: sum,
+                note: 'CSVインポート',
+                subcategories: []
+            });
+        } else if (category.subcategories.length > 0) {
+            category.subcategories.push({
+                id: Utils.generateId(),
+                name: `CSV取込（${rows.length}件）`,
+                amount: sum,
+                note: ''
+            });
+        } else {
+            category.amount = (category.amount || 0) + sum;
+        }
     }
 }
 
@@ -858,15 +1357,23 @@ export class BudgetManager {
     }
 
     /**
+     * 指定した月のデータを取得（なければ初期化）
+     * @param {string} monthKey - YYYY-MM形式の月キー
+     * @returns {Object} 月データ
+     */
+    getMonthData(monthKey) {
+        if (!this.data[monthKey]) {
+            this.data[monthKey] = { categories: [] };
+        }
+        return this.data[monthKey];
+    }
+
+    /**
      * 現在の月のデータを取得（なければ初期化）
      * @returns {Object} 月データ
      */
     getCurrentMonthData() {
-        const key = this.getCurrentMonthKey();
-        if (!this.data[key]) {
-            this.data[key] = { categories: [] };
-        }
-        return this.data[key];
+        return this.getMonthData(this.getCurrentMonthKey());
     }
 
     // ----------------------------------------
