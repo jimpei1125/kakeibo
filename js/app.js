@@ -4,6 +4,7 @@
  */
 
 import { Utils } from './utils.js';
+import { Icons } from './icons.js';
 import { BudgetManager, Calculator, CSVExporter, CSVImporter } from './budget.js';
 import { HolidayCalendar } from './calendar.js';
 import { ShoppingList } from './shopping.js';
@@ -156,6 +157,9 @@ class KakeiboApp {
      * アプリケーションを初期化
      */
     init() {
+        // 静的HTML内の data-icon をSVGアイコンに展開
+        Icons.hydrate();
+
         // 認証状態の監視を開始
         this.authManager.initAuthStateListener();
         

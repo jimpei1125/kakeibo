@@ -4,6 +4,7 @@
  */
 
 import { Utils } from './utils.js';
+import { Icons } from './icons.js';
 
 // ============================================================
 // 定数定義
@@ -66,7 +67,7 @@ export class PhilipsHue {
             <div class="hue-auth-prompt col-span-full rounded-xl bg-white/5 p-8 text-center ring-1 ring-white/10">
                 <p class="mb-4 text-sm text-zinc-400">Philips Hueアカウントとの連携が必要です</p>
                 <button onclick="app.hue.startAuth()" class="rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400">
-                    🔗 Hueアカウントを連携
+                    ${Icons.svg('link')} Hueアカウントを連携
                 </button>
             </div>
         `;
@@ -194,7 +195,7 @@ export class PhilipsHue {
     _renderConnectionError(message) {
         return `
             <div class="hue-error col-span-full rounded-xl bg-rose-500/10 p-6 text-center ring-1 ring-inset ring-rose-500/20">
-                <p class="text-sm font-semibold text-rose-300">😢 Hueに接続できません</p>
+                <p class="text-sm font-semibold text-rose-300">Hueに接続できません</p>
                 <p class="mt-2 text-xs text-rose-300/70">${Utils.escapeHtml(message)}</p>
                 <button onclick="app.hue.logout()" class="mt-4 rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15">
                     再認証する
@@ -222,7 +223,7 @@ export class PhilipsHue {
             const g = this.groups[id];
             const isOn = g.state?.any_on;
             const allOn = g.state?.all_on;
-            const icon = g.type === 'Zone' ? '🏷️' : '🏠';
+            const icon = g.type === 'Zone' ? Icons.svg('tag') : Icons.svg('home');
             const cardState = isOn
                 ? 'bg-amber-400/10 ring-amber-400/30 hover:bg-amber-400/15'
                 : 'bg-white/5 ring-white/10 opacity-70 hover:bg-white/10';
@@ -248,7 +249,7 @@ export class PhilipsHue {
         this.currentGroupId = groupId;
         const group = this.groups[groupId];
         
-        document.getElementById('hueControlTitle').textContent = `💡 ${group.name}`;
+        document.getElementById('hueControlTitle').innerHTML = `${Icons.svg('lightbulb')} ${Utils.escapeHtml(group.name)}`;
         
         const brightness = group.action?.bri ? Math.round((group.action.bri / MAX_BRIGHTNESS) * 100) : 100;
         document.getElementById('hueBrightnessSlider').value = brightness;
@@ -286,7 +287,7 @@ export class PhilipsHue {
             return `
                 <div class="hue-individual-light ${isOn ? 'on' : 'off'} flex items-center gap-3 rounded-xl bg-white/5 p-3 ring-1 ring-white/10${isOn ? '' : ' opacity-60'}">
                     <button class="hue-individual-toggle ${isOn ? 'on' : 'off'} flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg ring-1 ring-inset transition ${toggleState}" onclick="app.hue.toggleIndividualLight('${safeId}')">
-                        ${isOn ? '💡' : '🌙'}
+                        ${isOn ? Icons.svg('lightbulb') : Icons.svg('moon')}
                     </button>
                     <div class="hue-individual-info min-w-0 flex-1">
                         <div class="hue-individual-name mb-1.5 truncate text-sm font-semibold text-zinc-100">${Utils.escapeHtml(light.name)}</div>
