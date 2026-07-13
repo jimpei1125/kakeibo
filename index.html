@@ -160,38 +160,81 @@
     </div>
 
     <!-- CSVインポートモーダル -->
-    <div class="modal-panel csv-modal fixed left-1/2 top-1/2 z-[1500] max-h-[80vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="csvImportModal">
-        <div class="modal-header mb-5 flex items-center justify-between">
+    <div class="modal-panel csv-modal csv-import-modal fixed left-1/2 top-1/2 z-[1500] max-h-[88vh] w-[94%] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-zinc-900 shadow-2xl ring-1 ring-white/10" id="csvImportModal">
+        <div class="modal-header flex items-center justify-between p-6 pb-4">
             <h2 class="text-lg font-bold text-white">📤 CSVインポート</h2>
             <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.csvImporter.closeModal()">✕</button>
         </div>
 
-        <div class="mb-4 space-y-4 rounded-xl bg-white/5 p-5 ring-1 ring-white/5">
-            <div>
-                <label class="mb-2 block text-sm font-semibold text-zinc-300">CSVファイルを選択</label>
+        <div class="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-4">
+            <!-- ファイル選択 -->
+            <div class="rounded-xl bg-white/5 p-4 ring-1 ring-white/5">
                 <input type="file" id="csvFileInput" accept=".csv,text/csv,application/csv,text/comma-separated-values" onchange="app.csvImporter.handleFileSelect(event)" class="hidden">
                 <button onclick="document.getElementById('csvFileInput').click()" type="button"
                     class="w-full rounded-lg bg-white/10 px-4 py-3 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15">
                     📁 CSVファイルを選択
                 </button>
                 <div id="csvFileName" class="mt-2.5 text-sm text-emerald-400" style="display: none;"></div>
-                <p class="mt-2 text-xs text-zinc-500">※ クレジットカードの利用明細CSVファイルを選択してください</p>
+                <p class="mt-2 text-xs text-zinc-500">※ クレジットカードの利用明細CSVファイル（PayPayカード等）を選択してください</p>
             </div>
 
-            <div id="csvTotalDisplay" class="rounded-lg bg-emerald-500/10 p-4 text-center text-lg font-bold text-emerald-400 ring-1 ring-inset ring-emerald-500/20" style="display: none;"></div>
+            <!-- 取込設定（ファイル読み込み後に表示） -->
+            <div id="csvImportSetup" class="space-y-4" style="display: none;">
+                <!-- 取込先の月 -->
+                <div class="rounded-xl bg-white/5 p-4 ring-1 ring-white/5">
+                    <label class="mb-2 block text-sm font-semibold text-zinc-300">📅 データを挿入する月</label>
+                    <input type="month" id="csvImportMonth" onchange="app.csvImporter.onMonthChange()"
+                        class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
+                    <p id="csvImportMonthHint" class="mt-2 text-xs text-zinc-500"></p>
+                </div>
 
-            <div>
-                <label class="mb-2 block text-sm font-semibold text-zinc-300">項目名</label>
-                <input type="text" id="csvCategoryName" placeholder="例：クレジットカード（楽天）"
-                    class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
-                <p class="mt-2 text-xs text-zinc-500">※ この名前でカテゴリが作成されます</p>
+                <!-- カテゴリ割り当て -->
+                <div class="rounded-xl bg-white/5 p-4 ring-1 ring-white/5">
+                    <label class="mb-2 block text-sm font-semibold text-zinc-300">🏷️ 明細にチェックを入れて、カテゴリをタップで割り当て</label>
+                    <div id="csvCategoryChips" class="mb-3 flex flex-wrap gap-2"></div>
+                    <div class="flex gap-2">
+                        <input type="text" id="csvNewCategoryInput" placeholder="新しいカテゴリ名"
+                            onkeydown="if(event.key==='Enter'){event.preventDefault();app.csvImporter.assignNewCategory();}"
+                            class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+                        <button type="button" onclick="app.csvImporter.assignNewCategory()"
+                            class="shrink-0 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400">＋割り当て</button>
+                    </div>
+                </div>
+
+                <!-- 明細リスト -->
+                <div class="overflow-hidden rounded-xl bg-white/5 ring-1 ring-white/5">
+                    <div id="csvTxToolbar" class="flex items-center justify-between border-b border-white/10 px-3 py-2"></div>
+                    <div id="csvTxList" class="max-h-72 divide-y divide-white/5 overflow-y-auto"></div>
+                </div>
+
+                <!-- 集計プレビュー -->
+                <div id="csvPreview" class="rounded-xl bg-white/5 p-4 ring-1 ring-white/5"></div>
+
+                <!-- 登録方法 -->
+                <div class="rounded-xl bg-white/5 p-4 ring-1 ring-white/5">
+                    <label class="mb-2 block text-sm font-semibold text-zinc-300">登録方法</label>
+                    <div class="space-y-2">
+                        <label class="flex cursor-pointer items-center gap-2.5 text-sm text-zinc-300">
+                            <input type="radio" name="csvImportMode" value="detail" checked
+                                class="h-4 w-4 border-white/20 bg-white/5 text-indigo-500 focus:ring-indigo-500">
+                            明細ごとに小カテゴリーとして登録（店名・日付を残す）
+                        </label>
+                        <label class="flex cursor-pointer items-center gap-2.5 text-sm text-zinc-300">
+                            <input type="radio" name="csvImportMode" value="sum"
+                                class="h-4 w-4 border-white/20 bg-white/5 text-indigo-500 focus:ring-indigo-500">
+                            カテゴリごとに合計金額のみ登録
+                        </label>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <button id="csvImportBtn" onclick="app.csvImporter.importData()" disabled
-            class="w-full rounded-lg bg-indigo-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-40">
-            📤 インポート
-        </button>
+        <div class="border-t border-white/10 p-6 pt-4">
+            <button id="csvImportBtn" onclick="app.csvImporter.importData()" disabled
+                class="w-full rounded-lg bg-indigo-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-40">
+                📤 インポート
+            </button>
+        </div>
     </div>
 
     <!-- メインコンテンツ -->
