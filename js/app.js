@@ -59,7 +59,6 @@ class KakeiboApp {
     showLoginModal() { this.authManager.showLoginModal(); }
     closeLoginModal() { this.authManager.closeLoginModal(); }
     async signInWithGoogle() { await this.authManager.signInWithGoogle(); }
-    async signInAsGuest() { await this.authManager.signInAsGuest(); }
     async signOut() { await this.authManager.signOut(); }
 
     // ==================== メニュー制御 ====================
