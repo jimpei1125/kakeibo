@@ -6,6 +6,7 @@
 import { db, doc, getDoc, setDoc, onSnapshot, collection } from './firebase-config.js';
 import { Utils } from './utils.js';
 import { Icons } from './icons.js';
+import { buildPie, CATEGORY_COLORS, OTHER_COLOR } from './chart.js';
 
 // ============================================================
 // 定数定義
@@ -1252,6 +1253,8 @@ export class BudgetManager {
         this.quickInputMode = false;
         /** @type {boolean} 旧形式データの移行チェック済みフラグ */
         this._migrationChecked = false;
+        /** @type {boolean} 合計カードが円グラフ面を表示中か */
+        this.totalFlipped = false;
     }
 
     // ----------------------------------------
@@ -1405,6 +1408,9 @@ export class BudgetManager {
         if (totalEl) totalEl.textContent = `¥${Utils.formatCurrency(total)}`;
         if (halfEl) halfEl.textContent = `折半: ¥${Utils.formatCurrency(half)}`;
         if (outputEl) outputEl.textContent = this.generateOutput();
+
+        // 円グラフ面を表示中ならグラフも更新
+        if (this.totalFlipped) this.renderPie();
     }
 
     // ----------------------------------------
@@ -1603,7 +1609,7 @@ export class BudgetManager {
      */
     changeMonth(delta) {
         this.currentMonth += delta;
-        
+
         // 年をまたぐ処理
         if (this.currentMonth > 12) {
             this.currentMonth = 1;
@@ -1612,7 +1618,9 @@ export class BudgetManager {
             this.currentMonth = 12;
             this.currentYear--;
         }
-        
+
+        // 月を切り替えたら合計カードは表（合計金額）に戻す
+        this._resetTotalView();
         this._animateMonthChange();
     }
 
@@ -2179,14 +2187,116 @@ export class BudgetManager {
         });
     }
 
+    // ----------------------------------------
+    // 合計カードのフリップ（内訳円グラフ）
+    // ----------------------------------------
+
     /**
-     * 折半金額をクリップボードにコピー
+     * 合計カードの表（合計金額）と裏（円グラフ）を切り替える
      */
-    copyHalfAmount() {
-        const halfTotal = Math.round(this.calculateTotal() / 2);
-        navigator.clipboard.writeText(Utils.formatCurrency(halfTotal))
-            .then(() => Utils.showToast('コピーしました！'))
-            .catch(() => Utils.showToast('コピーに失敗しました'));
+    toggleTotalView() {
+        const flip = document.getElementById('totalFlip');
+        const front = document.getElementById('totalFlipFront');
+        const back = document.getElementById('totalFlipBack');
+        if (!flip || !front || !back) return;
+
+        // 現在の高さを明示的に固定してから遷移（auto→px のジャンプを防ぐ）
+        flip.style.height = `${flip.offsetHeight}px`;
+        void flip.offsetHeight; // リフローを強制
+
+        this.totalFlipped = !this.totalFlipped;
+
+        if (this.totalFlipped) {
+            this.renderPie();
+            flip.style.height = `${this._measureHeight(back)}px`;
+            flip.classList.add('flipped');
+        } else {
+            flip.style.height = `${this._measureHeight(front)}px`;
+            flip.classList.remove('flipped');
+        }
+    }
+
+    /**
+     * 絶対配置された面の自然な高さを測定する
+     * @private
+     * @param {HTMLElement} el
+     * @returns {number}
+     */
+    _measureHeight(el) {
+        const prev = el.style.position;
+        el.style.position = 'relative';
+        const h = el.offsetHeight;
+        el.style.position = prev;
+        return h;
+    }
+
+    /**
+     * 合計カードを表（合計金額）に戻す
+     * @private
+     */
+    _resetTotalView() {
+        this.totalFlipped = false;
+        const flip = document.getElementById('totalFlip');
+        if (flip) {
+            flip.classList.remove('flipped');
+            flip.style.height = '';
+        }
+    }
+
+    /**
+     * カテゴリ別の内訳を集計（金額降順、7件以上は上位6＋その他に集約）
+     * @private
+     * @returns {{breakdown: Array<{name: string, amount: number, color: string}>, total: number}}
+     */
+    _getCategoryBreakdown() {
+        const monthData = this.getCurrentMonthData();
+
+        const items = monthData.categories.map(cat => {
+            const amount = cat.subcategories.length > 0
+                ? cat.subcategories.reduce((sum, sub) => sum + (sub.amount || 0), 0)
+                : (cat.amount || 0);
+            return { name: cat.name, amount };
+        }).filter(item => item.amount > 0)
+          .sort((a, b) => b.amount - a.amount);
+
+        const total = items.reduce((sum, item) => sum + item.amount, 0);
+
+        // 7件以上は上位6件＋「その他」に集約（円グラフは6分割程度が視認の限界）
+        let breakdown = items;
+        if (items.length > 7) {
+            const top = items.slice(0, 6);
+            const otherTotal = items.slice(6).reduce((sum, item) => sum + item.amount, 0);
+            breakdown = [...top, { name: 'その他', amount: otherTotal }];
+        }
+
+        // 金額順に色を固定割当（「その他」はグレー）
+        breakdown = breakdown.map((item, i) => ({
+            ...item,
+            color: item.name === 'その他' ? OTHER_COLOR : CATEGORY_COLORS[i % CATEGORY_COLORS.length]
+        }));
+
+        return { breakdown, total };
+    }
+
+    /**
+     * 円グラフと凡例を描画
+     */
+    renderPie() {
+        const chartEl = document.getElementById('pieChart');
+        const legendEl = document.getElementById('pieLegend');
+        if (!chartEl || !legendEl) return;
+
+        const { breakdown, total } = this._getCategoryBreakdown();
+
+        if (!breakdown.length || total <= 0) {
+            chartEl.innerHTML = '';
+            legendEl.innerHTML = '<p class="py-4 text-center text-sm text-zinc-500">データがありません</p>';
+            return;
+        }
+
+        const { svg, legend } = buildPie(breakdown, total);
+        chartEl.innerHTML = svg;
+        legendEl.innerHTML = legend;
     }
 
     // ----------------------------------------
