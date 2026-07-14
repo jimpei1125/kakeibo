@@ -446,10 +446,14 @@ export class CSVImporter {
         this.rules = {};
         /** @type {Array<{name: string, existing: boolean}>} カテゴリチップの候補 */
         this._chips = [];
+        /** @type {string|null} 選択中CSVファイルの内容ハッシュ（二重取込検出用） */
+        this.fileHash = null;
+        /** @type {Array<{hash: string, month: string, date: string, count: number, total: number}>} 取込履歴 */
+        this.importHistory = [];
     }
 
     /**
-     * 店名→カテゴリのルールをFirestoreから購読開始
+     * 店名→カテゴリのルール・取込履歴をFirestoreから購読開始
      */
     init() {
         onSnapshot(
@@ -465,6 +469,38 @@ export class CSVImporter {
             },
             (error) => console.error('CSVインポートルール読み込みエラー:', error)
         );
+
+        onSnapshot(
+            doc(db, 'budgetData', 'csvImportHistory'),
+            (snap) => {
+                this.importHistory = (snap.exists() ? snap.data().imports : null) || [];
+            },
+            (error) => console.error('CSV取込履歴読み込みエラー:', error)
+        );
+    }
+
+    /**
+     * 文字列のSHA-256ハッシュ（16進）を計算
+     * @private
+     * @param {string} text
+     * @returns {Promise<string>}
+     */
+    async _sha256(text) {
+        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+        return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    /**
+     * 取込履歴に記録して保存（直近50件を保持）
+     * @private
+     */
+    async _recordImport(entry) {
+        this.importHistory = [entry, ...this.importHistory].slice(0, 50);
+        try {
+            await setDoc(doc(db, 'budgetData', 'csvImportHistory'), { imports: this.importHistory });
+        } catch (error) {
+            console.error('CSV取込履歴保存エラー:', error);
+        }
     }
 
     /**
@@ -504,6 +540,7 @@ export class CSVImporter {
         this.transactions = [];
         this.payMonth = null;
         this._chips = [];
+        this.fileHash = null;
 
         const fileInput = document.getElementById('csvFileInput');
         const fileNameDisplay = document.getElementById('csvFileName');
@@ -544,6 +581,7 @@ export class CSVImporter {
         try {
             Utils.showToast('CSV読み込み中...');
             const content = await this._readFile(file);
+            this.fileHash = await this._sha256(content);
             this._parseTransactions(content);
             this._setupImportUI();
 
@@ -1067,6 +1105,15 @@ export class CSVImporter {
             return;
         }
 
+        // 同一CSVの二重取込を検出して警告（二重計上の防止）
+        const dup = this.fileHash && this.importHistory.find(h => h.hash === this.fileHash);
+        if (dup) {
+            const when = dup.date ? dup.date.replace(/-/g, '/') : '過去';
+            if (!confirm(`このCSVは既に取り込み済みです（${when}に${dup.count}件を取込）。\nもう一度取り込むと二重計上になります。続行しますか？`)) {
+                return;
+            }
+        }
+
         const skipped = this.transactions.length - assigned.length;
         if (skipped > 0 && !confirm(`未分類の${skipped}件は取り込まれません。続行しますか？`)) {
             return;
@@ -1093,6 +1140,17 @@ export class CSVImporter {
         // 店名→カテゴリのルールを学習して保存
         assigned.forEach(t => { this.rules[t.store] = t.category; });
         this._saveRules();
+
+        // 取込履歴に記録（次回の二重取込検出用）
+        if (this.fileHash) {
+            this._recordImport({
+                hash: this.fileHash,
+                month: monthKey,
+                date: Utils.getTodayString(),
+                count: assigned.length,
+                total: assigned.reduce((s, t) => s + t.amount, 0)
+            });
+        }
 
         // 取込先の月に表示を切り替えて保存
         const [year, month] = monthKey.split('-');
