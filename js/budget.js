@@ -1211,7 +1211,9 @@ export class BudgetManager {
         const footerBtn = document.getElementById('footerQuickInput');
         if (footerBtn) {
             footerBtn.classList.toggle('active', this.quickInputMode);
-            footerBtn.innerHTML = `${Icons.svg('zap')} ${this.quickInputMode ? 'ON' : 'クイック入力'}`;
+            // アイコンは維持し、ラベルのみ差し替え
+            const label = footerBtn.querySelector('.nav-label');
+            if (label) label.textContent = this.quickInputMode ? 'ON' : 'クイック入力';
         }
         
         if (this.quickInputMode) {

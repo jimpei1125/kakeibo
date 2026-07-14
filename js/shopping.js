@@ -348,7 +348,7 @@ export class ShoppingList {
                     </div>
                 </div>
                 <div class="shopping-item-quantity shrink-0 rounded-full bg-white/10 px-2.5 py-1 text-xs font-bold text-zinc-300">×${item.quantity}</div>
-                <button class="shopping-item-delete flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-sm text-rose-300 ring-1 ring-inset ring-rose-500/20 transition hover:bg-rose-500/20" onclick="app.shopping.deleteItem('${item.id}')">✕</button>
+                <button aria-label="削除" class="shopping-item-delete flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-sm text-rose-300 ring-1 ring-inset ring-rose-500/20 transition hover:bg-rose-500/20" onclick="app.shopping.deleteItem('${item.id}')">${Icons.svg('x')}</button>
             </div>
         `;
     }
@@ -467,7 +467,7 @@ export class ShoppingList {
             <div class="template-item-row mb-1.5 flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2 ring-1 ring-white/10 last:mb-0">
                 <span class="item-name min-w-0 flex-1 truncate text-sm text-zinc-100">${Utils.escapeHtml(item.name)}</span>
                 <span class="item-category shrink-0 text-xs text-zinc-500">${this.categoryEmojis[item.category] || '📦'} ${Utils.escapeHtml(item.category)}</span>
-                <button class="remove-item flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-xs text-rose-300 transition hover:bg-rose-500/20" onclick="app.shopping.removeTemplateItem(${idx})">✕</button>
+                <button aria-label="削除" class="remove-item flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-xs text-rose-300 transition hover:bg-rose-500/20" onclick="app.shopping.removeTemplateItem(${idx})">${Icons.svg('x')}</button>
             </div>
         `).join('');
     }
