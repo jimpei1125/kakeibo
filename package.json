@@ -1,0 +1,13 @@
+{
+  "name": "kakeibo",
+  "version": "1.0.0",
+  "description": "家族向け家計簿・カレンダー・買い物リスト・スマートホームアプリ",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -i ./src/input.css -o ./css/tailwind.css --minify",
+    "watch:css": "tailwindcss -i ./src/input.css -o ./css/tailwind.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.0"
+  }
+}
