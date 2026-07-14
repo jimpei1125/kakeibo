@@ -250,11 +250,23 @@
 
             <div class="category-list space-y-2.5" id="categoryList"></div>
 
-            <div class="total-section mt-6 cursor-pointer rounded-2xl bg-gradient-to-br from-indigo-500/15 to-white/5 p-6 text-center ring-1 ring-indigo-500/20 transition hover:ring-indigo-500/40" onclick="app.budget.copyHalfAmount()">
-                <h2 class="text-sm font-semibold text-zinc-400">合計金額</h2>
-                <div class="total-amount mt-1 text-4xl font-black tracking-tight text-white" id="totalAmount">¥0</div>
-                <div class="half-amount mt-2 text-base font-bold text-indigo-300" id="halfAmount">折半: ¥0</div>
-                <div class="copy-hint mt-2 text-xs text-zinc-500">タップで折半金額をコピー</div>
+            <div class="total-flip mt-6 cursor-pointer" id="totalFlip" onclick="app.budget.toggleTotalView()">
+                <div class="total-flip-inner">
+                    <!-- 表: 合計金額 -->
+                    <div class="total-flip-front rounded-2xl bg-gradient-to-br from-indigo-500/15 to-white/5 p-6 text-center ring-1 ring-indigo-500/20 transition hover:ring-indigo-500/40" id="totalFlipFront">
+                        <h2 class="text-sm font-semibold text-zinc-400">合計金額</h2>
+                        <div class="total-amount mt-1 text-4xl font-black tracking-tight text-white" id="totalAmount">¥0</div>
+                        <div class="half-amount mt-2 text-base font-bold text-indigo-300" id="halfAmount">折半: ¥0</div>
+                        <div class="copy-hint mt-2 flex items-center justify-center gap-1.5 text-xs text-zinc-500"><span data-icon="pie-chart"></span> タップで内訳グラフを表示</div>
+                    </div>
+                    <!-- 裏: カテゴリ別内訳の円グラフ -->
+                    <div class="total-flip-back rounded-2xl bg-gradient-to-br from-indigo-500/15 to-white/5 p-6 text-center ring-1 ring-indigo-500/20" id="totalFlipBack">
+                        <h2 class="text-sm font-semibold text-zinc-400">カテゴリ別内訳</h2>
+                        <div class="pie-chart mx-auto mt-2 max-w-[280px]" id="pieChart"></div>
+                        <div class="pie-legend mx-auto mt-3 max-w-[320px] space-y-0.5" id="pieLegend"></div>
+                        <div class="copy-hint mt-3 flex items-center justify-center gap-1.5 text-xs text-zinc-500"><span data-icon="chevron-left"></span> タップで戻る</div>
+                    </div>
+                </div>
             </div>
 
             <div class="output-section mt-6 rounded-2xl bg-white/5 p-5 ring-1 ring-white/10">
