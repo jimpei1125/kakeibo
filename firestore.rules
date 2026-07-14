@@ -33,7 +33,12 @@ service cloud.firestore {
 
     // ==================== 家計簿データ ====================
 
-    // budgetData: 月ごとの予算データ、CSVインポート学習ルール等
+    // budgetMonths: 月別の予算データ（budgetMonths/YYYY-MM）
+    match /budgetMonths/{monthId} {
+      allow read, write: if isFamilyMember();
+    }
+
+    // budgetData: CSVインポート学習ルール、旧形式データ（移行元）等
     match /budgetData/{document} {
       allow read, write: if isFamilyMember();
     }

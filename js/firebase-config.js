@@ -4,19 +4,20 @@
  */
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-import { 
-    getFirestore, 
-    doc, 
-    setDoc, 
-    onSnapshot, 
-    collection, 
-    addDoc, 
-    updateDoc, 
-    deleteDoc, 
-    query, 
-    where, 
-    getDocs, 
-    orderBy 
+import {
+    getFirestore,
+    doc,
+    getDoc,
+    setDoc,
+    onSnapshot,
+    collection,
+    addDoc,
+    updateDoc,
+    deleteDoc,
+    query,
+    where,
+    getDocs,
+    orderBy
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 import {
     getAuth,
@@ -222,12 +223,13 @@ class AuthManager {
 // 認証マネージャーのインスタンス
 const authManager = new AuthManager();
 
-export { 
-    db, 
-    doc, 
-    setDoc, 
-    onSnapshot, 
-    collection, 
+export {
+    db,
+    doc,
+    getDoc,
+    setDoc,
+    onSnapshot,
+    collection,
     addDoc, 
     updateDoc, 
     deleteDoc, 
