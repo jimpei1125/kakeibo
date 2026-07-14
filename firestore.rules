@@ -16,7 +16,7 @@ service cloud.firestore {
     // ↓↓↓ ここに実際のUIDを貼り付けてください（匿名UIDは使わないこと） ↓↓↓
     function allowedUids() {
       return [
-        'ここにあなたのUIDを貼り付け',
+        'FfUcWsICuLOkPX8eLXxKEjzUNR12',
         'ここに家族のUIDを貼り付け'
       ];
     }
