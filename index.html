@@ -26,11 +26,11 @@
     <div class="pointer-events-none fixed inset-x-0 top-0 z-0 h-96 bg-gradient-to-b from-indigo-500/10 via-transparent to-transparent"></div>
 
     <!-- 右上メニューボタン -->
-    <button class="fixed right-5 top-5 z-[1100] flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900 text-xl text-zinc-200 shadow-lg ring-1 ring-white/10 transition hover:bg-zinc-800 hover:ring-white/20" onclick="app.toggleMenu()"><span data-icon="menu"></span></button>
+    <button aria-label="メニューを開く" class="fixed right-5 top-5 z-[1100] flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900 text-xl text-zinc-200 shadow-lg ring-1 ring-white/10 transition hover:bg-zinc-800 hover:ring-white/20" onclick="app.toggleMenu()"><span data-icon="menu"></span></button>
 
     <!-- サイドメニュー -->
     <div class="side-menu fixed right-0 top-0 z-[1200] h-screen w-72 border-l border-white/10 bg-zinc-900 p-5 shadow-2xl" id="sideMenu">
-        <button class="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-lg text-zinc-300 transition hover:bg-white/20" onclick="app.closeMenu()"><span data-icon="x"></span></button>
+        <button aria-label="メニューを閉じる" class="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-lg text-zinc-300 transition hover:bg-white/20" onclick="app.closeMenu()"><span data-icon="x"></span></button>
 
         <!-- 認証ステータス（メニュー内） -->
         <div class="menu-auth-status mb-3 mt-16 border-b border-white/10 pb-5" id="authStatus">
@@ -38,6 +38,7 @@
                 <span class="menu-auth-icon text-2xl text-zinc-400" id="authIcon" data-icon="user"></span>
                 <span class="menu-auth-name max-w-[180px] truncate text-sm font-semibold text-zinc-400" id="authUserName">未ログイン</span>
             </div>
+            <button class="menu-auth-uid mb-3 hidden w-full truncate rounded-lg bg-white/5 px-3 py-2 text-left text-[11px] text-zinc-500 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" id="authUserId" title="タップしてUIDをコピー（Firestoreルール設定用）"></button>
             <button class="menu-auth-btn w-full rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400" id="authBtn" onclick="app.showLoginModal()"><span data-icon="log-in"></span> ログイン</button>
         </div>
 
@@ -58,7 +59,7 @@
         <div class="login-modal-content w-full max-w-sm rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10">
             <div class="modal-header mb-5 flex items-center justify-between">
                 <h2 class="text-lg font-bold text-white"><span data-icon="lock"></span> ログイン</h2>
-                <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.closeLoginModal()"><span data-icon="x"></span></button>
+                <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.closeLoginModal()"><span data-icon="x"></span></button>
             </div>
             <div class="login-options flex flex-col gap-3">
                 <p class="text-center text-sm text-zinc-400">ログインすると、データが安全に保護され、複数デバイスで同期できます。</p>
@@ -71,10 +72,7 @@
                     </svg>
                     Googleでログイン
                 </button>
-                <button class="rounded-xl bg-white/10 px-5 py-3.5 text-sm font-semibold text-zinc-200 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.signInAsGuest()">
-                    <span data-icon="user"></span> ゲストとして続ける
-                </button>
-                <p class="mt-1 text-center text-[11px] text-zinc-500">※ ゲストモードではデータが端末に紐づきます</p>
+                <p class="mt-1 text-center text-[11px] text-zinc-500">※ 家計データ保護のため、登録された家族アカウントのみアクセスできます</p>
             </div>
         </div>
     </div>
@@ -83,7 +81,7 @@
     <div class="modal-panel calculator-modal fixed left-1/2 top-1/2 z-[1500] w-[90%] max-w-[350px] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-zinc-900 p-5 shadow-2xl ring-1 ring-white/10" id="calculatorModal">
         <div class="calc-header mb-4 flex items-center justify-between">
             <h2 class="text-lg font-bold text-white"><span data-icon="calculator"></span> 計算機</h2>
-            <button class="calc-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.calculator.close()"><span data-icon="x"></span></button>
+            <button aria-label="閉じる" class="calc-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.calculator.close()"><span data-icon="x"></span></button>
         </div>
         <div class="calc-display mb-4 min-h-[60px] cursor-pointer rounded-xl bg-white/5 p-5 text-right text-3xl font-black text-white ring-1 ring-inset ring-white/10 transition hover:bg-white/10" id="calcDisplay" onclick="app.calculator.copyResult()">0</div>
         <div class="calc-buttons grid grid-cols-4 gap-2.5">
@@ -117,7 +115,7 @@
     <div class="modal-panel csv-modal fixed left-1/2 top-1/2 z-[1500] max-h-[80vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="csvModal">
         <div class="modal-header mb-5 flex items-center justify-between">
             <h2 class="text-lg font-bold text-white"><span data-icon="download"></span> CSV出力</h2>
-            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.csv.closeModal()"><span data-icon="x"></span></button>
+            <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.csv.closeModal()"><span data-icon="x"></span></button>
         </div>
 
         <div class="mb-4 space-y-4 rounded-xl bg-white/5 p-5 ring-1 ring-white/5">
@@ -163,7 +161,7 @@
     <div class="modal-panel csv-modal csv-import-modal fixed left-1/2 top-1/2 z-[1500] max-h-[88vh] w-[94%] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-zinc-900 shadow-2xl ring-1 ring-white/10" id="csvImportModal">
         <div class="modal-header flex items-center justify-between p-6 pb-4">
             <h2 class="text-lg font-bold text-white"><span data-icon="upload"></span> CSVインポート</h2>
-            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.csvImporter.closeModal()"><span data-icon="x"></span></button>
+            <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.csvImporter.closeModal()"><span data-icon="x"></span></button>
         </div>
 
         <div class="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-4">
@@ -245,9 +243,9 @@
 
             <div class="month-selector mb-6 flex flex-col items-center gap-3 rounded-2xl bg-white/5 p-5 ring-1 ring-white/10">
                 <div class="month-nav flex items-center gap-4">
-                    <button class="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-200 transition hover:bg-white/20" onclick="app.budget.changeMonth(-1)"><span data-icon="chevron-left"></span></button>
+                    <button class="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-200 transition hover:bg-white/20" onclick="app.budget.changeMonth(-1)" aria-label="前の月"><span data-icon="chevron-left"></span></button>
                     <div class="month-display min-w-[140px] text-center text-xl font-bold text-white" id="currentMonth"></div>
-                    <button class="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-200 transition hover:bg-white/20" onclick="app.budget.changeMonth(1)"><span data-icon="chevron-right"></span></button>
+                    <button class="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-200 transition hover:bg-white/20" onclick="app.budget.changeMonth(1)" aria-label="次の月"><span data-icon="chevron-right"></span></button>
                 </div>
                 <button class="w-full rounded-lg bg-amber-400/10 px-4 py-2.5 text-sm font-semibold text-amber-300 ring-1 ring-inset ring-amber-400/20 transition hover:bg-amber-400/20" onclick="app.budget.copyFromPreviousMonth()"><span data-icon="copy"></span> 先月分をコピー</button>
             </div>
@@ -275,7 +273,7 @@
                 <div class="output-text whitespace-pre-wrap rounded-xl bg-zinc-950/60 p-4 text-sm leading-relaxed text-zinc-300 ring-1 ring-inset ring-white/5" id="outputText"></div>
                 <button class="copy-btn mt-3 w-full rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.budget.copyOutput()"><span data-icon="copy"></span> コピー</button>
                 <div class="copy-success mt-2 text-center text-sm font-semibold text-emerald-400" id="copySuccess" style="display: none;">コピーしました！</div>
-                <button class="discord-btn mt-3 w-full rounded-lg bg-[#5865F2] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#4752c4]" onclick="window.open('https://discord.com/channels/1360206899278118972/1366013675051159564', '_blank')">
+                <button class="discord-btn mt-3 w-full rounded-lg bg-[#5865F2] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#4752c4]" onclick="window.open('https://discord.com/channels/1360206899278118972/1366013675051159564', '_blank', 'noopener,noreferrer')">
                     <span data-icon="discord"></span> Discordに送る
                 </button>
             </div>
@@ -294,9 +292,9 @@
             <div class="users-list" id="usersList"></div>
 
             <div class="calendar-month-selector my-4 flex items-center justify-center gap-4">
-                <button class="calendar-month-btn flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-200 transition hover:bg-white/20" onclick="app.holidayCalendar.changeMonth(-1)"><span data-icon="chevron-left"></span></button>
+                <button class="calendar-month-btn flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-200 transition hover:bg-white/20" onclick="app.holidayCalendar.changeMonth(-1)" aria-label="前の月"><span data-icon="chevron-left"></span></button>
                 <span class="calendar-current-month min-w-[120px] text-center text-lg font-bold text-white" id="calendarCurrentMonth"></span>
-                <button class="calendar-month-btn flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-200 transition hover:bg-white/20" onclick="app.holidayCalendar.changeMonth(1)"><span data-icon="chevron-right"></span></button>
+                <button class="calendar-month-btn flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-200 transition hover:bg-white/20" onclick="app.holidayCalendar.changeMonth(1)" aria-label="次の月"><span data-icon="chevron-right"></span></button>
             </div>
 
             <div class="holiday-calendar" id="holidayCalendar"></div>
@@ -443,7 +441,7 @@
     <div class="modal-panel user-modal fixed left-1/2 top-1/2 z-[1500] max-h-[80vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="userModal">
         <div class="modal-header mb-5 flex items-center justify-between">
             <h2 class="text-lg font-bold text-white"><span data-icon="users"></span> ユーザー管理</h2>
-            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.holidayCalendar.closeUserModal()"><span data-icon="x"></span></button>
+            <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.holidayCalendar.closeUserModal()"><span data-icon="x"></span></button>
         </div>
         <button class="new-user-btn mb-4 w-full rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.holidayCalendar.showUserForm()"><span data-icon="plus"></span> 新規登録</button>
         <div class="user-list-container">
@@ -455,7 +453,7 @@
     <div class="modal-panel user-form-modal fixed left-1/2 top-1/2 z-[1500] max-h-[80vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="userFormModal">
         <div class="modal-header mb-5 flex items-center justify-between">
             <h2 class="text-lg font-bold text-white" id="userFormTitle"><span data-icon="user-plus"></span> ユーザー新規登録</h2>
-            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.holidayCalendar.closeUserForm()"><span data-icon="x"></span></button>
+            <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.holidayCalendar.closeUserForm()"><span data-icon="x"></span></button>
         </div>
         <div class="user-form space-y-3">
             <label class="block text-sm font-semibold text-zinc-300">名前</label>
@@ -476,7 +474,7 @@
     <div class="modal-panel holiday-user-select-modal fixed left-1/2 top-1/2 z-[1500] max-h-[80vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="holidayUserSelectModal">
         <div class="modal-header mb-5 flex items-center justify-between">
             <h2 class="text-lg font-bold text-white"><span data-icon="user"></span> ユーザーを選択</h2>
-            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.holidayCalendar.closeHolidayUserSelect()"><span data-icon="x"></span></button>
+            <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.holidayCalendar.closeHolidayUserSelect()"><span data-icon="x"></span></button>
         </div>
         <div class="holiday-user-select">
             <p class="mb-3 text-sm text-zinc-400">休日を編集するユーザーを選択してください</p>
@@ -488,12 +486,12 @@
     <div class="modal-panel holiday-edit-modal fixed left-1/2 top-1/2 z-[1500] max-h-[85vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="holidayEditModal">
         <div class="modal-header mb-5 flex items-center justify-between">
             <h2 class="text-lg font-bold text-white" id="holidayEditTitle"><span data-icon="calendar-days"></span> 休日編集</h2>
-            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.holidayCalendar.cancelHolidayEdit()"><span data-icon="x"></span></button>
+            <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.holidayCalendar.cancelHolidayEdit()"><span data-icon="x"></span></button>
         </div>
         <div class="edit-calendar-nav mb-4 flex items-center justify-center gap-4">
-            <button class="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xs text-zinc-200 transition hover:bg-white/20" onclick="app.holidayCalendar.changeEditMonth(-1)"><span data-icon="chevron-left"></span></button>
+            <button class="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xs text-zinc-200 transition hover:bg-white/20" onclick="app.holidayCalendar.changeEditMonth(-1)" aria-label="前の月"><span data-icon="chevron-left"></span></button>
             <span class="min-w-[110px] text-center text-base font-bold text-white" id="editCalendarMonth"></span>
-            <button class="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xs text-zinc-200 transition hover:bg-white/20" onclick="app.holidayCalendar.changeEditMonth(1)"><span data-icon="chevron-right"></span></button>
+            <button class="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xs text-zinc-200 transition hover:bg-white/20" onclick="app.holidayCalendar.changeEditMonth(1)" aria-label="次の月"><span data-icon="chevron-right"></span></button>
         </div>
         <div class="edit-calendar" id="editCalendar"></div>
         <div class="edit-calendar-actions mt-4 flex gap-2.5">
@@ -506,7 +504,7 @@
     <div class="modal-panel memo-form-modal fixed left-1/2 top-1/2 z-[1500] max-h-[85vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="memoFormModal">
         <div class="modal-header mb-5 flex items-center justify-between">
             <h2 class="text-lg font-bold text-white"><span data-icon="pencil"></span> メモ記入</h2>
-            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.holidayCalendar.closeMemoForm()"><span data-icon="x"></span></button>
+            <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.holidayCalendar.closeMemoForm()"><span data-icon="x"></span></button>
         </div>
         <div class="memo-form space-y-3">
             <label class="block text-sm font-semibold text-zinc-300">種類</label>
@@ -555,7 +553,7 @@
     <div class="modal-panel date-detail-modal fixed left-1/2 top-1/2 z-[1500] max-h-[80vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="dateDetailModal">
         <div class="modal-header mb-5 flex items-center justify-between">
             <h2 class="text-lg font-bold text-white" id="dateDetailTitle"><span data-icon="calendar"></span> 日付詳細</h2>
-            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.holidayCalendar.closeDateDetail()"><span data-icon="x"></span></button>
+            <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.holidayCalendar.closeDateDetail()"><span data-icon="x"></span></button>
         </div>
         <div class="date-detail-content space-y-4">
             <div class="date-detail-holidays" id="dateDetailHolidays"></div>
@@ -571,7 +569,7 @@
     <div class="modal-panel template-select-modal fixed left-1/2 top-1/2 z-[1500] max-h-[80vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="templateSelectModal">
         <div class="modal-header mb-5 flex items-center justify-between">
             <h2 class="text-lg font-bold text-white"><span data-icon="clipboard-list"></span> テンプレートから追加</h2>
-            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.shopping.closeTemplateSelect()"><span data-icon="x"></span></button>
+            <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.shopping.closeTemplateSelect()"><span data-icon="x"></span></button>
         </div>
         <div class="template-list" id="templateList"></div>
     </div>
@@ -580,7 +578,7 @@
     <div class="modal-panel template-manager-modal fixed left-1/2 top-1/2 z-[1500] max-h-[80vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="templateManagerModal">
         <div class="modal-header mb-5 flex items-center justify-between">
             <h2 class="text-lg font-bold text-white"><span data-icon="settings"></span> テンプレート管理</h2>
-            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.shopping.closeTemplateManager()"><span data-icon="x"></span></button>
+            <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.shopping.closeTemplateManager()"><span data-icon="x"></span></button>
         </div>
         <button class="new-user-btn mb-4 w-full rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.shopping.showTemplateForm()"><span data-icon="plus"></span> 新規作成</button>
         <div class="template-list" id="templateManagerList"></div>
@@ -590,7 +588,7 @@
     <div class="modal-panel template-form-modal fixed left-1/2 top-1/2 z-[1500] max-h-[85vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="templateFormModal">
         <div class="modal-header mb-5 flex items-center justify-between">
             <h2 class="text-lg font-bold text-white" id="templateFormTitle"><span data-icon="plus"></span> 新規テンプレート作成</h2>
-            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.shopping.closeTemplateForm()"><span data-icon="x"></span></button>
+            <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.shopping.closeTemplateForm()"><span data-icon="x"></span></button>
         </div>
         <div class="template-form space-y-3">
             <label class="block text-sm font-semibold text-zinc-300">テンプレート名:</label>
@@ -626,7 +624,7 @@
     <div class="modal-panel ac-control-modal fixed left-1/2 top-1/2 z-[1500] max-h-[85vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="acControlModal">
         <div class="modal-header mb-5 flex items-center justify-between">
             <h2 class="text-lg font-bold text-white" id="acControlTitle"><span data-icon="snowflake"></span> エアコン操作</h2>
-            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.smartHome.closeAcControl()"><span data-icon="x"></span></button>
+            <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.smartHome.closeAcControl()"><span data-icon="x"></span></button>
         </div>
         <div class="ac-control-content space-y-5">
             <div class="ac-power-section grid grid-cols-2 gap-2.5">
@@ -677,7 +675,7 @@
     <div class="modal-panel smarthome-settings-modal fixed left-1/2 top-1/2 z-[1500] max-h-[80vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="smartHomeSettingsModal">
         <div class="modal-header mb-5 flex items-center justify-between">
             <h2 class="text-lg font-bold text-white"><span data-icon="settings"></span> API設定</h2>
-            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.smartHome.closeSettings()"><span data-icon="x"></span></button>
+            <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.smartHome.closeSettings()"><span data-icon="x"></span></button>
         </div>
         <div class="settings-content space-y-4">
             <div class="settings-section rounded-xl bg-white/5 p-4 ring-1 ring-white/5">
@@ -700,7 +698,7 @@
     <div class="modal-panel hue-control-modal fixed left-1/2 top-1/2 z-[1500] max-h-[85vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="hueControlModal">
         <div class="modal-header mb-5 flex items-center justify-between">
             <h2 class="text-lg font-bold text-white" id="hueControlTitle"><span data-icon="lightbulb"></span> ライト操作</h2>
-            <button class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.hue.closeControl()"><span data-icon="x"></span></button>
+            <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.hue.closeControl()"><span data-icon="x"></span></button>
         </div>
         <div class="hue-control-content space-y-5">
             <div class="hue-power-section grid grid-cols-2 gap-2.5">
@@ -728,12 +726,24 @@
     </div>
 
     <!-- フッター -->
-    <div class="footer fixed inset-x-0 bottom-0 z-[1000] border-t border-white/10 bg-zinc-950/85 px-4 pt-2.5 backdrop-blur" style="padding-bottom: max(10px, env(safe-area-inset-bottom));">
-        <div class="footer-nav mx-auto flex max-w-lg items-center justify-evenly gap-2">
-            <button class="nav-btn max-w-[140px] flex-1 whitespace-nowrap rounded-lg bg-white/10 px-3 py-2.5 text-[13px] font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" id="footerQuickInput" onclick="app.budget.toggleQuickInputMode()"><span data-icon="zap"></span> クイック入力</button>
-            <button class="nav-btn max-w-[140px] flex-1 whitespace-nowrap rounded-lg bg-white/10 px-3 py-2.5 text-[13px] font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.calculator.show()"><span data-icon="calculator"></span> 計算機</button>
-            <button class="nav-btn max-w-[140px] flex-1 whitespace-nowrap rounded-lg bg-white/10 px-3 py-2.5 text-[13px] font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.csv.showModal()"><span data-icon="download"></span> CSV出力</button>
-            <button class="nav-btn max-w-[140px] flex-1 whitespace-nowrap rounded-lg bg-white/10 px-3 py-2.5 text-[13px] font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.csvImporter.showModal()"><span data-icon="upload"></span> CSV取込</button>
+    <div class="footer fixed inset-x-0 bottom-0 z-[1000] border-t border-white/10 bg-zinc-950/85 px-3 pt-2 backdrop-blur sm:px-4 sm:pt-2.5" style="padding-bottom: max(8px, env(safe-area-inset-bottom));">
+        <div class="footer-nav mx-auto grid max-w-lg grid-cols-4 gap-1 sm:gap-2">
+            <button class="nav-btn flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg bg-white/10 px-1 py-1.5 text-[10px] font-semibold leading-tight text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15 sm:flex-row sm:gap-1.5 sm:px-2 sm:py-2.5 sm:text-[13px]" id="footerQuickInput" onclick="app.budget.toggleQuickInputMode()">
+                <span class="nav-icon text-base leading-none sm:text-sm" data-icon="zap"></span>
+                <span class="nav-label max-w-full truncate tracking-tight">クイック入力</span>
+            </button>
+            <button class="nav-btn flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg bg-white/10 px-1 py-1.5 text-[10px] font-semibold leading-tight text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15 sm:flex-row sm:gap-1.5 sm:px-2 sm:py-2.5 sm:text-[13px]" onclick="app.calculator.show()">
+                <span class="nav-icon text-base leading-none sm:text-sm" data-icon="calculator"></span>
+                <span class="nav-label max-w-full truncate tracking-tight">計算機</span>
+            </button>
+            <button class="nav-btn flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg bg-white/10 px-1 py-1.5 text-[10px] font-semibold leading-tight text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15 sm:flex-row sm:gap-1.5 sm:px-2 sm:py-2.5 sm:text-[13px]" onclick="app.csv.showModal()">
+                <span class="nav-icon text-base leading-none sm:text-sm" data-icon="download"></span>
+                <span class="nav-label max-w-full truncate tracking-tight">CSV出力</span>
+            </button>
+            <button class="nav-btn flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg bg-white/10 px-1 py-1.5 text-[10px] font-semibold leading-tight text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15 sm:flex-row sm:gap-1.5 sm:px-2 sm:py-2.5 sm:text-[13px]" onclick="app.csvImporter.showModal()">
+                <span class="nav-icon text-base leading-none sm:text-sm" data-icon="upload"></span>
+                <span class="nav-label max-w-full truncate tracking-tight">CSV取込</span>
+            </button>
         </div>
     </div>
 

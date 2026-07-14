@@ -3,7 +3,7 @@
  * 予算管理、計算機、CSV出力の機能を提供
  */
 
-import { db, doc, setDoc, onSnapshot } from './firebase-config.js';
+import { db, doc, getDoc, setDoc, onSnapshot, collection } from './firebase-config.js';
 import { Utils } from './utils.js';
 import { Icons } from './icons.js';
 
@@ -1186,12 +1186,14 @@ export class BudgetManager {
         this.currentYear = now.getFullYear();
         /** @type {number} 現在表示中の月 */
         this.currentMonth = now.getMonth() + 1;
-        /** @type {Object} 全予算データ */
+        /** @type {Object} 全予算データ（月キー→月データ） */
         this.data = {};
         /** @type {boolean} 初回読み込みフラグ */
         this.isInitialLoad = true;
         /** @type {boolean} クイック入力モード */
         this.quickInputMode = false;
+        /** @type {boolean} 旧形式データの移行チェック済みフラグ */
+        this._migrationChecked = false;
     }
 
     // ----------------------------------------
@@ -1211,7 +1213,9 @@ export class BudgetManager {
         const footerBtn = document.getElementById('footerQuickInput');
         if (footerBtn) {
             footerBtn.classList.toggle('active', this.quickInputMode);
-            footerBtn.innerHTML = `${Icons.svg('zap')} ${this.quickInputMode ? 'ON' : 'クイック入力'}`;
+            // アイコンは維持し、ラベルのみ差し替え
+            const label = footerBtn.querySelector('.nav-label');
+            if (label) label.textContent = this.quickInputMode ? 'ON' : 'クイック入力';
         }
         
         if (this.quickInputMode) {
@@ -1413,11 +1417,17 @@ export class BudgetManager {
     // ----------------------------------------
 
     /**
-     * Firestoreにデータを保存
+     * Firestoreにデータを保存（現在表示中の月のドキュメントのみ）
+     *
+     * 全月を1ドキュメントに一括保存する旧方式は、複数端末の同時編集や
+     * 古い端末からの保存で他の月のデータまで巻き戻る危険があったため、
+     * 編集対象の月だけを budgetMonths/{YYYY-MM} に保存する方式に変更。
      */
     async saveToFirestore() {
+        const monthKey = this.getCurrentMonthKey();
+        const monthData = this.data[monthKey] || { categories: [] };
         try {
-            await setDoc(doc(db, 'budgetData', 'data'), { data: this.data });
+            await setDoc(doc(db, 'budgetMonths', monthKey), monthData);
             this.showSyncStatus(SYNC_STATUS.SYNCED, '✓ 同期完了');
             this._hideSyncStatusAfterDelay();
         } catch (error) {
@@ -1427,12 +1437,12 @@ export class BudgetManager {
     }
 
     /**
-     * Firestoreからデータをリアルタイム購読
+     * Firestoreからデータをリアルタイム購読（budgetMonthsコレクション全体）
      */
     loadFromFirestore() {
         onSnapshot(
-            doc(db, 'budgetData', 'data'),
-            (docSnap) => this._handleSnapshot(docSnap),
+            collection(db, 'budgetMonths'),
+            (snap) => this._handleMonthsSnapshot(snap),
             (error) => {
                 console.error('Firestore読み込みエラー:', error);
                 this.showSyncStatus(SYNC_STATUS.ERROR, `✗ 接続エラー: ${error.message}`);
@@ -1441,33 +1451,88 @@ export class BudgetManager {
     }
 
     /**
-     * スナップショット受信時の処理
+     * 月コレクションのスナップショット受信時の処理
      * @private
-     * @param {Object} docSnap - Firestoreドキュメントスナップショット
+     * @param {Object} snap - QuerySnapshot
      */
-    _handleSnapshot(docSnap) {
-        if (docSnap.exists() && docSnap.data().data) {
-            this.data = docSnap.data().data;
-            
-            // クイック入力中はDOM再描画をスキップ（フォーカスを維持するため）
-            if (!this.quickInputMode) {
-                this.updateDisplay();
-            }
-            
-            if (this.isInitialLoad) {
-                this.updateDisplay(); // 初回は必ず描画
-                this.showSyncStatus(SYNC_STATUS.SYNCED, '✓ データ読み込み完了');
-                this.isInitialLoad = false;
-                setTimeout(() => {
-                    document.getElementById('syncStatus').style.display = 'none';
-                }, SYNC_STATUS_HIDE_DELAY);
-            }
-        } else {
-            this.showSyncStatus(SYNC_STATUS.SYNCED, '✓ 接続完了（データなし）');
-            setTimeout(() => {
-                document.getElementById('syncStatus').style.display = 'none';
-            }, SYNC_STATUS_HIDE_DELAY);
+    _handleMonthsSnapshot(snap) {
+        // コレクション全体から月データを再構築
+        const newData = {};
+        snap.forEach(docSnap => {
+            newData[docSnap.id] = docSnap.data();
+        });
+        this.data = newData;
+
+        // 初回かつ空 → 旧形式（budgetData/data）からの移行を試みる
+        if (this.isInitialLoad && snap.empty && !this._migrationChecked) {
+            this._migrationChecked = true;
+            this._migrateLegacyData();
+            return; // 移行後にsnapshotが再発火するのでここでは描画しない
         }
+
+        // クイック入力中はDOM再描画をスキップ（フォーカスを維持するため）
+        if (!this.quickInputMode) {
+            this.updateDisplay();
+        }
+
+        if (this.isInitialLoad) {
+            this.updateDisplay(); // 初回は必ず描画
+            this._finishInitialLoad('✓ データ読み込み完了');
+        }
+    }
+
+    /**
+     * 旧形式データ（budgetData/data の全月一括ドキュメント）を
+     * 月別ドキュメント（budgetMonths/{YYYY-MM}）へ移行する（初回のみ）
+     * @private
+     */
+    async _migrateLegacyData() {
+        const legacyRef = doc(db, 'budgetData', 'data');
+        try {
+            const legacy = await getDoc(legacyRef);
+
+            // 既に移行済みマークがあれば何もしない（削除済みデータの復活を防ぐ）
+            if (legacy.exists() && legacy.data().migrated) {
+                this._finishInitialLoad('✓ 接続完了');
+                return;
+            }
+
+            const legacyMonths = legacy.exists() ? legacy.data().data : null;
+            if (legacyMonths && Object.keys(legacyMonths).length > 0) {
+                // 各月を個別ドキュメントとして書き込み
+                for (const monthKey of Object.keys(legacyMonths)) {
+                    await setDoc(doc(db, 'budgetMonths', monthKey), legacyMonths[monthKey]);
+                }
+                // 再移行を防ぐマークを付与（元データはバックアップとして残す）
+                await setDoc(legacyRef, { migrated: true }, { merge: true });
+                Utils.showToast('データを新形式に移行しました');
+                // 書き込みによりコレクションのsnapshotが再発火し、そこで描画される
+            } else {
+                // 移行元データなし → マークだけ付けて空表示
+                if (legacy.exists()) {
+                    await setDoc(legacyRef, { migrated: true }, { merge: true });
+                }
+                this._finishInitialLoad('✓ 接続完了（データなし）');
+            }
+        } catch (error) {
+            console.error('データ移行エラー:', error);
+            // 移行に失敗しても空データで初期表示は完了させる
+            this._finishInitialLoad('✓ 接続完了');
+        }
+    }
+
+    /**
+     * 初回読み込み完了処理（同期ステータス表示と自動非表示）
+     * @private
+     * @param {string} message - 表示メッセージ
+     */
+    _finishInitialLoad(message) {
+        this.showSyncStatus(SYNC_STATUS.SYNCED, message);
+        this.isInitialLoad = false;
+        setTimeout(() => {
+            const statusEl = document.getElementById('syncStatus');
+            if (statusEl) statusEl.style.display = 'none';
+        }, SYNC_STATUS_HIDE_DELAY);
     }
 
     // ----------------------------------------
