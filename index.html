@@ -17,6 +17,14 @@
     <!-- 右上メニューボタン -->
     <button aria-label="メニューを開く" class="fixed right-5 top-5 z-[1100] flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900 text-xl text-zinc-200 shadow-lg ring-1 ring-white/10 transition hover:bg-zinc-800 hover:ring-white/20" onclick="app.toggleMenu()"><span data-icon="menu"></span></button>
 
+    <!-- 家計簿ミニヘッダー（月セレクタが画面外にスクロールしたら表示） -->
+    <div class="mini-header fixed inset-x-0 top-0 z-[1050] items-center gap-2 border-b border-white/10 bg-zinc-950/90 py-2.5 pl-4 pr-16 backdrop-blur" id="miniHeader">
+        <button class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-200 transition hover:bg-white/20" onclick="app.budget.changeMonth(-1)" aria-label="前の月"><span data-icon="chevron-left"></span></button>
+        <div class="min-w-0 flex-1 truncate text-center text-sm font-bold text-white" id="miniHeaderMonth"></div>
+        <span class="shrink-0 whitespace-nowrap text-sm font-bold text-white" id="miniHeaderTotal"></span>
+        <button class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-200 transition hover:bg-white/20" onclick="app.budget.changeMonth(1)" aria-label="次の月"><span data-icon="chevron-right"></span></button>
+    </div>
+
     <!-- サイドメニュー -->
     <div class="side-menu fixed right-0 top-0 z-[1200] h-screen w-72 border-l border-white/10 bg-zinc-900 p-5 shadow-2xl" id="sideMenu">
         <button aria-label="メニューを閉じる" class="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-lg text-zinc-300 transition hover:bg-white/20" onclick="app.closeMenu()"><span data-icon="x"></span></button>
@@ -41,7 +49,7 @@
     <div class="menu-overlay fixed inset-0 z-[1150] bg-black/50" id="menuOverlay" onclick="app.closeMenu()"></div>
 
     <!-- トーストメッセージ -->
-    <div class="toast fixed left-1/2 top-24 z-[2000] -translate-x-1/2 whitespace-nowrap rounded-lg bg-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg" id="toast"></div>
+    <div class="toast fixed left-1/2 z-[2000] max-w-[90vw] -translate-x-1/2 whitespace-pre-line rounded-lg bg-emerald-500 px-6 py-3 text-center text-sm font-semibold text-white shadow-lg" id="toast"></div>
 
     <!-- ログインモーダル -->
     <div class="login-modal fixed inset-0 z-[2000] items-center justify-center bg-black/70 p-5 backdrop-blur-sm" id="loginModal" style="display: none;">
@@ -265,6 +273,39 @@
         </div>
     </div>
 
+    <!-- カテゴリー追加シート（画面下からスライド表示） -->
+    <div class="modal-panel bottom-sheet fixed inset-x-0 bottom-0 z-[1500] max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="addCategorySheet" style="padding-bottom: max(24px, env(safe-area-inset-bottom));">
+        <div class="modal-header mb-5 flex items-center justify-between">
+            <h2 class="text-lg font-bold text-white"><span data-icon="plus"></span> カテゴリーを追加</h2>
+            <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.budget.closeAddCategorySheet()"><span data-icon="x"></span></button>
+        </div>
+        <div class="input-group flex flex-col gap-2.5">
+            <input type="text" id="newCategoryName" placeholder="大カテゴリー名（例：光熱費）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+            <input type="number" id="newCategoryAmount" placeholder="金額" class="min-w-0 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+            <input type="text" id="newCategoryNote" placeholder="備考（任意）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+            <button onclick="app.budget.addCategory()" class="w-full rounded-lg bg-indigo-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400">追加</button>
+        </div>
+    </div>
+
+    <!-- その他の機能シート（計算機・CSV出力・CSV取込） -->
+    <div class="modal-panel bottom-sheet fixed inset-x-0 bottom-0 z-[1500] max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="toolsSheet" style="padding-bottom: max(24px, env(safe-area-inset-bottom));">
+        <div class="modal-header mb-5 flex items-center justify-between">
+            <h2 class="text-lg font-bold text-white">その他の機能</h2>
+            <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.closeToolsSheet()"><span data-icon="x"></span></button>
+        </div>
+        <div class="space-y-2">
+            <button class="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.closeToolsSheet(); app.calculator.show();">
+                <span class="text-lg" data-icon="calculator"></span> 計算機
+            </button>
+            <button class="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.closeToolsSheet(); app.csv.showModal();">
+                <span class="text-lg" data-icon="download"></span> CSV出力
+            </button>
+            <button class="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.closeToolsSheet(); app.csvImporter.showModal();">
+                <span class="text-lg" data-icon="upload"></span> CSV取込
+            </button>
+        </div>
+    </div>
+
     <!-- PayPay請求モーダル -->
     <div class="modal-panel fixed left-1/2 top-1/2 z-[1500] max-h-[85vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="paypayRequestModal">
         <div class="modal-header mb-5 flex items-center justify-between">
@@ -329,22 +370,13 @@
         <div class="content-section" id="budgetSection">
             <div class="sync-status" id="syncStatus">接続中...</div>
 
-            <div class="month-selector mb-6 flex flex-col items-center gap-3 rounded-2xl bg-white/5 p-5 ring-1 ring-white/10">
+            <div class="month-selector mb-6 flex flex-col items-center gap-3 rounded-2xl bg-white/5 p-5 ring-1 ring-white/10" id="monthSelector">
                 <div class="month-nav flex items-center gap-4">
                     <button class="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-200 transition hover:bg-white/20" onclick="app.budget.changeMonth(-1)" aria-label="前の月"><span data-icon="chevron-left"></span></button>
                     <div class="month-display min-w-[140px] text-center text-xl font-bold text-white" id="currentMonth"></div>
                     <button class="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-200 transition hover:bg-white/20" onclick="app.budget.changeMonth(1)" aria-label="次の月"><span data-icon="chevron-right"></span></button>
                 </div>
                 <button class="w-full rounded-lg bg-amber-400/10 px-4 py-2.5 text-sm font-semibold text-amber-300 ring-1 ring-inset ring-amber-400/20 transition hover:bg-amber-400/20" onclick="app.copyMonth.showModal()"><span data-icon="copy"></span> 他の月からコピー</button>
-            </div>
-
-            <div class="add-category mb-6 rounded-2xl bg-white/5 p-5 ring-1 ring-white/10">
-                <div class="input-group flex flex-col gap-2.5 sm:flex-row">
-                    <input type="text" id="newCategoryName" placeholder="大カテゴリー名（例：光熱費）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
-                    <input type="number" id="newCategoryAmount" placeholder="金額" class="min-w-0 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500 sm:w-28">
-                    <input type="text" id="newCategoryNote" placeholder="備考（任意）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
-                    <button onclick="app.budget.addCategory()" class="shrink-0 rounded-lg bg-indigo-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400">追加</button>
-                </div>
             </div>
 
             <div class="category-list space-y-2.5" id="categoryList"></div>
@@ -830,22 +862,18 @@
 
     <!-- フッター -->
     <div class="footer fixed inset-x-0 bottom-0 z-[1000] border-t border-white/10 bg-zinc-950/85 px-3 pt-2 backdrop-blur sm:px-4 sm:pt-2.5" style="padding-bottom: max(8px, env(safe-area-inset-bottom));">
-        <div class="footer-nav mx-auto grid max-w-lg grid-cols-4 gap-1 sm:gap-2">
-            <button class="nav-btn flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg bg-white/10 px-1 py-1.5 text-[10px] font-semibold leading-tight text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15 sm:flex-row sm:gap-1.5 sm:px-2 sm:py-2.5 sm:text-[13px]" id="footerQuickInput" onclick="app.budget.toggleQuickInputMode()">
+        <div class="footer-nav mx-auto grid max-w-lg grid-cols-3 gap-1.5 sm:gap-2">
+            <button class="nav-btn flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg bg-indigo-500 px-1 py-2 text-[11px] font-bold leading-tight text-white transition hover:bg-indigo-400 sm:flex-row sm:gap-1.5 sm:px-3 sm:py-2.5 sm:text-sm" onclick="app.budget.showAddCategorySheet()">
+                <span class="nav-icon text-lg leading-none sm:text-base" data-icon="plus"></span>
+                <span class="nav-label max-w-full truncate tracking-tight">追加</span>
+            </button>
+            <button class="nav-btn flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg bg-white/10 px-1 py-2 text-[10px] font-semibold leading-tight text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15 sm:flex-row sm:gap-1.5 sm:px-3 sm:py-2.5 sm:text-[13px]" id="footerQuickInput" onclick="app.budget.toggleQuickInputMode()">
                 <span class="nav-icon text-base leading-none sm:text-sm" data-icon="zap"></span>
                 <span class="nav-label max-w-full truncate tracking-tight">クイック入力</span>
             </button>
-            <button class="nav-btn flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg bg-white/10 px-1 py-1.5 text-[10px] font-semibold leading-tight text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15 sm:flex-row sm:gap-1.5 sm:px-2 sm:py-2.5 sm:text-[13px]" onclick="app.calculator.show()">
-                <span class="nav-icon text-base leading-none sm:text-sm" data-icon="calculator"></span>
-                <span class="nav-label max-w-full truncate tracking-tight">計算機</span>
-            </button>
-            <button class="nav-btn flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg bg-white/10 px-1 py-1.5 text-[10px] font-semibold leading-tight text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15 sm:flex-row sm:gap-1.5 sm:px-2 sm:py-2.5 sm:text-[13px]" onclick="app.csv.showModal()">
-                <span class="nav-icon text-base leading-none sm:text-sm" data-icon="download"></span>
-                <span class="nav-label max-w-full truncate tracking-tight">CSV出力</span>
-            </button>
-            <button class="nav-btn flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg bg-white/10 px-1 py-1.5 text-[10px] font-semibold leading-tight text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15 sm:flex-row sm:gap-1.5 sm:px-2 sm:py-2.5 sm:text-[13px]" onclick="app.csvImporter.showModal()">
-                <span class="nav-icon text-base leading-none sm:text-sm" data-icon="upload"></span>
-                <span class="nav-label max-w-full truncate tracking-tight">CSV取込</span>
+            <button class="nav-btn flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg bg-white/10 px-1 py-2 text-[10px] font-semibold leading-tight text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15 sm:flex-row sm:gap-1.5 sm:px-3 sm:py-2.5 sm:text-[13px]" onclick="app.showToolsSheet()">
+                <span class="nav-icon text-base leading-none sm:text-sm" data-icon="more-horizontal"></span>
+                <span class="nav-label max-w-full truncate tracking-tight">その他</span>
             </button>
         </div>
     </div>

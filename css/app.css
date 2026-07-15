@@ -8,7 +8,10 @@
    ============================================================ */
 
 /* ---------- トースト（Utils.showToast が .show を切り替え） ---------- */
+/* フッター（親指の届く画面下部）の少し上に表示。
+   編集操作の多くは画面中〜下部で起きるため、視線移動なしで確認できる */
 .toast {
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px) + 12px);
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.3s ease;
@@ -16,6 +19,43 @@
 
 .toast.show {
     opacity: 1;
+}
+
+.toast.toast-error {
+    background: #f43f5e;
+}
+
+/* ---------- 家計簿ミニヘッダー（IntersectionObserverが.showを切り替え） ---------- */
+.mini-header {
+    display: none;
+}
+
+.mini-header.show {
+    display: flex;
+    animation: mini-header-in 0.15s ease-out;
+}
+
+@keyframes mini-header-in {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ---------- アプリ内ダイアログ（js/dialog.js が .show を切り替え） ---------- */
+.dialog-backdrop,
+.dialog-panel {
+    pointer-events: none;
+}
+
+.dialog-backdrop.show,
+.dialog-panel.show {
+    opacity: 1;
+    pointer-events: auto;
 }
 
 /* ---------- サイドメニュー（app.toggleMenu が .open を切り替え） ---------- */
@@ -62,6 +102,26 @@
     to {
         opacity: 1;
         transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+/* ---------- ボトムシート（画面下からスライド表示。.modal-panelのdisplay切替を流用） ---------- */
+.modal-panel.bottom-sheet.show {
+    animation: sheet-in 0.25s ease-out;
+}
+
+@keyframes sheet-in {
+    from {
+        transform: translateY(100%);
+    }
+    to {
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .modal-panel.bottom-sheet.show {
+        animation: none;
     }
 }
 

@@ -12,12 +12,14 @@ export class Utils {
     /**
      * トースト通知を表示
      * @param {string} message - 表示するメッセージ
+     * @param {'success'|'error'} [type='success'] - 種類（errorで赤系表示）
      */
-    static showToast(message) {
+    static showToast(message, type = 'success') {
         const toast = document.getElementById('toast');
         if (!toast) return;
-        
+
         toast.textContent = message;
+        toast.classList.toggle('toast-error', type === 'error');
         toast.classList.add('show');
         setTimeout(() => toast.classList.remove('show'), this.TOAST_DURATION);
     }

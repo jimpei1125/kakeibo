@@ -6,6 +6,7 @@
 import { db, doc, getDoc, setDoc, onSnapshot, collection } from './firebase-config.js';
 import { Utils } from './utils.js';
 import { Icons } from './icons.js';
+import { Dialog } from './dialog.js';
 import { buildPie, CATEGORY_COLORS, OTHER_COLOR } from './chart.js';
 
 // ============================================================
@@ -241,7 +242,7 @@ export class CSVExporter {
         if (!monthsToExport) return;
         
         if (monthsToExport.length === 0) {
-            alert('出力するデータがありません');
+            Utils.showToast('出力するデータがありません', 'error');
             return;
         }
         
@@ -295,15 +296,15 @@ export class CSVExporter {
         const endDate = document.getElementById('csvEndDate')?.value;
         
         if (!startDate || !endDate) {
-            alert('開始年月と終了年月を選択してください');
+            Utils.showToast('開始年月と終了年月を選択してください', 'error');
             return null;
         }
-        
+
         const start = new Date(`${startDate}-01`);
         const end = new Date(`${endDate}-01`);
-        
+
         if (start > end) {
-            alert('開始年月は終了年月より前に設定してください');
+            Utils.showToast('開始年月は終了年月より前に設定してください', 'error');
             return null;
         }
         
@@ -575,7 +576,7 @@ export class CSVImporter {
         }
 
         if (!file.name.toLowerCase().endsWith('.csv')) {
-            alert('CSVファイルを選択してください');
+            Utils.showToast('CSVファイルを選択してください', 'error');
             return;
         }
 
@@ -592,7 +593,7 @@ export class CSVImporter {
                 : `${this.transactions.length}件読み込みました`);
         } catch (error) {
             console.error('CSV読み込みエラー:', error);
-            alert(`CSVファイルの読み込みに失敗しました: ${error.message}`);
+            Utils.showToast(`CSVファイルの読み込みに失敗しました: ${error.message}`, 'error');
             this._resetImportState();
         }
     }
@@ -1093,16 +1094,16 @@ export class CSVImporter {
     /**
      * カテゴリ割り当て済みの明細を家計簿に取り込む
      */
-    importData() {
+    async importData() {
         const monthKey = this._getSelectedMonthKey();
         if (!/^\d{4}-\d{2}$/.test(monthKey)) {
-            alert('取込先の月を選択してください');
+            Utils.showToast('取込先の月を選択してください', 'error');
             return;
         }
 
         const assigned = this.transactions.filter(t => t.category);
         if (assigned.length === 0) {
-            alert('カテゴリを割り当てた明細がありません');
+            Utils.showToast('カテゴリを割り当てた明細がありません', 'error');
             return;
         }
 
@@ -1110,14 +1111,17 @@ export class CSVImporter {
         const dup = this.fileHash && this.importHistory.find(h => h.hash === this.fileHash);
         if (dup) {
             const when = dup.date ? dup.date.replace(/-/g, '/') : '過去';
-            if (!confirm(`このCSVは既に取り込み済みです（${when}に${dup.count}件を取込）。\nもう一度取り込むと二重計上になります。続行しますか？`)) {
-                return;
-            }
+            const proceed = await Dialog.confirm(
+                `このCSVは既に取り込み済みです（${when}に${dup.count}件を取込）。\nもう一度取り込むと二重計上になります。続行しますか？`,
+                { okLabel: '続行', danger: true }
+            );
+            if (!proceed) return;
         }
 
         const skipped = this.transactions.length - assigned.length;
-        if (skipped > 0 && !confirm(`未分類の${skipped}件は取り込まれません。続行しますか？`)) {
-            return;
+        if (skipped > 0) {
+            const proceed = await Dialog.confirm(`未分類の${skipped}件は取り込まれません。続行しますか？`, { okLabel: '続行' });
+            if (!proceed) return;
         }
 
         const detailMode = document.querySelector('input[name="csvImportMode"]:checked')?.value !== 'sum';
@@ -1664,6 +1668,10 @@ export class BudgetManager {
         if (halfEl) halfEl.textContent = `折半: ¥${Utils.formatCurrency(half)}`;
         if (outputEl) outputEl.textContent = this.generateOutput();
 
+        // ミニヘッダーの合計額も追従
+        const miniTotalEl = document.getElementById('miniHeaderTotal');
+        if (miniTotalEl) miniTotalEl.textContent = `¥${Utils.formatCurrency(total)}`;
+
         // 円グラフ面を表示中ならグラフも更新
         if (this.totalFlipped) this.renderPie();
     }
@@ -1904,6 +1912,23 @@ export class BudgetManager {
     // ----------------------------------------
 
     /**
+     * カテゴリー追加シートを表示
+     */
+    showAddCategorySheet() {
+        Utils.showModal('addCategorySheet');
+        // シートのスライドインが終わる頃に名前欄へフォーカス（即入力できるように）
+        setTimeout(() => document.getElementById('newCategoryName')?.focus(), 150);
+    }
+
+    /**
+     * カテゴリー追加シートを閉じる
+     */
+    closeAddCategorySheet() {
+        Utils.closeModal('addCategorySheet');
+        this._clearInputFields(['newCategoryName', 'newCategoryAmount', 'newCategoryNote']);
+    }
+
+    /**
      * 新規カテゴリを追加
      */
     addCategory() {
@@ -1912,7 +1937,7 @@ export class BudgetManager {
         const note = document.getElementById('newCategoryNote')?.value.trim();
 
         if (!name) {
-            alert('カテゴリー名を入力してください');
+            Utils.showToast('カテゴリー名を入力してください', 'error');
             return;
         }
 
@@ -1924,8 +1949,7 @@ export class BudgetManager {
             subcategories: []
         });
 
-        // 入力フィールドをクリア
-        this._clearInputFields(['newCategoryName', 'newCategoryAmount', 'newCategoryNote']);
+        this.closeAddCategorySheet();
         this.saveWithStatus();
     }
 
@@ -1933,8 +1957,9 @@ export class BudgetManager {
      * カテゴリを削除
      * @param {number} categoryId - カテゴリID
      */
-    deleteCategory(categoryId) {
-        if (!confirm('このカテゴリーを削除しますか？')) return;
+    async deleteCategory(categoryId) {
+        const confirmed = await Dialog.confirm('このカテゴリーを削除しますか？', { okLabel: '削除', danger: true });
+        if (!confirmed) return;
 
         const monthData = this.getCurrentMonthData();
         monthData.categories = monthData.categories.filter(c => c.id !== categoryId);
@@ -1945,11 +1970,11 @@ export class BudgetManager {
      * カテゴリ名を編集
      * @param {number} categoryId - カテゴリID
      */
-    editCategory(categoryId) {
+    async editCategory(categoryId) {
         const category = this._findCategory(categoryId);
         if (!category) return;
-        
-        const newName = prompt('カテゴリー名を入力:', category.name);
+
+        const newName = await Dialog.prompt('カテゴリー名を入力:', category.name);
         if (newName?.trim()) {
             category.name = newName.trim();
             this.saveWithStatus();
@@ -1970,7 +1995,7 @@ export class BudgetManager {
         const note = document.getElementById(`subnote-${categoryId}`)?.value.trim();
 
         if (!name) {
-            alert('項目名を入力してください');
+            Utils.showToast('項目名を入力してください', 'error');
             return;
         }
 
@@ -1997,12 +2022,13 @@ export class BudgetManager {
      * @param {number} categoryId - 親カテゴリID
      * @param {number} subcategoryId - サブカテゴリID
      */
-    deleteSubcategory(categoryId, subcategoryId) {
-        if (!confirm('この項目を削除しますか？')) return;
+    async deleteSubcategory(categoryId, subcategoryId) {
+        const confirmed = await Dialog.confirm('この項目を削除しますか？', { okLabel: '削除', danger: true });
+        if (!confirmed) return;
 
         const category = this._findCategory(categoryId);
         if (!category) return;
-        
+
         category.subcategories = category.subcategories.filter(s => s.id !== subcategoryId);
         this.saveWithStatus();
     }
@@ -2012,12 +2038,12 @@ export class BudgetManager {
      * @param {number} categoryId - 親カテゴリID
      * @param {number} subcategoryId - サブカテゴリID
      */
-    editSubcategory(categoryId, subcategoryId) {
+    async editSubcategory(categoryId, subcategoryId) {
         const category = this._findCategory(categoryId);
         const subcategory = category?.subcategories.find(s => s.id === subcategoryId);
         if (!subcategory) return;
-        
-        const newName = prompt('項目名を入力:', subcategory.name);
+
+        const newName = await Dialog.prompt('項目名を入力:', subcategory.name);
         if (newName?.trim()) {
             subcategory.name = newName.trim();
             this.saveWithStatus();
@@ -2036,7 +2062,7 @@ export class BudgetManager {
     updateAmount(categoryId, subcategoryId) {
         const category = this._findCategory(categoryId);
         if (!category) return;
-        
+
         if (subcategoryId === null) {
             const input = document.getElementById(`amount-${categoryId}`);
             category.amount = parseFloat(input?.value) || 0;
@@ -2048,6 +2074,7 @@ export class BudgetManager {
             }
         }
         this.saveWithStatus();
+        Utils.showToast('保存しました');
     }
 
     /**
@@ -2058,7 +2085,7 @@ export class BudgetManager {
     updateNote(categoryId, subcategoryId) {
         const category = this._findCategory(categoryId);
         if (!category) return;
-        
+
         if (subcategoryId === null) {
             const input = document.getElementById(`note-${categoryId}`);
             category.note = input?.value.trim() || '';
@@ -2070,6 +2097,7 @@ export class BudgetManager {
             }
         }
         this.saveWithStatus();
+        Utils.showToast('保存しました');
     }
 
     // ----------------------------------------
@@ -2318,8 +2346,11 @@ export class BudgetManager {
      */
     updateDisplay() {
         // 月表示
-        document.getElementById('currentMonth').textContent =
-            `${this.currentYear}年 ${this.currentMonth}月`;
+        const monthLabel = `${this.currentYear}年 ${this.currentMonth}月`;
+        document.getElementById('currentMonth').textContent = monthLabel;
+
+        const miniMonthEl = document.getElementById('miniHeaderMonth');
+        if (miniMonthEl) miniMonthEl.textContent = monthLabel;
 
         // カテゴリリスト
         const monthData = this.getCurrentMonthData();
@@ -2328,6 +2359,27 @@ export class BudgetManager {
 
         // 合計表示
         this._updateTotalDisplay();
+    }
+
+    /**
+     * 家計簿ミニヘッダーの表示制御を初期化
+     * 月セレクタ（#monthSelector）がスクロールで画面外に出たら
+     * 画面上部にミニヘッダー（月送り・合計金額）を表示する
+     */
+    initMiniHeader() {
+        const target = document.getElementById('monthSelector');
+        const miniHeader = document.getElementById('miniHeader');
+        if (!target || !miniHeader || this._miniHeaderObserver) return;
+
+        this._miniHeaderObserver = new IntersectionObserver(
+            (entries) => {
+                const budgetSection = document.getElementById('budgetSection');
+                const onBudgetPage = budgetSection && getComputedStyle(budgetSection).display !== 'none';
+                miniHeader.classList.toggle('show', onBudgetPage && !entries[0].isIntersecting);
+            },
+            { threshold: 0 }
+        );
+        this._miniHeaderObserver.observe(target);
     }
 
     /**
@@ -2466,27 +2518,24 @@ export class BudgetManager {
 
             return `
                 <div class="subcategory-item rounded-lg bg-white/5 p-3 ring-1 ring-inset ring-white/5" data-sub-id="${sub.id}">
-                    <div class="sub-row flex flex-wrap items-start justify-between gap-2">
-                        <div class="min-w-0">
-                            <span class="subcategory-name text-sm font-medium text-zinc-200">${Utils.escapeHtml(sub.name)}</span>
-                            ${sub.note ? `<div class="note-text mt-0.5 text-xs text-zinc-500">備考: ${Utils.escapeHtml(sub.note)}</div>` : ''}
-                        </div>
-                        <div class="category-amount flex items-center gap-2">
-                            ${quickInput}
-                            <input type="number" id="subamount-${category.id}-${sub.id}" value="${sub.amount ?? 0}"
-                                onchange="app.budget.updateAmount(${category.id}, ${sub.id})" class="w-24 rounded-lg bg-white/5 px-2.5 py-1.5 text-right text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
-                            <span class="text-sm text-zinc-400">円</span>
-                            <div class="category-actions flex gap-1.5">
-                                <button class="edit-btn rounded-md bg-white/10 px-2.5 py-1.5 text-xs font-semibold text-zinc-300 transition hover:bg-white/15" onclick="app.budget.editSubcategory(${category.id}, ${sub.id})">編集</button>
-                                <button class="delete-btn rounded-md bg-rose-500/10 px-2.5 py-1.5 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20" onclick="app.budget.deleteSubcategory(${category.id}, ${sub.id})">削除</button>
-                            </div>
-                            <span class="drag-handle flex h-8 w-8 shrink-0 cursor-grab items-center justify-center text-base text-zinc-500 transition hover:text-zinc-300 active:cursor-grabbing"
-                                onpointerdown="app.budget.startSubcategoryDrag(event, ${category.id}, ${sub.id})">${Icons.svg('grip')}</span>
+                    <div class="sub-row-primary flex items-center gap-2">
+                        <span class="subcategory-name min-w-0 flex-1 truncate text-sm font-medium text-zinc-200">${Utils.escapeHtml(sub.name)}</span>
+                        ${quickInput}
+                        <input type="number" id="subamount-${category.id}-${sub.id}" value="${sub.amount ?? 0}"
+                            onchange="app.budget.updateAmount(${category.id}, ${sub.id})" class="w-24 shrink-0 rounded-lg bg-white/5 px-2.5 py-1.5 text-right text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
+                        <span class="shrink-0 text-sm text-zinc-400">円</span>
+                        <span class="drag-handle flex h-8 w-8 shrink-0 cursor-grab items-center justify-center text-base text-zinc-500 transition hover:text-zinc-300 active:cursor-grabbing"
+                            onpointerdown="app.budget.startSubcategoryDrag(event, ${category.id}, ${sub.id})">${Icons.svg('grip')}</span>
+                    </div>
+                    <div class="sub-row-secondary mt-2 flex items-center gap-2">
+                        <input type="text" class="note-input min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" id="subnote-edit-${category.id}-${sub.id}"
+                            value="${Utils.escapeHtml(sub.note || '')}" placeholder="備考を入力..."
+                            onchange="app.budget.updateNote(${category.id}, ${sub.id})">
+                        <div class="category-actions flex shrink-0 gap-1.5">
+                            <button class="edit-btn rounded-md bg-white/10 px-2.5 py-1.5 text-xs font-semibold text-zinc-300 transition hover:bg-white/15" onclick="app.budget.editSubcategory(${category.id}, ${sub.id})">編集</button>
+                            <button class="delete-btn rounded-md bg-rose-500/10 px-2.5 py-1.5 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20" onclick="app.budget.deleteSubcategory(${category.id}, ${sub.id})">削除</button>
                         </div>
                     </div>
-                    <input type="text" class="note-input mt-2 w-full rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" id="subnote-edit-${category.id}-${sub.id}"
-                        value="${Utils.escapeHtml(sub.note || '')}" placeholder="備考を入力..."
-                        onchange="app.budget.updateNote(${category.id}, ${sub.id})">
                 </div>
             `;
         }).join('');

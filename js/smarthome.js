@@ -5,6 +5,7 @@
 
 import { Utils } from './utils.js';
 import { Icons } from './icons.js';
+import { Dialog } from './dialog.js';
 
 // ============================================================
 // 定数定義
@@ -104,9 +105,11 @@ export class SmartHome {
         this.loadDevices();
     }
 
-    clearToken() {
-        if (!confirm('APIトークンを削除しますか？')) return;
-        
+    async clearToken() {
+        const confirmed = await Dialog.confirm('APIトークンを削除しますか？', { okLabel: '削除', danger: true });
+        if (!confirmed) return;
+
+
         localStorage.removeItem('switchbot_token');
         localStorage.removeItem('switchbot_secret');
         this.token = '';
@@ -349,7 +352,13 @@ export class SmartHome {
     }
 
     async _toggleDevice(deviceId, deviceName, message) {
-        const action = confirm(`${deviceName}\n\n${message}\n\nOK = ON\nキャンセル = OFF`);
+        const action = await Dialog.choose(`${deviceName}\n\n${message}`, [
+            { label: 'キャンセル', value: null, variant: 'neutral' },
+            { label: 'OFFにする', value: false, variant: 'neutral' },
+            { label: 'ONにする', value: true, variant: 'primary' },
+        ]);
+        if (action === null) return;
+
         Utils.showToast('送信中...');
         
         try {
