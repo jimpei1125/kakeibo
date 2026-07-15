@@ -6,6 +6,7 @@
 import { Utils } from './utils.js';
 import { Icons } from './icons.js';
 import { BudgetManager, Calculator, CSVExporter, CSVImporter, CopyMonthManager } from './budget.js';
+import { PayPayRequestManager } from './paypay.js';
 import { HolidayCalendar } from './calendar.js';
 import { ShoppingList } from './shopping.js';
 import { SmartHome } from './smarthome.js';
@@ -48,6 +49,7 @@ class KakeiboApp {
         this.csv = new CSVExporter(this.budget);
         this.csvImporter = new CSVImporter(this.budget);
         this.copyMonth = new CopyMonthManager(this.budget);
+        this.paypay = new PayPayRequestManager(this.budget);
         this.holidayCalendar = new HolidayCalendar();
         this.shopping = new ShoppingList(this.budget);
         this.smartHome = new SmartHome();
@@ -172,6 +174,9 @@ class KakeiboApp {
 
         // CSVインポートの店名→カテゴリルールを購読
         this.csvImporter.init();
+
+        // PayPay請求のアプリ設定（受け取りリンク）を購読
+        this.paypay.init();
         
         // 各モジュールの初期化
         this.holidayCalendar.init();
