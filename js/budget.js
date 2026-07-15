@@ -1232,6 +1232,259 @@ export class CSVImporter {
 }
 
 // ============================================================
+// 月間コピークラス
+// ============================================================
+
+/**
+ * 他の月のカテゴリーを選んで今月に追加するクラス
+ * （上書きではなく追加。金額を引き継ぐか項目だけコピーするかを選択可能）
+ */
+export class CopyMonthManager {
+    /**
+     * @param {BudgetManager} budgetManager - 予算管理インスタンス
+     */
+    constructor(budgetManager) {
+        /** @type {BudgetManager} */
+        this.budgetManager = budgetManager;
+        /** @type {Array<{id: number, name: string, amount: number, note: string, subcategories: Array, checked: boolean, duplicate: boolean}>} コピー元カテゴリの表示用リスト */
+        this.items = [];
+    }
+
+    /**
+     * コピー元月選択のデフォルト値（前月）を計算
+     * @private
+     * @returns {string} YYYY-MM形式
+     */
+    _getDefaultSourceMonth() {
+        let month = this.budgetManager.currentMonth - 1;
+        let year = this.budgetManager.currentYear;
+        if (month < 1) {
+            month = 12;
+            year--;
+        }
+        return Utils.getMonthKey(year, month);
+    }
+
+    /**
+     * モーダルを表示
+     */
+    showModal() {
+        const sourceInput = document.getElementById('copyMonthSource');
+        if (sourceInput) sourceInput.value = this._getDefaultSourceMonth();
+
+        const keepAmount = document.getElementById('copyMonthKeepAmount');
+        if (keepAmount) keepAmount.checked = true;
+
+        Utils.showModal('copyMonthModal');
+        this._buildList();
+    }
+
+    /**
+     * モーダルを閉じる
+     */
+    closeModal() {
+        Utils.closeModal('copyMonthModal');
+    }
+
+    /**
+     * コピー元の月が変更されたときの処理
+     */
+    onSourceChange() {
+        this._buildList();
+    }
+
+    /**
+     * オプション（金額を引き継ぐか）が変更されたときの処理
+     */
+    onOptionsChange() {
+        this._renderList();
+    }
+
+    /**
+     * コピー元月のカテゴリ一覧を構築
+     * @private
+     */
+    _buildList() {
+        const sourceKey = document.getElementById('copyMonthSource')?.value;
+        const sourceData = sourceKey ? this.budgetManager.data[sourceKey] : null;
+        const currentNames = new Set(
+            this.budgetManager.getCurrentMonthData().categories.map(c => c.name)
+        );
+
+        this.items = (sourceData?.categories || []).map(cat => {
+            const amount = cat.subcategories.length > 0
+                ? cat.subcategories.reduce((sum, sub) => sum + (sub.amount || 0), 0)
+                : (cat.amount || 0);
+            return {
+                id: cat.id,
+                name: cat.name,
+                amount,
+                note: cat.note || '',
+                subcategories: cat.subcategories,
+                checked: !currentNames.has(cat.name),
+                duplicate: currentNames.has(cat.name)
+            };
+        });
+
+        this._renderList();
+    }
+
+    /**
+     * 一覧・ツールバー・実行ボタンを再描画
+     * @private
+     */
+    _renderList() {
+        const listSection = document.getElementById('copyMonthListSection');
+        const emptyEl = document.getElementById('copyMonthEmpty');
+
+        if (this.items.length === 0) {
+            if (listSection) listSection.style.display = 'none';
+            if (emptyEl) emptyEl.style.display = 'block';
+            this._updateExecuteButton();
+            return;
+        }
+
+        if (listSection) listSection.style.display = 'block';
+        if (emptyEl) emptyEl.style.display = 'none';
+
+        this._renderToolbar();
+        this._renderItems();
+        this._updateExecuteButton();
+    }
+
+    /**
+     * ツールバー（全選択・選択件数）を描画
+     * @private
+     */
+    _renderToolbar() {
+        const toolbar = document.getElementById('copyMonthToolbar');
+        if (!toolbar) return;
+
+        const checkedCount = this.items.filter(i => i.checked).length;
+        const allChecked = checkedCount === this.items.length && this.items.length > 0;
+
+        toolbar.innerHTML = `
+            <label class="flex cursor-pointer items-center gap-2.5 text-xs font-semibold text-zinc-300">
+                <input type="checkbox" ${allChecked ? 'checked' : ''}
+                    onchange="app.copyMonth.toggleAll(this.checked)"
+                    class="h-4 w-4 rounded border-white/20 bg-white/5 text-indigo-500 focus:ring-indigo-500">
+                全選択（選択中 ${checkedCount}件）
+            </label>
+        `;
+    }
+
+    /**
+     * 項目一覧を描画
+     * @private
+     */
+    _renderItems() {
+        const listEl = document.getElementById('copyMonthList');
+        if (!listEl) return;
+
+        const keepAmount = document.getElementById('copyMonthKeepAmount')?.checked ?? true;
+
+        listEl.innerHTML = this.items.map((item, index) => {
+            const subCount = item.subcategories.length > 0
+                ? `<span class="ml-1.5 text-zinc-500">(小${item.subcategories.length}件)</span>`
+                : '';
+            const displayAmount = keepAmount ? item.amount : 0;
+            const badge = item.duplicate
+                ? `<span class="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300">
+                        <span data-icon="alert-circle"></span>今月に同名あり
+                   </span>`
+                : '';
+
+            return `
+                <label class="flex cursor-pointer items-center gap-3 px-3 py-2.5 transition hover:bg-white/5">
+                    <input type="checkbox" ${item.checked ? 'checked' : ''}
+                        onchange="app.copyMonth.toggleItem(${index}, this.checked)"
+                        class="h-4 w-4 shrink-0 rounded border-white/20 bg-white/5 text-indigo-500 focus:ring-indigo-500">
+                    <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-center text-sm text-zinc-100">
+                            <span class="truncate">${Utils.escapeHtml(item.name)}</span>${subCount}${badge}
+                        </div>
+                    </div>
+                    <div class="whitespace-nowrap text-sm font-bold text-white">¥${Utils.formatCurrency(displayAmount)}</div>
+                </label>
+            `;
+        }).join('');
+
+        // data-icon をSVGへ展開（一覧を動的生成しているため個別にhydrate）
+        Icons.hydrate(listEl);
+    }
+
+    /**
+     * 実行ボタンの有効/無効・ラベルを更新
+     * @private
+     */
+    _updateExecuteButton() {
+        const btn = document.getElementById('copyMonthExecuteBtn');
+        const label = document.getElementById('copyMonthExecuteLabel');
+        const checkedCount = this.items.filter(i => i.checked).length;
+
+        if (btn) btn.disabled = checkedCount === 0;
+        if (label) label.textContent = checkedCount > 0
+            ? `選択した${checkedCount}件を今月に追加`
+            : '選択した項目を今月に追加';
+    }
+
+    /**
+     * 全項目のチェック状態を一括切り替え
+     * @param {boolean} checked
+     */
+    toggleAll(checked) {
+        this.items.forEach(item => { item.checked = checked; });
+        this._renderList();
+    }
+
+    /**
+     * 項目のチェック状態を切り替え
+     * @param {number} index - itemsのインデックス
+     * @param {boolean} checked
+     */
+    toggleItem(index, checked) {
+        if (this.items[index]) this.items[index].checked = checked;
+        this._renderToolbar();
+        this._updateExecuteButton();
+    }
+
+    /**
+     * 選択したカテゴリを今月に追加する（既存カテゴリは維持＝追加方式）
+     */
+    execute() {
+        const checked = this.items.filter(i => i.checked);
+        if (checked.length === 0) return;
+
+        const keepAmount = document.getElementById('copyMonthKeepAmount')?.checked ?? true;
+        const currentData = this.budgetManager.getCurrentMonthData();
+
+        const newCategories = checked.map(item => {
+            const subcategories = item.subcategories.map(sub => ({
+                id: Utils.generateId(),
+                name: sub.name,
+                amount: keepAmount ? (sub.amount || 0) : 0,
+                note: sub.note || ''
+            }));
+
+            return {
+                id: Utils.generateId(),
+                name: item.name,
+                amount: keepAmount ? (subcategories.length > 0 ? 0 : item.amount) : 0,
+                note: item.note,
+                subcategories
+            };
+        });
+
+        currentData.categories = [...currentData.categories, ...newCategories];
+        this.budgetManager.updateDisplay();
+        this.budgetManager.saveWithStatus();
+
+        Utils.showToast(`${checked.length}件を追加しました`);
+        this.closeModal();
+    }
+}
+
+// ============================================================
 // 予算管理クラス
 // ============================================================
 
@@ -1255,6 +1508,8 @@ export class BudgetManager {
         this._migrationChecked = false;
         /** @type {boolean} 合計カードが円グラフ面を表示中か */
         this.totalFlipped = false;
+        /** @type {boolean} 明細のドラッグ並び替え中か（同期による再描画をスキップする） */
+        this._reordering = false;
     }
 
     // ----------------------------------------
@@ -1534,8 +1789,9 @@ export class BudgetManager {
             return; // 移行後にsnapshotが再発火するのでここでは描画しない
         }
 
-        // クイック入力中はDOM再描画をスキップ（フォーカスを維持するため）
-        if (!this.quickInputMode) {
+        // クイック入力中・ドラッグ並び替え中はDOM再描画をスキップ
+        // （フォーカス維持／ドラッグ中の行が消えるのを防ぐ）
+        if (!this.quickInputMode && !this._reordering) {
             this.updateDisplay();
         }
 
@@ -1827,67 +2083,143 @@ export class BudgetManager {
     toggleAccordion(categoryId) {
         const details = document.getElementById(`details-${categoryId}`);
         const icon = document.getElementById(`icon-${categoryId}`);
-        
+
         details?.classList.toggle('open');
         icon?.classList.toggle('open');
     }
 
     // ----------------------------------------
-    // 先月コピー機能
+    // 明細の並び替え（ドラッグハンドル）
     // ----------------------------------------
 
     /**
-     * 先月のデータを今月にコピー
+     * 大カテゴリーの並び替えドラッグを開始
+     * @param {PointerEvent} event
+     * @param {number} categoryId
      */
-    copyFromPreviousMonth() {
-        const { year, month, key } = this._getPreviousMonth();
-        const prevData = this.data[key];
-        
-        if (!prevData?.categories?.length) {
-            alert('先月のデータがありません');
-            return;
-        }
-        
-        const currentData = this.getCurrentMonthData();
-        if (currentData.categories.length > 0) {
-            if (!confirm('今月のデータが上書きされますが、よろしいですか？')) {
-                return;
+    startCategoryDrag(event, categoryId) {
+        const container = document.getElementById('categoryList');
+        const item = container?.querySelector(`.category-item[data-cat-id="${categoryId}"]`);
+        if (!container || !item) return;
+
+        // ドラッグ開始時は全アコーディオンを閉じて高さを揃える（並び替え中の見た目を安定させるため）
+        container.querySelectorAll('.category-details.open').forEach(el => el.classList.remove('open'));
+        container.querySelectorAll('.accordion-icon.open').forEach(el => el.classList.remove('open'));
+
+        this._beginDrag(event, {
+            container,
+            item,
+            itemSelector: '.category-item',
+            onDrop: (fromIndex, toIndex) => {
+                const monthData = this.getCurrentMonthData();
+                const [moved] = monthData.categories.splice(fromIndex, 1);
+                monthData.categories.splice(toIndex, 0, moved);
+                this.updateDisplay();
+                this.saveWithStatus();
             }
-        }
-        
-        // 深いコピーを作成し、新しいIDを割り当て
-        const copiedCategories = Utils.deepCopy(prevData.categories);
-        copiedCategories.forEach(category => {
-            category.id = Utils.generateId();
-            category.subcategories.forEach(sub => {
-                sub.id = Utils.generateId();
-            });
         });
-        
-        currentData.categories = copiedCategories;
-        this.saveWithStatus();
-        alert('先月分のデータをコピーしました');
     }
 
     /**
-     * 前月の情報を取得
-     * @private
-     * @returns {{year: number, month: number, key: string}}
+     * 小カテゴリーの並び替えドラッグを開始
+     * @param {PointerEvent} event
+     * @param {number} categoryId - 親カテゴリID
+     * @param {number} subId - 小カテゴリID
      */
-    _getPreviousMonth() {
-        let prevMonth = this.currentMonth - 1;
-        let prevYear = this.currentYear;
-        
-        if (prevMonth < 1) {
-            prevMonth = 12;
-            prevYear--;
-        }
-        
-        return {
-            year: prevYear,
-            month: prevMonth,
-            key: Utils.getMonthKey(prevYear, prevMonth)
+    startSubcategoryDrag(event, categoryId, subId) {
+        const container = document.getElementById(`sublist-${categoryId}`);
+        const item = container?.querySelector(`.subcategory-item[data-sub-id="${subId}"]`);
+        if (!container || !item) return;
+
+        this._beginDrag(event, {
+            container,
+            item,
+            itemSelector: '.subcategory-item',
+            onDrop: (fromIndex, toIndex) => {
+                const category = this._findCategory(categoryId);
+                if (!category) return;
+                const [moved] = category.subcategories.splice(fromIndex, 1);
+                category.subcategories.splice(toIndex, 0, moved);
+                // 親カテゴリの開閉状態を保ったまま、サブカテゴリ一覧だけ再描画
+                container.innerHTML = this._renderSubcategoryItems(category);
+                this.saveWithStatus();
+            }
+        });
+    }
+
+    /**
+     * ポインタードラッグによる並び替えの汎用エンジン
+     * グリップ（onpointerdown）から呼ばれ、ポインター移動に追従して対象要素を
+     * 視覚的に移動させ、通過した兄弟要素をtransformで滑らかに詰める。
+     * 指を離した時点の順序を onDrop(fromIndex, toIndex) に渡す。
+     * @private
+     * @param {PointerEvent} event
+     * @param {{container: HTMLElement, item: HTMLElement, itemSelector: string, onDrop: Function}} config
+     */
+    _beginDrag(event, { container, item, itemSelector, onDrop }) {
+        event.preventDefault();
+        const grip = event.currentTarget;
+        const pointerId = event.pointerId;
+
+        const items = Array.from(container.querySelectorAll(`:scope > ${itemSelector}`));
+        const fromIndex = items.indexOf(item);
+        if (fromIndex === -1) return;
+
+        const rects = items.map(el => el.getBoundingClientRect());
+        const step = items.length > 1
+            ? rects[1].top - rects[0].top
+            : rects[0].height + 10;
+
+        this._reordering = true;
+        item.classList.add('dragging');
+        document.body.classList.add('reorder-active');
+
+        const startY = event.clientY;
+        let currentIndex = fromIndex;
+
+        const move = (e) => {
+            const dy = e.clientY - startY;
+            item.style.transform = `translateY(${dy}px)`;
+
+            const rawIndex = fromIndex + Math.round(dy / step);
+            const newIndex = Math.max(0, Math.min(items.length - 1, rawIndex));
+            if (newIndex === currentIndex) return;
+
+            items.forEach((el, i) => {
+                if (el === item) return;
+                let shift = 0;
+                if (newIndex > fromIndex && i > fromIndex && i <= newIndex) {
+                    shift = -step; // 下方向へドラッグ：通過した項目は1つ前に詰める
+                } else if (newIndex < fromIndex && i >= newIndex && i < fromIndex) {
+                    shift = step; // 上方向へドラッグ：通過した項目は1つ後ろへ
+                }
+                el.style.transform = shift ? `translateY(${shift}px)` : '';
+            });
+
+            currentIndex = newIndex;
         };
+
+        const finish = () => {
+            grip.releasePointerCapture(pointerId);
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', finish);
+            grip.removeEventListener('pointercancel', finish);
+
+            item.classList.remove('dragging');
+            item.style.transform = '';
+            items.forEach(el => { if (el !== item) el.style.transform = ''; });
+            document.body.classList.remove('reorder-active');
+            this._reordering = false;
+
+            if (currentIndex !== fromIndex) {
+                onDrop(fromIndex, currentIndex);
+            }
+        };
+
+        grip.setPointerCapture(pointerId);
+        grip.addEventListener('pointermove', move);
+        grip.addEventListener('pointerup', finish);
+        grip.addEventListener('pointercancel', finish);
     }
 
     // ----------------------------------------
@@ -2009,7 +2341,7 @@ export class BudgetManager {
         const displayAmount = category.subcategories.length > 0 ? subTotal : category.amount;
 
         return `
-            <div class="category-item overflow-hidden rounded-xl bg-white/5 ring-1 ring-white/10">
+            <div class="category-item overflow-hidden rounded-xl bg-white/5 ring-1 ring-white/10" data-cat-id="${category.id}">
                 ${this._renderCategorySummary(category, displayAmount)}
                 ${this._renderCategoryDetails(category, displayAmount)}
             </div>
@@ -2042,6 +2374,8 @@ export class BudgetManager {
                 <div class="category-summary-right flex shrink-0 items-center gap-2">
                     ${quickInput}
                     <span class="category-summary-amount whitespace-nowrap text-sm font-bold text-white">${Utils.formatCurrency(displayAmount)}円</span>
+                    <span class="drag-handle flex h-8 w-8 shrink-0 cursor-grab items-center justify-center text-lg text-zinc-500 transition hover:text-zinc-300 active:cursor-grabbing"
+                        onpointerdown="app.budget.startCategoryDrag(event, ${category.id})" onclick="event.stopPropagation()">${Icons.svg('grip')}</span>
                 </div>
             </div>
         `;
@@ -2109,9 +2443,17 @@ export class BudgetManager {
      * @private
      */
     _renderSubcategories(category) {
+        return `<div class="subcategory-list mt-3 space-y-2" id="sublist-${category.id}">${this._renderSubcategoryItems(category)}</div>`;
+    }
+
+    /**
+     * サブカテゴリの各行のHTMLを生成（並び替え後の部分更新でも再利用）
+     * @private
+     */
+    _renderSubcategoryItems(category) {
         const safeCatId = String(category.id).replaceAll('.', '-');
 
-        const items = category.subcategories.map(sub => {
+        return category.subcategories.map(sub => {
             const safeSubId = String(sub.id).replaceAll('.', '-');
 
             const quickInput = this.quickInputMode ? `
@@ -2123,7 +2465,7 @@ export class BudgetManager {
             ` : '';
 
             return `
-                <div class="subcategory-item rounded-lg bg-white/5 p-3 ring-1 ring-inset ring-white/5">
+                <div class="subcategory-item rounded-lg bg-white/5 p-3 ring-1 ring-inset ring-white/5" data-sub-id="${sub.id}">
                     <div class="sub-row flex flex-wrap items-start justify-between gap-2">
                         <div class="min-w-0">
                             <span class="subcategory-name text-sm font-medium text-zinc-200">${Utils.escapeHtml(sub.name)}</span>
@@ -2138,6 +2480,8 @@ export class BudgetManager {
                                 <button class="edit-btn rounded-md bg-white/10 px-2.5 py-1.5 text-xs font-semibold text-zinc-300 transition hover:bg-white/15" onclick="app.budget.editSubcategory(${category.id}, ${sub.id})">編集</button>
                                 <button class="delete-btn rounded-md bg-rose-500/10 px-2.5 py-1.5 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20" onclick="app.budget.deleteSubcategory(${category.id}, ${sub.id})">削除</button>
                             </div>
+                            <span class="drag-handle flex h-8 w-8 shrink-0 cursor-grab items-center justify-center text-base text-zinc-500 transition hover:text-zinc-300 active:cursor-grabbing"
+                                onpointerdown="app.budget.startSubcategoryDrag(event, ${category.id}, ${sub.id})">${Icons.svg('grip')}</span>
                         </div>
                     </div>
                     <input type="text" class="note-input mt-2 w-full rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" id="subnote-edit-${category.id}-${sub.id}"
@@ -2146,8 +2490,6 @@ export class BudgetManager {
                 </div>
             `;
         }).join('');
-
-        return `<div class="subcategory-list mt-3 space-y-2">${items}</div>`;
     }
 
     /**
