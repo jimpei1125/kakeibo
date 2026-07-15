@@ -82,6 +82,22 @@ class KakeiboApp {
         document.getElementById('menuOverlay')?.classList.remove('show');
     }
 
+    // ==================== その他の機能シート ====================
+
+    /**
+     * 「その他の機能」シート（計算機・CSV出力・CSV取込）を表示
+     */
+    showToolsSheet() {
+        Utils.showModal('toolsSheet');
+    }
+
+    /**
+     * 「その他の機能」シートを閉じる
+     */
+    closeToolsSheet() {
+        Utils.closeModal('toolsSheet');
+    }
+
     // ==================== セクション表示制御 ====================
 
     /**

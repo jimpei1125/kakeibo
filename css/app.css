@@ -65,6 +65,26 @@
     }
 }
 
+/* ---------- ボトムシート（画面下からスライド表示。.modal-panelのdisplay切替を流用） ---------- */
+.modal-panel.bottom-sheet.show {
+    animation: sheet-in 0.25s ease-out;
+}
+
+@keyframes sheet-in {
+    from {
+        transform: translateY(100%);
+    }
+    to {
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .modal-panel.bottom-sheet.show {
+        animation: none;
+    }
+}
+
 /* ---------- 同期ステータス（budget.js が className を直接設定） ---------- */
 .sync-status {
     text-align: center;

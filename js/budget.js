@@ -1904,6 +1904,23 @@ export class BudgetManager {
     // ----------------------------------------
 
     /**
+     * カテゴリー追加シートを表示
+     */
+    showAddCategorySheet() {
+        Utils.showModal('addCategorySheet');
+        // シートのスライドインが終わる頃に名前欄へフォーカス（即入力できるように）
+        setTimeout(() => document.getElementById('newCategoryName')?.focus(), 150);
+    }
+
+    /**
+     * カテゴリー追加シートを閉じる
+     */
+    closeAddCategorySheet() {
+        Utils.closeModal('addCategorySheet');
+        this._clearInputFields(['newCategoryName', 'newCategoryAmount', 'newCategoryNote']);
+    }
+
+    /**
      * 新規カテゴリを追加
      */
     addCategory() {
@@ -1924,8 +1941,7 @@ export class BudgetManager {
             subcategories: []
         });
 
-        // 入力フィールドをクリア
-        this._clearInputFields(['newCategoryName', 'newCategoryAmount', 'newCategoryNote']);
+        this.closeAddCategorySheet();
         this.saveWithStatus();
     }
 
