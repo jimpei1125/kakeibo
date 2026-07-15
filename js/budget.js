@@ -1508,6 +1508,8 @@ export class BudgetManager {
         this._migrationChecked = false;
         /** @type {boolean} 合計カードが円グラフ面を表示中か */
         this.totalFlipped = false;
+        /** @type {boolean} 明細のドラッグ並び替え中か（同期による再描画をスキップする） */
+        this._reordering = false;
     }
 
     // ----------------------------------------
@@ -1787,8 +1789,9 @@ export class BudgetManager {
             return; // 移行後にsnapshotが再発火するのでここでは描画しない
         }
 
-        // クイック入力中はDOM再描画をスキップ（フォーカスを維持するため）
-        if (!this.quickInputMode) {
+        // クイック入力中・ドラッグ並び替え中はDOM再描画をスキップ
+        // （フォーカス維持／ドラッグ中の行が消えるのを防ぐ）
+        if (!this.quickInputMode && !this._reordering) {
             this.updateDisplay();
         }
 
@@ -2080,9 +2083,143 @@ export class BudgetManager {
     toggleAccordion(categoryId) {
         const details = document.getElementById(`details-${categoryId}`);
         const icon = document.getElementById(`icon-${categoryId}`);
-        
+
         details?.classList.toggle('open');
         icon?.classList.toggle('open');
+    }
+
+    // ----------------------------------------
+    // 明細の並び替え（ドラッグハンドル）
+    // ----------------------------------------
+
+    /**
+     * 大カテゴリーの並び替えドラッグを開始
+     * @param {PointerEvent} event
+     * @param {number} categoryId
+     */
+    startCategoryDrag(event, categoryId) {
+        const container = document.getElementById('categoryList');
+        const item = container?.querySelector(`.category-item[data-cat-id="${categoryId}"]`);
+        if (!container || !item) return;
+
+        // ドラッグ開始時は全アコーディオンを閉じて高さを揃える（並び替え中の見た目を安定させるため）
+        container.querySelectorAll('.category-details.open').forEach(el => el.classList.remove('open'));
+        container.querySelectorAll('.accordion-icon.open').forEach(el => el.classList.remove('open'));
+
+        this._beginDrag(event, {
+            container,
+            item,
+            itemSelector: '.category-item',
+            onDrop: (fromIndex, toIndex) => {
+                const monthData = this.getCurrentMonthData();
+                const [moved] = monthData.categories.splice(fromIndex, 1);
+                monthData.categories.splice(toIndex, 0, moved);
+                this.updateDisplay();
+                this.saveWithStatus();
+            }
+        });
+    }
+
+    /**
+     * 小カテゴリーの並び替えドラッグを開始
+     * @param {PointerEvent} event
+     * @param {number} categoryId - 親カテゴリID
+     * @param {number} subId - 小カテゴリID
+     */
+    startSubcategoryDrag(event, categoryId, subId) {
+        const container = document.getElementById(`sublist-${categoryId}`);
+        const item = container?.querySelector(`.subcategory-item[data-sub-id="${subId}"]`);
+        if (!container || !item) return;
+
+        this._beginDrag(event, {
+            container,
+            item,
+            itemSelector: '.subcategory-item',
+            onDrop: (fromIndex, toIndex) => {
+                const category = this._findCategory(categoryId);
+                if (!category) return;
+                const [moved] = category.subcategories.splice(fromIndex, 1);
+                category.subcategories.splice(toIndex, 0, moved);
+                // 親カテゴリの開閉状態を保ったまま、サブカテゴリ一覧だけ再描画
+                container.innerHTML = this._renderSubcategoryItems(category);
+                this.saveWithStatus();
+            }
+        });
+    }
+
+    /**
+     * ポインタードラッグによる並び替えの汎用エンジン
+     * グリップ（onpointerdown）から呼ばれ、ポインター移動に追従して対象要素を
+     * 視覚的に移動させ、通過した兄弟要素をtransformで滑らかに詰める。
+     * 指を離した時点の順序を onDrop(fromIndex, toIndex) に渡す。
+     * @private
+     * @param {PointerEvent} event
+     * @param {{container: HTMLElement, item: HTMLElement, itemSelector: string, onDrop: Function}} config
+     */
+    _beginDrag(event, { container, item, itemSelector, onDrop }) {
+        event.preventDefault();
+        const grip = event.currentTarget;
+        const pointerId = event.pointerId;
+
+        const items = Array.from(container.querySelectorAll(`:scope > ${itemSelector}`));
+        const fromIndex = items.indexOf(item);
+        if (fromIndex === -1) return;
+
+        const rects = items.map(el => el.getBoundingClientRect());
+        const step = items.length > 1
+            ? rects[1].top - rects[0].top
+            : rects[0].height + 10;
+
+        this._reordering = true;
+        item.classList.add('dragging');
+        document.body.classList.add('reorder-active');
+
+        const startY = event.clientY;
+        let currentIndex = fromIndex;
+
+        const move = (e) => {
+            const dy = e.clientY - startY;
+            item.style.transform = `translateY(${dy}px)`;
+
+            const rawIndex = fromIndex + Math.round(dy / step);
+            const newIndex = Math.max(0, Math.min(items.length - 1, rawIndex));
+            if (newIndex === currentIndex) return;
+
+            items.forEach((el, i) => {
+                if (el === item) return;
+                let shift = 0;
+                if (newIndex > fromIndex && i > fromIndex && i <= newIndex) {
+                    shift = -step; // 下方向へドラッグ：通過した項目は1つ前に詰める
+                } else if (newIndex < fromIndex && i >= newIndex && i < fromIndex) {
+                    shift = step; // 上方向へドラッグ：通過した項目は1つ後ろへ
+                }
+                el.style.transform = shift ? `translateY(${shift}px)` : '';
+            });
+
+            currentIndex = newIndex;
+        };
+
+        const finish = () => {
+            grip.releasePointerCapture(pointerId);
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', finish);
+            grip.removeEventListener('pointercancel', finish);
+
+            item.classList.remove('dragging');
+            item.style.transform = '';
+            items.forEach(el => { if (el !== item) el.style.transform = ''; });
+            document.body.classList.remove('reorder-active');
+            this._reordering = false;
+
+            if (currentIndex !== fromIndex) {
+                onDrop(fromIndex, currentIndex);
+            }
+        };
+
+        grip.setPointerCapture(pointerId);
+        grip.addEventListener('pointermove', move);
+        grip.addEventListener('pointerup', finish);
+        grip.addEventListener('pointercancel', finish);
     }
 
     // ----------------------------------------
@@ -2204,7 +2341,7 @@ export class BudgetManager {
         const displayAmount = category.subcategories.length > 0 ? subTotal : category.amount;
 
         return `
-            <div class="category-item overflow-hidden rounded-xl bg-white/5 ring-1 ring-white/10">
+            <div class="category-item overflow-hidden rounded-xl bg-white/5 ring-1 ring-white/10" data-cat-id="${category.id}">
                 ${this._renderCategorySummary(category, displayAmount)}
                 ${this._renderCategoryDetails(category, displayAmount)}
             </div>
@@ -2237,6 +2374,8 @@ export class BudgetManager {
                 <div class="category-summary-right flex shrink-0 items-center gap-2">
                     ${quickInput}
                     <span class="category-summary-amount whitespace-nowrap text-sm font-bold text-white">${Utils.formatCurrency(displayAmount)}円</span>
+                    <span class="drag-handle flex h-8 w-8 shrink-0 cursor-grab items-center justify-center text-lg text-zinc-500 transition hover:text-zinc-300 active:cursor-grabbing"
+                        onpointerdown="app.budget.startCategoryDrag(event, ${category.id})" onclick="event.stopPropagation()">${Icons.svg('grip')}</span>
                 </div>
             </div>
         `;
@@ -2304,9 +2443,17 @@ export class BudgetManager {
      * @private
      */
     _renderSubcategories(category) {
+        return `<div class="subcategory-list mt-3 space-y-2" id="sublist-${category.id}">${this._renderSubcategoryItems(category)}</div>`;
+    }
+
+    /**
+     * サブカテゴリの各行のHTMLを生成（並び替え後の部分更新でも再利用）
+     * @private
+     */
+    _renderSubcategoryItems(category) {
         const safeCatId = String(category.id).replaceAll('.', '-');
 
-        const items = category.subcategories.map(sub => {
+        return category.subcategories.map(sub => {
             const safeSubId = String(sub.id).replaceAll('.', '-');
 
             const quickInput = this.quickInputMode ? `
@@ -2318,7 +2465,7 @@ export class BudgetManager {
             ` : '';
 
             return `
-                <div class="subcategory-item rounded-lg bg-white/5 p-3 ring-1 ring-inset ring-white/5">
+                <div class="subcategory-item rounded-lg bg-white/5 p-3 ring-1 ring-inset ring-white/5" data-sub-id="${sub.id}">
                     <div class="sub-row flex flex-wrap items-start justify-between gap-2">
                         <div class="min-w-0">
                             <span class="subcategory-name text-sm font-medium text-zinc-200">${Utils.escapeHtml(sub.name)}</span>
@@ -2333,6 +2480,8 @@ export class BudgetManager {
                                 <button class="edit-btn rounded-md bg-white/10 px-2.5 py-1.5 text-xs font-semibold text-zinc-300 transition hover:bg-white/15" onclick="app.budget.editSubcategory(${category.id}, ${sub.id})">編集</button>
                                 <button class="delete-btn rounded-md bg-rose-500/10 px-2.5 py-1.5 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20" onclick="app.budget.deleteSubcategory(${category.id}, ${sub.id})">削除</button>
                             </div>
+                            <span class="drag-handle flex h-8 w-8 shrink-0 cursor-grab items-center justify-center text-base text-zinc-500 transition hover:text-zinc-300 active:cursor-grabbing"
+                                onpointerdown="app.budget.startSubcategoryDrag(event, ${category.id}, ${sub.id})">${Icons.svg('grip')}</span>
                         </div>
                     </div>
                     <input type="text" class="note-input mt-2 w-full rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" id="subnote-edit-${category.id}-${sub.id}"
@@ -2341,8 +2490,6 @@ export class BudgetManager {
                 </div>
             `;
         }).join('');
-
-        return `<div class="subcategory-list mt-3 space-y-2">${items}</div>`;
     }
 
     /**

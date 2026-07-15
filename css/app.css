@@ -177,6 +177,30 @@
     transform: rotate(90deg);
 }
 
+/* ---------- 明細の並び替え（ドラッグハンドル） ---------- */
+.drag-handle {
+    touch-action: none;
+}
+
+.category-item,
+.subcategory-item {
+    transition: transform 0.15s ease;
+}
+
+.category-item.dragging,
+.subcategory-item.dragging {
+    position: relative;
+    z-index: 50;
+    opacity: 0.9;
+    transition: none;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+body.reorder-active {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
 .category-details {
     display: none;
 }
