@@ -224,6 +224,47 @@
         </div>
     </div>
 
+    <!-- 他の月からコピーモーダル -->
+    <div class="modal-panel csv-modal csv-import-modal fixed left-1/2 top-1/2 z-[1500] max-h-[88vh] w-[94%] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-zinc-900 shadow-2xl ring-1 ring-white/10" id="copyMonthModal">
+        <div class="modal-header flex items-center justify-between p-6 pb-4">
+            <h2 class="text-lg font-bold text-white"><span data-icon="copy"></span> 他の月からコピー</h2>
+            <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.copyMonth.closeModal()"><span data-icon="x"></span></button>
+        </div>
+
+        <div class="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-4">
+            <!-- コピー元の月 -->
+            <div class="rounded-xl bg-white/5 p-4 ring-1 ring-white/5">
+                <label class="mb-2 block text-sm font-semibold text-zinc-300"><span data-icon="calendar"></span> コピー元の月</label>
+                <input type="month" id="copyMonthSource" onchange="app.copyMonth.onSourceChange()"
+                    class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+
+            <!-- 金額オプション -->
+            <div class="rounded-xl bg-white/5 p-4 ring-1 ring-white/5">
+                <label class="flex cursor-pointer items-center gap-2.5 text-sm font-semibold text-zinc-300">
+                    <input type="checkbox" id="copyMonthKeepAmount" checked onchange="app.copyMonth.onOptionsChange()"
+                        class="h-4 w-4 rounded border-white/20 bg-white/5 text-indigo-500 focus:ring-indigo-500">
+                    金額も引き継ぐ
+                </label>
+                <p class="mt-1.5 text-xs text-zinc-500">オフにすると項目だけコピーし、金額は0円で追加します</p>
+            </div>
+
+            <!-- 項目選択 -->
+            <div id="copyMonthListSection" class="overflow-hidden rounded-xl bg-white/5 ring-1 ring-white/5">
+                <div id="copyMonthToolbar" class="flex items-center justify-between border-b border-white/10 px-3 py-2"></div>
+                <div id="copyMonthList" class="max-h-80 divide-y divide-white/5 overflow-y-auto"></div>
+            </div>
+            <p id="copyMonthEmpty" class="py-6 text-center text-sm text-zinc-500" style="display: none;">この月にはデータがありません</p>
+        </div>
+
+        <div class="border-t border-white/10 p-6 pt-4">
+            <button id="copyMonthExecuteBtn" onclick="app.copyMonth.execute()" disabled
+                class="w-full rounded-lg bg-indigo-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-40">
+                <span data-icon="plus"></span> <span id="copyMonthExecuteLabel">選択した項目を今月に追加</span>
+            </button>
+        </div>
+    </div>
+
     <!-- メインコンテンツ -->
     <div class="container relative mx-auto max-w-3xl px-5 pb-5">
         <!-- 家計簿セクション -->
@@ -236,7 +277,7 @@
                     <div class="month-display min-w-[140px] text-center text-xl font-bold text-white" id="currentMonth"></div>
                     <button class="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-200 transition hover:bg-white/20" onclick="app.budget.changeMonth(1)" aria-label="次の月"><span data-icon="chevron-right"></span></button>
                 </div>
-                <button class="w-full rounded-lg bg-amber-400/10 px-4 py-2.5 text-sm font-semibold text-amber-300 ring-1 ring-inset ring-amber-400/20 transition hover:bg-amber-400/20" onclick="app.budget.copyFromPreviousMonth()"><span data-icon="copy"></span> 先月分をコピー</button>
+                <button class="w-full rounded-lg bg-amber-400/10 px-4 py-2.5 text-sm font-semibold text-amber-300 ring-1 ring-inset ring-amber-400/20 transition hover:bg-amber-400/20" onclick="app.copyMonth.showModal()"><span data-icon="copy"></span> 他の月からコピー</button>
             </div>
 
             <div class="add-category mb-6 rounded-2xl bg-white/5 p-5 ring-1 ring-white/10">
