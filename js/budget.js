@@ -6,6 +6,7 @@
 import { db, doc, getDoc, setDoc, onSnapshot, collection } from './firebase-config.js';
 import { Utils } from './utils.js';
 import { Icons } from './icons.js';
+import { Dialog } from './dialog.js';
 import { buildPie, CATEGORY_COLORS, OTHER_COLOR } from './chart.js';
 
 // ============================================================
@@ -241,7 +242,7 @@ export class CSVExporter {
         if (!monthsToExport) return;
         
         if (monthsToExport.length === 0) {
-            alert('出力するデータがありません');
+            Utils.showToast('出力するデータがありません', 'error');
             return;
         }
         
@@ -295,15 +296,15 @@ export class CSVExporter {
         const endDate = document.getElementById('csvEndDate')?.value;
         
         if (!startDate || !endDate) {
-            alert('開始年月と終了年月を選択してください');
+            Utils.showToast('開始年月と終了年月を選択してください', 'error');
             return null;
         }
-        
+
         const start = new Date(`${startDate}-01`);
         const end = new Date(`${endDate}-01`);
-        
+
         if (start > end) {
-            alert('開始年月は終了年月より前に設定してください');
+            Utils.showToast('開始年月は終了年月より前に設定してください', 'error');
             return null;
         }
         
@@ -575,7 +576,7 @@ export class CSVImporter {
         }
 
         if (!file.name.toLowerCase().endsWith('.csv')) {
-            alert('CSVファイルを選択してください');
+            Utils.showToast('CSVファイルを選択してください', 'error');
             return;
         }
 
@@ -592,7 +593,7 @@ export class CSVImporter {
                 : `${this.transactions.length}件読み込みました`);
         } catch (error) {
             console.error('CSV読み込みエラー:', error);
-            alert(`CSVファイルの読み込みに失敗しました: ${error.message}`);
+            Utils.showToast(`CSVファイルの読み込みに失敗しました: ${error.message}`, 'error');
             this._resetImportState();
         }
     }
@@ -1093,16 +1094,16 @@ export class CSVImporter {
     /**
      * カテゴリ割り当て済みの明細を家計簿に取り込む
      */
-    importData() {
+    async importData() {
         const monthKey = this._getSelectedMonthKey();
         if (!/^\d{4}-\d{2}$/.test(monthKey)) {
-            alert('取込先の月を選択してください');
+            Utils.showToast('取込先の月を選択してください', 'error');
             return;
         }
 
         const assigned = this.transactions.filter(t => t.category);
         if (assigned.length === 0) {
-            alert('カテゴリを割り当てた明細がありません');
+            Utils.showToast('カテゴリを割り当てた明細がありません', 'error');
             return;
         }
 
@@ -1110,14 +1111,17 @@ export class CSVImporter {
         const dup = this.fileHash && this.importHistory.find(h => h.hash === this.fileHash);
         if (dup) {
             const when = dup.date ? dup.date.replace(/-/g, '/') : '過去';
-            if (!confirm(`このCSVは既に取り込み済みです（${when}に${dup.count}件を取込）。\nもう一度取り込むと二重計上になります。続行しますか？`)) {
-                return;
-            }
+            const proceed = await Dialog.confirm(
+                `このCSVは既に取り込み済みです（${when}に${dup.count}件を取込）。\nもう一度取り込むと二重計上になります。続行しますか？`,
+                { okLabel: '続行', danger: true }
+            );
+            if (!proceed) return;
         }
 
         const skipped = this.transactions.length - assigned.length;
-        if (skipped > 0 && !confirm(`未分類の${skipped}件は取り込まれません。続行しますか？`)) {
-            return;
+        if (skipped > 0) {
+            const proceed = await Dialog.confirm(`未分類の${skipped}件は取り込まれません。続行しますか？`, { okLabel: '続行' });
+            if (!proceed) return;
         }
 
         const detailMode = document.querySelector('input[name="csvImportMode"]:checked')?.value !== 'sum';
@@ -1929,7 +1933,7 @@ export class BudgetManager {
         const note = document.getElementById('newCategoryNote')?.value.trim();
 
         if (!name) {
-            alert('カテゴリー名を入力してください');
+            Utils.showToast('カテゴリー名を入力してください', 'error');
             return;
         }
 
@@ -1949,8 +1953,9 @@ export class BudgetManager {
      * カテゴリを削除
      * @param {number} categoryId - カテゴリID
      */
-    deleteCategory(categoryId) {
-        if (!confirm('このカテゴリーを削除しますか？')) return;
+    async deleteCategory(categoryId) {
+        const confirmed = await Dialog.confirm('このカテゴリーを削除しますか？', { okLabel: '削除', danger: true });
+        if (!confirmed) return;
 
         const monthData = this.getCurrentMonthData();
         monthData.categories = monthData.categories.filter(c => c.id !== categoryId);
@@ -1961,11 +1966,11 @@ export class BudgetManager {
      * カテゴリ名を編集
      * @param {number} categoryId - カテゴリID
      */
-    editCategory(categoryId) {
+    async editCategory(categoryId) {
         const category = this._findCategory(categoryId);
         if (!category) return;
-        
-        const newName = prompt('カテゴリー名を入力:', category.name);
+
+        const newName = await Dialog.prompt('カテゴリー名を入力:', category.name);
         if (newName?.trim()) {
             category.name = newName.trim();
             this.saveWithStatus();
@@ -1986,7 +1991,7 @@ export class BudgetManager {
         const note = document.getElementById(`subnote-${categoryId}`)?.value.trim();
 
         if (!name) {
-            alert('項目名を入力してください');
+            Utils.showToast('項目名を入力してください', 'error');
             return;
         }
 
@@ -2013,12 +2018,13 @@ export class BudgetManager {
      * @param {number} categoryId - 親カテゴリID
      * @param {number} subcategoryId - サブカテゴリID
      */
-    deleteSubcategory(categoryId, subcategoryId) {
-        if (!confirm('この項目を削除しますか？')) return;
+    async deleteSubcategory(categoryId, subcategoryId) {
+        const confirmed = await Dialog.confirm('この項目を削除しますか？', { okLabel: '削除', danger: true });
+        if (!confirmed) return;
 
         const category = this._findCategory(categoryId);
         if (!category) return;
-        
+
         category.subcategories = category.subcategories.filter(s => s.id !== subcategoryId);
         this.saveWithStatus();
     }
@@ -2028,12 +2034,12 @@ export class BudgetManager {
      * @param {number} categoryId - 親カテゴリID
      * @param {number} subcategoryId - サブカテゴリID
      */
-    editSubcategory(categoryId, subcategoryId) {
+    async editSubcategory(categoryId, subcategoryId) {
         const category = this._findCategory(categoryId);
         const subcategory = category?.subcategories.find(s => s.id === subcategoryId);
         if (!subcategory) return;
-        
-        const newName = prompt('項目名を入力:', subcategory.name);
+
+        const newName = await Dialog.prompt('項目名を入力:', subcategory.name);
         if (newName?.trim()) {
             subcategory.name = newName.trim();
             this.saveWithStatus();

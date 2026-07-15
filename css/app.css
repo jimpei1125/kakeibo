@@ -18,6 +18,22 @@
     opacity: 1;
 }
 
+.toast.toast-error {
+    background: #f43f5e;
+}
+
+/* ---------- アプリ内ダイアログ（js/dialog.js が .show を切り替え） ---------- */
+.dialog-backdrop,
+.dialog-panel {
+    pointer-events: none;
+}
+
+.dialog-backdrop.show,
+.dialog-panel.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+
 /* ---------- サイドメニュー（app.toggleMenu が .open を切り替え） ---------- */
 .side-menu {
     transform: translateX(100%);

@@ -6,6 +6,7 @@
 import { db, collection, addDoc, deleteDoc, query, where, getDocs, orderBy, onSnapshot } from './firebase-config.js';
 import { Utils } from './utils.js';
 import { Icons } from './icons.js';
+import { Dialog } from './dialog.js';
 
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
 const CALENDAR_CELLS = 42;
@@ -650,7 +651,9 @@ export class HolidayCalendar {
     }
 
     async deleteMemoFromForm() {
-        if (!this.editingMemoId || !confirm('このメモを削除しますか？')) return;
+        if (!this.editingMemoId) return;
+        const confirmed = await Dialog.confirm('このメモを削除しますか？', { okLabel: '削除', danger: true });
+        if (!confirmed) return;
         await this.deleteMemo(this.editingMemoId);
         this.closeMemoForm();
     }
@@ -753,7 +756,9 @@ export class HolidayCalendar {
     }
 
     async deleteUser() {
-        if (!this.editingUserId || !confirm('このユーザーを削除しますか？')) return;
+        if (!this.editingUserId) return;
+        const confirmed = await Dialog.confirm('このユーザーを削除しますか？', { okLabel: '削除', danger: true });
+        if (!confirmed) return;
         try {
             const { doc } = await import('./firebase-config.js');
             await deleteDoc(doc(db, 'holidayUsers', this.editingUserId));
@@ -828,7 +833,7 @@ export class HolidayCalendar {
             await Promise.all(this.tempHolidays.map(date => addDoc(collection(db, 'holidays'), { userId: this.selectedUser.id, date, createdAt: new Date().toISOString() })));
             Utils.showToast('休日を保存しました');
             Utils.closeModal('holidayEditModal');
-        } catch (e) { console.error('休日保存エラー:', e); alert('保存に失敗しました'); }
+        } catch (e) { console.error('休日保存エラー:', e); Utils.showToast('保存に失敗しました', 'error'); }
     }
 
     cancelHolidayEdit() { Utils.closeModal('holidayEditModal'); }

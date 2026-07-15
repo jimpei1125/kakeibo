@@ -6,6 +6,7 @@
 import { db, doc, collection, addDoc, updateDoc, deleteDoc, query, orderBy, onSnapshot } from './firebase-config.js';
 import { Utils } from './utils.js';
 import { Icons } from './icons.js';
+import { Dialog } from './dialog.js';
 
 // ============================================================
 // 定数定義
@@ -233,8 +234,10 @@ export class ShoppingList {
     }
 
     async deleteItem(itemId) {
-        if (!confirm('このアイテムを削除しますか？')) return;
-        
+        const confirmed = await Dialog.confirm('このアイテムを削除しますか？', { okLabel: '削除', danger: true });
+        if (!confirmed) return;
+
+
         try {
             await deleteDoc(doc(db, 'shoppingItems', itemId));
             Utils.showToast('削除しました');
@@ -247,8 +250,10 @@ export class ShoppingList {
     async clearCompleted() {
         const completedItems = this.items.filter(i => i.completed);
         if (completedItems.length === 0) return Utils.showToast('購入済みアイテムがありません');
-        if (!confirm(`購入済みの${completedItems.length}件を削除しますか？`)) return;
-        
+        const confirmed = await Dialog.confirm(`購入済みの${completedItems.length}件を削除しますか？`, { okLabel: '削除', danger: true });
+        if (!confirmed) return;
+
+
         try {
             await Promise.all(completedItems.map(i => deleteDoc(doc(db, 'shoppingItems', i.id))));
             Utils.showToast('削除しました');
@@ -520,7 +525,8 @@ export class ShoppingList {
      * @returns {Promise<boolean>} 削除に成功したか
      */
     async removeTemplateDoc(templateId) {
-        if (!confirm('このテンプレートを削除しますか？')) return false;
+        const confirmed = await Dialog.confirm('このテンプレートを削除しますか？', { okLabel: '削除', danger: true });
+        if (!confirmed) return false;
 
         try {
             await deleteDoc(doc(db, 'shoppingTemplates', templateId));
