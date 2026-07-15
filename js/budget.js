@@ -2482,27 +2482,24 @@ export class BudgetManager {
 
             return `
                 <div class="subcategory-item rounded-lg bg-white/5 p-3 ring-1 ring-inset ring-white/5" data-sub-id="${sub.id}">
-                    <div class="sub-row flex flex-wrap items-start justify-between gap-2">
-                        <div class="min-w-0">
-                            <span class="subcategory-name text-sm font-medium text-zinc-200">${Utils.escapeHtml(sub.name)}</span>
-                            ${sub.note ? `<div class="note-text mt-0.5 text-xs text-zinc-500">備考: ${Utils.escapeHtml(sub.note)}</div>` : ''}
-                        </div>
-                        <div class="category-amount flex items-center gap-2">
-                            ${quickInput}
-                            <input type="number" id="subamount-${category.id}-${sub.id}" value="${sub.amount ?? 0}"
-                                onchange="app.budget.updateAmount(${category.id}, ${sub.id})" class="w-24 rounded-lg bg-white/5 px-2.5 py-1.5 text-right text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
-                            <span class="text-sm text-zinc-400">円</span>
-                            <div class="category-actions flex gap-1.5">
-                                <button class="edit-btn rounded-md bg-white/10 px-2.5 py-1.5 text-xs font-semibold text-zinc-300 transition hover:bg-white/15" onclick="app.budget.editSubcategory(${category.id}, ${sub.id})">編集</button>
-                                <button class="delete-btn rounded-md bg-rose-500/10 px-2.5 py-1.5 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20" onclick="app.budget.deleteSubcategory(${category.id}, ${sub.id})">削除</button>
-                            </div>
-                            <span class="drag-handle flex h-8 w-8 shrink-0 cursor-grab items-center justify-center text-base text-zinc-500 transition hover:text-zinc-300 active:cursor-grabbing"
-                                onpointerdown="app.budget.startSubcategoryDrag(event, ${category.id}, ${sub.id})">${Icons.svg('grip')}</span>
+                    <div class="sub-row-primary flex items-center gap-2">
+                        <span class="subcategory-name min-w-0 flex-1 truncate text-sm font-medium text-zinc-200">${Utils.escapeHtml(sub.name)}</span>
+                        ${quickInput}
+                        <input type="number" id="subamount-${category.id}-${sub.id}" value="${sub.amount ?? 0}"
+                            onchange="app.budget.updateAmount(${category.id}, ${sub.id})" class="w-24 shrink-0 rounded-lg bg-white/5 px-2.5 py-1.5 text-right text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
+                        <span class="shrink-0 text-sm text-zinc-400">円</span>
+                        <span class="drag-handle flex h-8 w-8 shrink-0 cursor-grab items-center justify-center text-base text-zinc-500 transition hover:text-zinc-300 active:cursor-grabbing"
+                            onpointerdown="app.budget.startSubcategoryDrag(event, ${category.id}, ${sub.id})">${Icons.svg('grip')}</span>
+                    </div>
+                    <div class="sub-row-secondary mt-2 flex items-center gap-2">
+                        <input type="text" class="note-input min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" id="subnote-edit-${category.id}-${sub.id}"
+                            value="${Utils.escapeHtml(sub.note || '')}" placeholder="備考を入力..."
+                            onchange="app.budget.updateNote(${category.id}, ${sub.id})">
+                        <div class="category-actions flex shrink-0 gap-1.5">
+                            <button class="edit-btn rounded-md bg-white/10 px-2.5 py-1.5 text-xs font-semibold text-zinc-300 transition hover:bg-white/15" onclick="app.budget.editSubcategory(${category.id}, ${sub.id})">編集</button>
+                            <button class="delete-btn rounded-md bg-rose-500/10 px-2.5 py-1.5 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20" onclick="app.budget.deleteSubcategory(${category.id}, ${sub.id})">削除</button>
                         </div>
                     </div>
-                    <input type="text" class="note-input mt-2 w-full rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" id="subnote-edit-${category.id}-${sub.id}"
-                        value="${Utils.escapeHtml(sub.note || '')}" placeholder="備考を入力..."
-                        onchange="app.budget.updateNote(${category.id}, ${sub.id})">
                 </div>
             `;
         }).join('');
