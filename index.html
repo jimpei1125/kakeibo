@@ -265,6 +265,64 @@
         </div>
     </div>
 
+    <!-- PayPay請求モーダル -->
+    <div class="modal-panel fixed left-1/2 top-1/2 z-[1500] max-h-[85vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="paypayRequestModal">
+        <div class="modal-header mb-5 flex items-center justify-between">
+            <h2 class="text-lg font-bold text-white"><span data-icon="send"></span> PayPayで請求</h2>
+            <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.paypay.closeModal()"><span data-icon="x"></span></button>
+        </div>
+
+        <div class="space-y-4">
+            <!-- リンク未設定時のガイド -->
+            <div id="paypayGuide" class="rounded-xl bg-amber-400/10 p-4 text-sm leading-relaxed text-amber-200 ring-1 ring-inset ring-amber-400/20" style="display: none;">
+                <p class="font-semibold">先にPayPayの受け取りリンクを登録してください</p>
+                <ol class="mt-2 list-inside list-decimal space-y-1 text-[13px] text-amber-200/90">
+                    <li>PayPayアプリを開き「送る・受け取る」をタップ</li>
+                    <li>「受け取る」タブで受け取りリンクを作成（本人確認が必要です）</li>
+                    <li>リンクをコピーして下の欄に貼り付けて保存</li>
+                </ol>
+            </div>
+
+            <!-- 請求文プレビュー -->
+            <div id="paypayMessageSection">
+                <label class="mb-2 block text-sm font-semibold text-zinc-300">請求文（送信前に編集できます）</label>
+                <textarea id="paypayMessage" rows="4"
+                    class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm leading-relaxed text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500"></textarea>
+            </div>
+
+            <!-- 受け取りリンク設定 -->
+            <div class="rounded-xl bg-white/5 p-4 ring-1 ring-white/5">
+                <label class="mb-2 block text-sm font-semibold text-zinc-300"><span data-icon="link"></span> 受け取りリンク</label>
+                <div class="flex gap-2">
+                    <input type="url" id="paypayLinkInput" placeholder="https://qr.paypay.ne.jp/..."
+                        class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+                    <button type="button" onclick="app.paypay.saveLink()"
+                        class="shrink-0 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400">保存</button>
+                </div>
+                <p id="paypayLinkWarning" class="mt-2 hidden text-xs text-amber-300">
+                    <span data-icon="alert-circle"></span> PayPayの受け取りリンクの形式と異なるようです。リンクを確認してください（このまま使うこともできます）
+                </p>
+                <p class="mt-2 text-xs text-zinc-500">※ PayPayアプリの「送る・受け取る」→「受け取る」で発行したリンクを貼り付けてください。家族間で共有されます</p>
+            </div>
+
+            <!-- 送信アクション -->
+            <div class="flex gap-2.5">
+                <button id="paypayCopyBtn" onclick="app.paypay.copyMessage()" disabled
+                    class="flex-1 rounded-lg bg-white/10 px-3 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40">
+                    <span data-icon="copy"></span> コピー
+                </button>
+                <button id="paypayShareBtn" onclick="app.paypay.shareMessage()" disabled
+                    class="flex-1 rounded-lg bg-white/10 px-3 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40">
+                    <span data-icon="share"></span> 共有
+                </button>
+                <button id="paypayDiscordBtn" onclick="app.paypay.sendToDiscord()" disabled
+                    class="flex-1 rounded-lg bg-[#5865F2] px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-[#4752c4] disabled:cursor-not-allowed disabled:opacity-40">
+                    <span data-icon="discord"></span> Discordへ
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- メインコンテンツ -->
     <div class="container relative mx-auto max-w-3xl px-5 pb-5">
         <!-- 家計簿セクション -->
@@ -317,6 +375,9 @@
                 <div class="copy-success mt-2 text-center text-sm font-semibold text-emerald-400" id="copySuccess" style="display: none;">コピーしました！</div>
                 <button class="discord-btn mt-3 w-full rounded-lg bg-[#5865F2] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#4752c4]" onclick="window.open('https://discord.com/channels/1360206899278118972/1366013675051159564', '_blank', 'noopener,noreferrer')">
                     <span data-icon="discord"></span> Discordに送る
+                </button>
+                <button class="paypay-btn mt-3 w-full rounded-lg bg-[#ff0033] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#d4002a]" onclick="app.paypay.showModal()">
+                    <span data-icon="send"></span> PayPayで請求
                 </button>
             </div>
         </div>
