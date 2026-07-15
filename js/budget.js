@@ -1668,6 +1668,10 @@ export class BudgetManager {
         if (halfEl) halfEl.textContent = `折半: ¥${Utils.formatCurrency(half)}`;
         if (outputEl) outputEl.textContent = this.generateOutput();
 
+        // ミニヘッダーの合計額も追従
+        const miniTotalEl = document.getElementById('miniHeaderTotal');
+        if (miniTotalEl) miniTotalEl.textContent = `¥${Utils.formatCurrency(total)}`;
+
         // 円グラフ面を表示中ならグラフも更新
         if (this.totalFlipped) this.renderPie();
     }
@@ -2058,7 +2062,7 @@ export class BudgetManager {
     updateAmount(categoryId, subcategoryId) {
         const category = this._findCategory(categoryId);
         if (!category) return;
-        
+
         if (subcategoryId === null) {
             const input = document.getElementById(`amount-${categoryId}`);
             category.amount = parseFloat(input?.value) || 0;
@@ -2070,6 +2074,7 @@ export class BudgetManager {
             }
         }
         this.saveWithStatus();
+        Utils.showToast('保存しました');
     }
 
     /**
@@ -2080,7 +2085,7 @@ export class BudgetManager {
     updateNote(categoryId, subcategoryId) {
         const category = this._findCategory(categoryId);
         if (!category) return;
-        
+
         if (subcategoryId === null) {
             const input = document.getElementById(`note-${categoryId}`);
             category.note = input?.value.trim() || '';
@@ -2092,6 +2097,7 @@ export class BudgetManager {
             }
         }
         this.saveWithStatus();
+        Utils.showToast('保存しました');
     }
 
     // ----------------------------------------
@@ -2340,8 +2346,11 @@ export class BudgetManager {
      */
     updateDisplay() {
         // 月表示
-        document.getElementById('currentMonth').textContent =
-            `${this.currentYear}年 ${this.currentMonth}月`;
+        const monthLabel = `${this.currentYear}年 ${this.currentMonth}月`;
+        document.getElementById('currentMonth').textContent = monthLabel;
+
+        const miniMonthEl = document.getElementById('miniHeaderMonth');
+        if (miniMonthEl) miniMonthEl.textContent = monthLabel;
 
         // カテゴリリスト
         const monthData = this.getCurrentMonthData();
@@ -2350,6 +2359,27 @@ export class BudgetManager {
 
         // 合計表示
         this._updateTotalDisplay();
+    }
+
+    /**
+     * 家計簿ミニヘッダーの表示制御を初期化
+     * 月セレクタ（#monthSelector）がスクロールで画面外に出たら
+     * 画面上部にミニヘッダー（月送り・合計金額）を表示する
+     */
+    initMiniHeader() {
+        const target = document.getElementById('monthSelector');
+        const miniHeader = document.getElementById('miniHeader');
+        if (!target || !miniHeader || this._miniHeaderObserver) return;
+
+        this._miniHeaderObserver = new IntersectionObserver(
+            (entries) => {
+                const budgetSection = document.getElementById('budgetSection');
+                const onBudgetPage = budgetSection && getComputedStyle(budgetSection).display !== 'none';
+                miniHeader.classList.toggle('show', onBudgetPage && !entries[0].isIntersecting);
+            },
+            { threshold: 0 }
+        );
+        this._miniHeaderObserver.observe(target);
     }
 
     /**

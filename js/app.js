@@ -110,18 +110,24 @@ class KakeiboApp {
     _showSection(activeSection, hiddenMenuItem, showFooter = false) {
         // 全セクションを非表示
         Object.values(SECTIONS).forEach(id => Utils.setVisible(id, false));
-        
+
         // 対象セクションを表示
         Utils.setVisible(activeSection, true);
-        
+
         // フッター制御
         const footer = document.querySelector('.footer');
         if (footer) footer.style.display = showFooter ? 'block' : 'none';
-        
+
         // メニュー項目の表示制御
         Object.values(MENU_ITEMS).forEach(id => Utils.setVisible(id, true));
         Utils.setVisible(hiddenMenuItem, false);
-        
+
+        // 家計簿ミニヘッダーは家計簿セクション以外では常に非表示
+        // （IntersectionObserverの発火を待たず、切替時に確実に消す）
+        if (activeSection !== SECTIONS.BUDGET) {
+            document.getElementById('miniHeader')?.classList.remove('show');
+        }
+
         // ページトップにスクロール
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -131,12 +137,16 @@ class KakeiboApp {
      */
     showBudget() {
         this._showSection(SECTIONS.BUDGET, MENU_ITEMS.BUDGET, true);
-        
+
         // 現在の日付に設定
         const jstDate = Utils.getJSTDate();
         this.budget.currentYear = jstDate.getFullYear();
         this.budget.currentMonth = jstDate.getMonth() + 1;
         this.budget.updateDisplay();
+
+        // ページトップに戻るため、ミニヘッダーは念のため非表示に
+        // （IntersectionObserverの反映を待たず即座に消す）
+        document.getElementById('miniHeader')?.classList.remove('show');
     }
 
     /**
@@ -193,7 +203,10 @@ class KakeiboApp {
 
         // PayPay請求のアプリ設定（受け取りリンク）を購読
         this.paypay.init();
-        
+
+        // 月セレクタのスクロール追従ミニヘッダーを初期化
+        this.budget.initMiniHeader();
+
         // 各モジュールの初期化
         this.holidayCalendar.init();
         this.shopping.init();
