@@ -182,11 +182,24 @@ class KakeiboApp {
     // ==================== 初期化 ====================
 
     /**
+     * Service Workerを登録（PWA対応）
+     */
+    registerServiceWorker() {
+        if (!('serviceWorker' in navigator)) return;
+        navigator.serviceWorker.register('./service-worker.js').catch((err) => {
+            console.error('Service Worker登録に失敗しました:', err);
+        });
+    }
+
+    /**
      * アプリケーションを初期化
      */
     init() {
         // 静的HTML内の data-icon をSVGアイコンに展開
         Icons.hydrate();
+
+        // PWA: Service Workerを登録してオフライン起動に対応
+        this.registerServiceWorker();
 
         // 認証状態の監視を開始
         this.authManager.initAuthStateListener();
