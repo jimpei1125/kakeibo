@@ -133,3 +133,103 @@ export function buildPie(breakdown, total) {
 
     return { svg, legend };
 }
+
+// ============================================================
+// 月次推移グラフ（積み上げ棒グラフ）
+// ============================================================
+
+const TREND_VIEW_W = 300;
+const TREND_VIEW_H = 200;
+const TREND_PAD_TOP = 26;
+const TREND_PAD_BOTTOM = 22;
+const TREND_PAD_SIDE = 10;
+const TREND_BAR_GAP = 10;
+const TREND_SEG_GAP = 2; // 積み上げセグメント間の隙間（2px相当）
+
+/**
+ * 金額を軸ラベル用にコンパクト表記（1万円以上は「○.○万」）
+ * @param {number} amount
+ * @returns {string}
+ */
+function formatCompact(amount) {
+    if (amount >= 10000) return `${Math.round(amount / 1000) / 10}万`;
+    return Utils.formatCurrency(amount);
+}
+
+/**
+ * 直近複数ヶ月の合計金額を積み上げ棒グラフで描画
+ * カテゴリの色・積み上げ順は呼び出し側（BudgetManager._getTrendData）で
+ * 全期間を通して固定済みのものを渡す前提（月をまたいで同じ色を維持するため）
+ * @param {Array<{monthKey: string, label: string, segments: Array<{name:string, amount:number, color:string}>, total: number}>} months
+ * @param {string} highlightMonthKey - 現在表示中の月（バーを強調表示）
+ * @returns {{svg: string, legend: string}}
+ */
+export function buildTrendChart(months, highlightMonthKey) {
+    if (!months.length || !months.some(m => m.total > 0)) {
+        return { svg: '', legend: '' };
+    }
+
+    const maxTotal = Math.max(...months.map(m => m.total), 1);
+    const chartH = TREND_VIEW_H - TREND_PAD_TOP - TREND_PAD_BOTTOM;
+    const chartW = TREND_VIEW_W - TREND_PAD_SIDE * 2;
+    const n = months.length;
+    const barW = (chartW - TREND_BAR_GAP * (n - 1)) / n;
+    const baselineY = TREND_VIEW_H - TREND_PAD_BOTTOM;
+
+    let bars = '';
+    let totalLabels = '';
+    let monthLabels = '';
+
+    months.forEach((month, i) => {
+        const x = TREND_PAD_SIDE + i * (barW + TREND_BAR_GAP);
+        const isCurrent = month.monthKey === highlightMonthKey;
+        const barTotalH = (month.total / maxTotal) * chartH;
+        const activeSegments = month.segments.filter(s => s.amount > 0);
+
+        // セグメントを下から積み上げ（隣接セグメント間に2pxの隙間）
+        let cursorY = baselineY;
+        activeSegments.forEach((seg) => {
+            const rawH = (seg.amount / maxTotal) * chartH;
+            const segH = Math.max(0, rawH - (activeSegments.length > 1 ? TREND_SEG_GAP : 0));
+            const y = cursorY - segH;
+            if (segH > 0) {
+                bars += `<rect x="${f2(x)}" y="${f2(y)}" width="${f2(barW)}" height="${f2(segH)}" rx="2" fill="${seg.color}"${isCurrent ? '' : ' opacity="0.82"'}/>`;
+            }
+            cursorY = y - TREND_SEG_GAP;
+        });
+
+        // 合計ラベル（現在月は白太字、他の月は控えめなグレー）
+        const labelY = Math.max(baselineY - barTotalH - 8, 10);
+        const totalLabelAttrs = isCurrent
+            ? `font-size="11" font-weight="700" fill="#ffffff"`
+            : `font-size="9" font-weight="600" fill="#a1a1aa"`;
+        totalLabels += `<text x="${f2(x + barW / 2)}" y="${f2(labelY)}" text-anchor="middle" ${totalLabelAttrs}>${formatCompact(month.total)}</text>`;
+
+        // 月ラベル（現在月を強調）
+        const monthLabelAttrs = isCurrent ? `fill="#ffffff" font-weight="700"` : `fill="#71717a"`;
+        monthLabels += `<text x="${f2(x + barW / 2)}" y="${f2(TREND_VIEW_H - 6)}" text-anchor="middle" font-size="10" ${monthLabelAttrs}>${Utils.escapeHtml(month.label)}</text>`;
+    });
+
+    const baseline = `<line x1="${TREND_PAD_SIDE}" y1="${baselineY}" x2="${TREND_VIEW_W - TREND_PAD_SIDE}" y2="${baselineY}" stroke="#3f3f46" stroke-width="1"/>`;
+
+    const svg = `<svg viewBox="0 0 ${TREND_VIEW_W} ${TREND_VIEW_H}" class="trend-svg" role="img" aria-label="月次推移グラフ" `
+        + `xmlns="http://www.w3.org/2000/svg">${baseline}${bars}${totalLabels}${monthLabels}</svg>`;
+
+    // 凡例: 出現したカテゴリを初出順に（色チップ＋名前のみ。金額は棒の直接ラベルで代用）
+    const seen = new Set();
+    const legendItems = [];
+    months.forEach(month => month.segments.forEach(seg => {
+        if (seg.amount > 0 && !seen.has(seg.name)) {
+            seen.add(seg.name);
+            legendItems.push(seg);
+        }
+    }));
+
+    const legend = legendItems.map(item => `
+        <span class="trend-legend-item inline-flex items-center gap-1.5 text-xs text-zinc-300">
+            <span class="trend-legend-chip h-2.5 w-2.5 shrink-0 rounded-sm" style="background:${item.color}"></span>${Utils.escapeHtml(item.name)}
+        </span>
+    `).join('');
+
+    return { svg, legend };
+}

@@ -7,7 +7,7 @@ import { db, doc, getDoc, setDoc, onSnapshot, collection } from './firebase-conf
 import { Utils } from './utils.js';
 import { Icons } from './icons.js';
 import { Dialog } from './dialog.js';
-import { buildPie, CATEGORY_COLORS, OTHER_COLOR } from './chart.js';
+import { buildPie, buildTrendChart, CATEGORY_COLORS, OTHER_COLOR } from './chart.js';
 
 // ============================================================
 // 定数定義
@@ -1514,6 +1514,8 @@ export class BudgetManager {
         this._migrationChecked = false;
         /** @type {boolean} 合計カードが円グラフ面を表示中か */
         this.totalFlipped = false;
+        /** @type {'pie'|'trend'} 合計カード裏面のタブ */
+        this._flipTab = 'pie';
         /** @type {boolean} 明細のドラッグ並び替え中か（同期による再描画をスキップする） */
         this._reordering = false;
     }
@@ -1690,8 +1692,10 @@ export class BudgetManager {
             }
         }
 
-        // 円グラフ面を表示中ならグラフも更新
-        if (this.totalFlipped) this.renderPie();
+        // 裏面を表示中なら表示中のタブのグラフも更新
+        if (this.totalFlipped) {
+            if (this._flipTab === 'trend') this.renderTrend(); else this.renderPie();
+        }
     }
 
     // ----------------------------------------
@@ -2679,12 +2683,50 @@ export class BudgetManager {
         this.totalFlipped = !this.totalFlipped;
 
         if (this.totalFlipped) {
-            this.renderPie();
+            if (this._flipTab === 'trend') this.renderTrend(); else this.renderPie();
             flip.style.height = `${this._measureHeight(back)}px`;
             flip.classList.add('flipped');
         } else {
             flip.style.height = `${this._measureHeight(front)}px`;
             flip.classList.remove('flipped');
+        }
+    }
+
+    /**
+     * 合計カード裏面のタブ（内訳／推移）を切り替え
+     * @param {'pie'|'trend'} tab
+     */
+    showFlipTab(tab) {
+        this._flipTab = tab;
+        const isPie = tab === 'pie';
+
+        const pieTabBtn = document.getElementById('flipTabPie');
+        const trendTabBtn = document.getElementById('flipTabTrend');
+        const pieContent = document.getElementById('pieTabContent');
+        const trendContent = document.getElementById('trendTabContent');
+
+        pieTabBtn?.classList.toggle('bg-indigo-500', isPie);
+        pieTabBtn?.classList.toggle('text-white', isPie);
+        pieTabBtn?.classList.toggle('bg-white/10', !isPie);
+        pieTabBtn?.classList.toggle('text-zinc-400', !isPie);
+
+        trendTabBtn?.classList.toggle('bg-indigo-500', !isPie);
+        trendTabBtn?.classList.toggle('text-white', !isPie);
+        trendTabBtn?.classList.toggle('bg-white/10', isPie);
+        trendTabBtn?.classList.toggle('text-zinc-400', isPie);
+
+        if (pieContent) pieContent.style.display = isPie ? 'block' : 'none';
+        if (trendContent) trendContent.style.display = isPie ? 'none' : 'block';
+
+        if (isPie) this.renderPie(); else this.renderTrend();
+
+        // タブ内容で高さが変わるため、カードの高さを再計測（描画反映後の次フレームで）
+        const flip = document.getElementById('totalFlip');
+        const back = document.getElementById('totalFlipBack');
+        if (flip && back && this.totalFlipped) {
+            requestAnimationFrame(() => {
+                flip.style.height = `${this._measureHeight(back)}px`;
+            });
         }
     }
 
@@ -2708,6 +2750,7 @@ export class BudgetManager {
      */
     _resetTotalView() {
         this.totalFlipped = false;
+        this._flipTab = 'pie';
         const flip = document.getElementById('totalFlip');
         if (flip) {
             flip.classList.remove('flipped');
@@ -2767,6 +2810,92 @@ export class BudgetManager {
         }
 
         const { svg, legend } = buildPie(breakdown, total);
+        chartEl.innerHTML = svg;
+        legendEl.innerHTML = legend;
+    }
+
+    /**
+     * 直近6ヶ月分（現在表示中の月を含む）の月次推移データを構築
+     * カテゴリの色・積み上げ順は6ヶ月合計の上位5件に固定し、月をまたいで
+     * 同じカテゴリが同じ色になるようにする（色は順位ではなく実体に従う）
+     * @private
+     * @returns {Array<{monthKey: string, label: string, segments: Array, total: number}>}
+     */
+    _getTrendData() {
+        const MONTH_COUNT = 6;
+        const months = [];
+        let y = this.currentYear;
+        let m = this.currentMonth;
+
+        for (let i = 0; i < MONTH_COUNT; i++) {
+            months.unshift({ monthKey: Utils.getMonthKey(y, m), label: `${m}月` });
+            m--;
+            if (m < 1) { m = 12; y--; }
+        }
+
+        // 各月のカテゴリ別合計を計算
+        const monthCategoryTotals = months.map(month => {
+            const data = this.data[month.monthKey];
+            const totals = {};
+            (data?.categories || []).forEach(cat => {
+                const subTotal = cat.subcategories.reduce((sum, sub) => sum + (sub.amount || 0), 0);
+                const amount = cat.subcategories.length > 0 ? subTotal : (cat.amount || 0);
+                if (amount > 0) totals[cat.name] = (totals[cat.name] || 0) + amount;
+            });
+            return totals;
+        });
+
+        // 6ヶ月合計でカテゴリをランキングし、上位5件を選出（色を固定割当）
+        const grandTotals = {};
+        monthCategoryTotals.forEach(totals => {
+            Object.entries(totals).forEach(([name, amount]) => {
+                grandTotals[name] = (grandTotals[name] || 0) + amount;
+            });
+        });
+        const topNames = Object.entries(grandTotals)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([name]) => name);
+
+        const colorByName = {};
+        topNames.forEach((name, i) => { colorByName[name] = CATEGORY_COLORS[i % CATEGORY_COLORS.length]; });
+
+        return months.map((month, i) => {
+            const totals = monthCategoryTotals[i];
+            const segments = topNames.map(name => ({
+                name,
+                amount: totals[name] || 0,
+                color: colorByName[name]
+            }));
+
+            const otherAmount = Object.entries(totals)
+                .filter(([name]) => !topNames.includes(name))
+                .reduce((sum, [, amount]) => sum + amount, 0);
+            if (otherAmount > 0) segments.push({ name: 'その他', amount: otherAmount, color: OTHER_COLOR });
+
+            const total = segments.reduce((sum, seg) => sum + seg.amount, 0);
+            return { monthKey: month.monthKey, label: month.label, segments, total };
+        });
+    }
+
+    /**
+     * 月次推移グラフと凡例を描画
+     */
+    renderTrend() {
+        const chartEl = document.getElementById('trendChart');
+        const legendEl = document.getElementById('trendLegend');
+        if (!chartEl || !legendEl) return;
+
+        const months = this._getTrendData();
+        const hasData = months.some(m => m.total > 0);
+
+        if (!hasData) {
+            chartEl.innerHTML = '';
+            legendEl.innerHTML = '<p class="py-4 text-center text-sm text-zinc-500">データがありません</p>';
+            return;
+        }
+
+        const { svg, legend } = buildTrendChart(months, this.getCurrentMonthKey());
         chartEl.innerHTML = svg;
         legendEl.innerHTML = legend;
     }
