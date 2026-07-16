@@ -5,6 +5,8 @@
 
 import { db, collection, addDoc, deleteDoc, query, where, getDocs, orderBy, onSnapshot } from './firebase-config.js';
 import { Utils } from './utils.js';
+import { Icons } from './icons.js';
+import { Dialog } from './dialog.js';
 
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
 const CALENDAR_CELLS = 42;
@@ -199,7 +201,7 @@ export class HolidayCalendar {
         const indicator = document.createElement('div');
         indicator.id = 'pullToRefreshIndicator';
         indicator.className = 'pull-to-refresh-indicator mb-2.5 flex items-center justify-center gap-2.5 overflow-hidden rounded-xl bg-indigo-500/10';
-        indicator.innerHTML = '<span class="pull-icon text-xl">↓</span><span class="pull-text text-sm font-semibold text-zinc-300">引っ張って更新</span>';
+        indicator.innerHTML = `<span class="pull-icon text-xl">${Icons.svg('arrow-down')}</span><span class="pull-text text-sm font-semibold text-zinc-300">引っ張って更新</span>`;
         calendarSection.insertBefore(indicator, calendarSection.firstChild);
 
         calendarSection.addEventListener('touchstart', (e) => this.handlePullStart(e), { passive: true });
@@ -236,7 +238,7 @@ export class HolidayCalendar {
             if (indicator) {
                 indicator.classList.add('refreshing');
                 indicator.querySelector('.pull-text').textContent = '更新中...';
-                indicator.querySelector('.pull-icon').textContent = '🔄';
+                indicator.querySelector('.pull-icon').innerHTML = Icons.svg('refresh');
             }
             await this.refreshData();
             Utils.showToast('更新しました');
@@ -246,7 +248,7 @@ export class HolidayCalendar {
             indicator.style.opacity = '0';
             indicator.classList.remove('ready', 'refreshing');
             indicator.querySelector('.pull-text').textContent = '引っ張って更新';
-            indicator.querySelector('.pull-icon').textContent = '↓';
+            indicator.querySelector('.pull-icon').innerHTML = Icons.svg('arrow-down');
         }
         this.isPulling = false;
         this.pullDistance = 0;
@@ -331,7 +333,7 @@ export class HolidayCalendar {
         if (!statusText || !linkBtn) return;
         statusText.textContent = this.gcalConnected ? 'Googleカレンダー: 連携中 ✓' : 'Googleカレンダー: 未連携';
         statusText.style.color = this.gcalConnected ? '#34d399' : '';
-        linkBtn.textContent = this.gcalConnected ? '🔓 解除' : '🔗 連携';
+        linkBtn.innerHTML = this.gcalConnected ? `${Icons.svg('x')} 解除` : `${Icons.svg('link')} 連携`;
         linkBtn.classList.toggle('connected', this.gcalConnected);
     }
 
@@ -483,8 +485,8 @@ export class HolidayCalendar {
                 const tc = dayM.filter(m => m.type === 'task').length;
                 const sc = dayM.filter(m => m.type === 'schedule').length;
                 html += '<div class="calendar-memo-indicator mb-px flex flex-wrap gap-px">';
-                if (tc) html += `<span class="memo-badge task rounded-sm bg-black/40 px-0.5 text-[5px] leading-snug text-rose-300 sm:text-[6px]">📌${tc}</span>`;
-                if (sc) html += `<span class="memo-badge schedule rounded-sm bg-black/40 px-0.5 text-[5px] leading-snug text-sky-300 sm:text-[6px]">🗓️${sc}</span>`;
+                if (tc) html += `<span class="memo-badge task rounded-sm bg-black/40 px-0.5 text-[5px] leading-snug text-rose-300 sm:text-[6px]">${Icons.svg('pin')}${tc}</span>`;
+                if (sc) html += `<span class="memo-badge schedule rounded-sm bg-black/40 px-0.5 text-[5px] leading-snug text-sky-300 sm:text-[6px]">${Icons.svg('calendar')}${sc}</span>`;
                 html += '</div>';
             }
 
@@ -556,7 +558,7 @@ export class HolidayCalendar {
         const memo = memoId ? this.memos.find(m => m.id === memoId) : null;
         
         const formTitle = document.querySelector('#memoFormModal .modal-header h2');
-        if (formTitle) formTitle.textContent = memo ? '✏️ メモ編集' : '📝 メモ記入';
+        if (formTitle) formTitle.innerHTML = memo ? `${Icons.svg('pencil')} メモ編集` : `${Icons.svg('pencil')} メモ記入`;
         
         const deleteBtn = document.getElementById('memoDeleteBtn');
         if (deleteBtn) deleteBtn.style.display = memo ? 'block' : 'none';
@@ -663,8 +665,8 @@ export class HolidayCalendar {
         const filterBtnClass = 'memo-filter-btn flex-1 rounded-lg bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-400 transition hover:bg-white/15';
         let html = `<div class="memo-filter-section mb-3 flex gap-2 rounded-xl bg-white/5 p-2 ring-1 ring-inset ring-white/5">
             <button class="${filterBtnClass}${this.memoFilter === 'all' ? ' active' : ''}" data-filter="all" onclick="app.holidayCalendar.setMemoFilter('all')">すべて</button>
-            <button class="${filterBtnClass}${this.memoFilter === 'task' ? ' active' : ''}" data-filter="task" onclick="app.holidayCalendar.setMemoFilter('task')">📌 タスク</button>
-            <button class="${filterBtnClass}${this.memoFilter === 'schedule' ? ' active' : ''}" data-filter="schedule" onclick="app.holidayCalendar.setMemoFilter('schedule')">🗓️ 予定</button>
+            <button class="${filterBtnClass}${this.memoFilter === 'task' ? ' active' : ''}" data-filter="task" onclick="app.holidayCalendar.setMemoFilter('task')">${Icons.svg('pin')} タスク</button>
+            <button class="${filterBtnClass}${this.memoFilter === 'schedule' ? ' active' : ''}" data-filter="schedule" onclick="app.holidayCalendar.setMemoFilter('schedule')">${Icons.svg('calendar')} 予定</button>
         </div>`;
 
         if (!memos.length) { c.innerHTML = html + '<div class="no-memos p-5 text-center text-sm text-zinc-500">この月のメモはありません</div>'; return; }
@@ -678,19 +680,19 @@ export class HolidayCalendar {
                 const headerClass = isToday
                     ? ' today rounded-md border-l-2 border-l-indigo-400 bg-indigo-500/15 pl-3'
                     : '';
-                html += `<div class="memo-date-header mt-2.5 border-b border-white/10 pb-1 pt-2 text-sm font-bold text-indigo-300 first:mt-0${headerClass}">${isToday ? '📍 今日 - ' : ''}${m.date.substring(5).replace('-','/')} (${WEEKDAYS[new Date(m.date).getDay()]})</div>`;
+                html += `<div class="memo-date-header mt-2.5 border-b border-white/10 pb-1 pt-2 text-sm font-bold text-indigo-300 first:mt-0${headerClass}">${isToday ? `${Icons.svg('pin')} 今日 - ` : ''}${m.date.substring(5).replace('-','/')} (${WEEKDAYS[new Date(m.date).getDay()]})</div>`;
             }
-            const icon = m.type === 'task' ? '📌' : '🗓️';
-            const timeText = m.type === 'schedule' && m.startTime ? `${m.startTime}${m.endTime ? ' - '+m.endTime : ''}` : m.taskTime ? `🔔 ${m.taskTime}` : '';
+            const icon = m.type === 'task' ? Icons.svg('pin') : Icons.svg('calendar');
+            const timeText = m.type === 'schedule' && m.startTime ? `${m.startTime}${m.endTime ? ' - '+m.endTime : ''}` : m.taskTime ? `${Icons.svg('bell')} ${m.taskTime}` : '';
             const time = timeText ? `<span class="memo-time text-[11px] text-zinc-400">${timeText}</span>` : '';
             html += `<div class="memo-item ${m.type} mb-2 flex cursor-grab items-center justify-between gap-2 rounded-lg border-l-[3px] ${m.type === 'task' ? 'border-amber-400' : 'border-sky-400'} bg-white/5 p-3 ring-1 ring-inset ring-white/10" draggable="true" ondragstart="app.holidayCalendar.handleDragStart(event, '${m.id}')" ondragend="app.holidayCalendar.handleDragEnd(event)">
                 <div class="memo-item-content group flex min-w-0 flex-1 cursor-pointer items-center gap-2" onclick="app.holidayCalendar.editMemoFromList('${m.id}')">
                     <span class="memo-icon shrink-0 text-sm">${icon}</span>
                     <div class="memo-details flex min-w-0 flex-col"><span class="memo-text truncate text-[13px] text-zinc-100">${Utils.escapeHtml(m.content)}</span>${time}</div>
-                    ${m.gcalEventId ? '<span class="memo-gcal-icon ml-1 text-xs">📅</span>' : ''}
-                    <span class="memo-edit-hint ml-auto pl-2 text-xs opacity-0 transition group-hover:opacity-70">✏️</span>
+                    ${m.gcalEventId ? `<span class="memo-gcal-icon ml-1 text-xs">${Icons.svg('calendar-days')}</span>` : ''}
+                    <span class="memo-edit-hint ml-auto pl-2 text-xs opacity-0 transition group-hover:opacity-70">${Icons.svg('pencil')}</span>
                 </div>
-                <button class="memo-delete-btn shrink-0 p-1 text-sm opacity-60 transition hover:opacity-100" onclick="event.stopPropagation(); app.holidayCalendar.deleteMemo('${m.id}')">❌</button>
+                <button class="memo-delete-btn shrink-0 p-1 text-sm opacity-60 transition hover:opacity-100" onclick="event.stopPropagation(); app.holidayCalendar.deleteMemo('${m.id}')">${Icons.svg('x')}</button>
             </div>`;
         });
         c.innerHTML = html;
@@ -707,7 +709,9 @@ export class HolidayCalendar {
     }
 
     async deleteMemoFromForm() {
-        if (!this.editingMemoId || !confirm('このメモを削除しますか？')) return;
+        if (!this.editingMemoId) return;
+        const confirmed = await Dialog.confirm('このメモを削除しますか？', { okLabel: '削除', danger: true });
+        if (!confirmed) return;
         await this.deleteMemo(this.editingMemoId);
         this.closeMemoForm();
     }
@@ -717,29 +721,29 @@ export class HolidayCalendar {
     showDateDetail(dateStr) {
         this.selectedDateForMemo = dateStr;
         const d = new Date(dateStr);
-        document.getElementById('dateDetailTitle').textContent = `📅 ${d.getMonth()+1}/${d.getDate()} (${WEEKDAYS[d.getDay()]})`;
+        document.getElementById('dateDetailTitle').innerHTML = `${Icons.svg('calendar')} ${d.getMonth()+1}/${d.getDate()} (${WEEKDAYS[d.getDay()]})`;
         
         const sectionTitleClass = 'detail-section-title mb-2.5 border-b border-white/10 pb-2 text-sm font-bold text-indigo-300';
         const holidays = this.holidays.filter(h => h.date === dateStr);
-        let hHtml = holidays.length ? `<div class="${sectionTitleClass}">🏖️ 休日</div>` + holidays.map(h => {
+        let hHtml = holidays.length ? `<div class="${sectionTitleClass}">${Icons.svg('sun')} 休日</div>` + holidays.map(h => {
             const u = this.users.find(x => x.id === h.userId);
             return u ? `<div class="detail-holiday-user mb-2 flex items-center gap-2.5 rounded-lg bg-white/5 p-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10"><div class="user-color-dot h-3 w-3 shrink-0 rounded-full" style="background-color:${u.color}"></div><span>${Utils.escapeHtml(u.name)}</span></div>` : '';
         }).join('') : '';
         document.getElementById('dateDetailHolidays').innerHTML = hHtml;
 
         const memos = this.memos.filter(m => m.date === dateStr).sort((a,b) => a.type === 'task' ? -1 : 1);
-        let mHtml = memos.length ? `<div class="${sectionTitleClass}">📝 メモ</div>` : '<div class="no-memos p-5 text-center text-sm text-zinc-500">メモはありません</div>';
+        let mHtml = memos.length ? `<div class="${sectionTitleClass}">${Icons.svg('file-text')} メモ</div>` : '<div class="no-memos p-5 text-center text-sm text-zinc-500">メモはありません</div>';
         memos.forEach(m => {
-            const icon = m.type === 'task' ? '📌' : '🗓️';
-            const timeText = m.type === 'schedule' && m.startTime ? `${m.startTime}${m.endTime ? ' - '+m.endTime : ''}` : m.taskTime ? `🔔 ${m.taskTime}` : '';
+            const icon = m.type === 'task' ? Icons.svg('pin') : Icons.svg('calendar');
+            const timeText = m.type === 'schedule' && m.startTime ? `${m.startTime}${m.endTime ? ' - '+m.endTime : ''}` : m.taskTime ? `${Icons.svg('bell')} ${m.taskTime}` : '';
             const time = timeText ? `<div class="detail-memo-time ml-6 mt-1 text-xs text-zinc-400">${timeText}</div>` : '';
             mHtml += `<div class="detail-memo-item ${m.type} relative mb-2 flex cursor-grab flex-col rounded-lg border-l-[3px] ${m.type === 'task' ? 'border-amber-400' : 'border-sky-400'} bg-white/5 p-3 ring-1 ring-inset ring-white/10" draggable="true" ondragstart="app.holidayCalendar.handleDragStart(event, '${m.id}')" ondragend="app.holidayCalendar.handleDragEnd(event)">
                 <div class="detail-memo-main group flex flex-1 cursor-pointer items-center gap-2 pr-7" onclick="app.holidayCalendar.editMemo('${m.id}')">
                     <span class="memo-icon shrink-0 text-sm">${icon}</span>
-                    <span class="detail-memo-content break-words text-sm text-zinc-100">${Utils.escapeHtml(m.content)}${m.gcalEventId ? ' 📅' : ''}</span>
-                    <span class="memo-edit-hint ml-auto pl-2 text-xs opacity-0 transition group-hover:opacity-70">✏️</span>
+                    <span class="detail-memo-content break-words text-sm text-zinc-100">${Utils.escapeHtml(m.content)}${m.gcalEventId ? ` ${Icons.svg('calendar-days')}` : ''}</span>
+                    <span class="memo-edit-hint ml-auto pl-2 text-xs opacity-0 transition group-hover:opacity-70">${Icons.svg('pencil')}</span>
                 </div>${time}
-                <button class="memo-delete-btn small absolute right-2 top-2 p-0.5 text-xs opacity-60 transition hover:opacity-100" onclick="event.stopPropagation(); app.holidayCalendar.deleteMemoFromDetail('${m.id}')">❌</button>
+                <button class="memo-delete-btn small absolute right-2 top-2 p-0.5 text-xs opacity-60 transition hover:opacity-100" onclick="event.stopPropagation(); app.holidayCalendar.deleteMemoFromDetail('${m.id}')">${Icons.svg('x')}</button>
             </div>`;
         });
         document.getElementById('dateDetailMemos').innerHTML = mHtml;
@@ -765,7 +769,7 @@ export class HolidayCalendar {
     showUserForm(userId = null) {
         this.editingUserId = userId;
         const user = userId ? this.users.find(u => u.id === userId) : null;
-        document.getElementById('userFormTitle').textContent = userId ? '✏️ ユーザー編集' : '✨ ユーザー新規登録';
+        document.getElementById('userFormTitle').innerHTML = userId ? `${Icons.svg('pencil')} ユーザー編集` : `${Icons.svg('user-plus')} ユーザー新規登録`;
         document.getElementById('userName').value = user?.name || '';
         this.selectedColor = user?.color || null;
         document.getElementById('deleteUserBtn').style.display = userId ? 'block' : 'none';
@@ -810,7 +814,9 @@ export class HolidayCalendar {
     }
 
     async deleteUser() {
-        if (!this.editingUserId || !confirm('このユーザーを削除しますか？')) return;
+        if (!this.editingUserId) return;
+        const confirmed = await Dialog.confirm('このユーザーを削除しますか？', { okLabel: '削除', danger: true });
+        if (!confirmed) return;
         try {
             const { doc } = await import('./firebase-config.js');
             await deleteDoc(doc(db, 'holidayUsers', this.editingUserId));
@@ -831,7 +837,7 @@ export class HolidayCalendar {
         if (!el) return;
         el.innerHTML = this.users.length === 0
             ? '<p class="py-4 text-center text-sm text-zinc-500">先にユーザーを登録してください</p>'
-            : this.users.map(u => `<button class="holiday-user-btn flex w-full items-center gap-2.5 rounded-xl bg-white/5 p-3.5 text-sm font-bold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.holidayCalendar.selectHolidayUser('${u.id}')" style="border-left:4px solid ${u.color}"><span class="user-emoji">👤</span> ${Utils.escapeHtml(u.name)}</button>`).join('');
+            : this.users.map(u => `<button class="holiday-user-btn flex w-full items-center gap-2.5 rounded-xl bg-white/5 p-3.5 text-sm font-bold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.holidayCalendar.selectHolidayUser('${u.id}')" style="border-left:4px solid ${u.color}"><span class="user-emoji">${Icons.svg('user')}</span> ${Utils.escapeHtml(u.name)}</button>`).join('');
     }
 
     selectHolidayUser(userId) {
@@ -845,7 +851,7 @@ export class HolidayCalendar {
         this.editYear = this.currentYear;
         this.editMonth = this.currentMonth;
         this.tempHolidays = this.holidays.filter(h => h.userId === this.selectedUser.id).map(h => h.date);
-        document.getElementById('holidayEditTitle').textContent = `📅 ${this.selectedUser.name}さんの休日編集`;
+        document.getElementById('holidayEditTitle').innerHTML = `${Icons.svg('calendar-days')} ${Utils.escapeHtml(this.selectedUser.name)}さんの休日編集`;
         this.renderEditCalendar();
         Utils.showModal('holidayEditModal');
     }
@@ -920,7 +926,7 @@ export class HolidayCalendar {
             await Promise.all(this.tempHolidays.map(date => addDoc(collection(db, 'holidays'), { userId: this.selectedUser.id, date, createdAt: new Date().toISOString() })));
             Utils.showToast('休日を保存しました');
             Utils.closeModal('holidayEditModal');
-        } catch (e) { console.error('休日保存エラー:', e); alert('保存に失敗しました'); }
+        } catch (e) { console.error('休日保存エラー:', e); Utils.showToast('保存に失敗しました', 'error'); }
     }
 
     cancelHolidayEdit() { Utils.closeModal('holidayEditModal'); }

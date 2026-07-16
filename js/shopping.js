@@ -5,6 +5,8 @@
 
 import { db, doc, collection, addDoc, updateDoc, deleteDoc, query, orderBy, onSnapshot } from './firebase-config.js';
 import { Utils } from './utils.js';
+import { Icons } from './icons.js';
+import { Dialog } from './dialog.js';
 
 // ============================================================
 // 定数定義
@@ -137,7 +139,7 @@ export class ShoppingList {
         }
         
         suggestionsEl.innerHTML = `
-            <div class="suggestions-title border-b border-white/10 px-3 py-2 text-xs font-semibold text-zinc-400">💡 過去の購入履歴から</div>
+            <div class="suggestions-title border-b border-white/10 px-3 py-2 text-xs font-semibold text-zinc-400">${Icons.svg('lightbulb')} 過去の購入履歴から</div>
             <div class="suggestion-items max-h-56 overflow-y-auto">
                 ${suggestions.map(i => `
                     <div class="suggestion-item cursor-pointer px-3 py-2 text-sm text-zinc-100 transition hover:bg-white/10" onclick="app.shopping.selectSuggestion(${escapeJsArg(i.name)},${escapeJsArg(i.category || 'その他')})">
@@ -232,8 +234,10 @@ export class ShoppingList {
     }
 
     async deleteItem(itemId) {
-        if (!confirm('このアイテムを削除しますか？')) return;
-        
+        const confirmed = await Dialog.confirm('このアイテムを削除しますか？', { okLabel: '削除', danger: true });
+        if (!confirmed) return;
+
+
         try {
             await deleteDoc(doc(db, 'shoppingItems', itemId));
             Utils.showToast('削除しました');
@@ -246,8 +250,10 @@ export class ShoppingList {
     async clearCompleted() {
         const completedItems = this.items.filter(i => i.completed);
         if (completedItems.length === 0) return Utils.showToast('購入済みアイテムがありません');
-        if (!confirm(`購入済みの${completedItems.length}件を削除しますか？`)) return;
-        
+        const confirmed = await Dialog.confirm(`購入済みの${completedItems.length}件を削除しますか？`, { okLabel: '削除', danger: true });
+        if (!confirmed) return;
+
+
         try {
             await Promise.all(completedItems.map(i => deleteDoc(doc(db, 'shoppingItems', i.id))));
             Utils.showToast('削除しました');
@@ -347,7 +353,7 @@ export class ShoppingList {
                     </div>
                 </div>
                 <div class="shopping-item-quantity shrink-0 rounded-full bg-white/10 px-2.5 py-1 text-xs font-bold text-zinc-300">×${item.quantity}</div>
-                <button class="shopping-item-delete flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-sm text-rose-300 ring-1 ring-inset ring-rose-500/20 transition hover:bg-rose-500/20" onclick="app.shopping.deleteItem('${item.id}')">✕</button>
+                <button aria-label="削除" class="shopping-item-delete flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-sm text-rose-300 ring-1 ring-inset ring-rose-500/20 transition hover:bg-rose-500/20" onclick="app.shopping.deleteItem('${item.id}')">${Icons.svg('x')}</button>
             </div>
         `;
     }
@@ -441,7 +447,7 @@ export class ShoppingList {
         this.editingTemplateId = templateId;
         const template = templateId ? this.templates.find(t => t.id === templateId) : null;
         
-        document.getElementById('templateFormTitle').textContent = templateId ? '✏️ テンプレート編集' : '➕ 新規テンプレート作成';
+        document.getElementById('templateFormTitle').innerHTML = templateId ? `${Icons.svg('pencil')} テンプレート編集` : `${Icons.svg('plus')} 新規テンプレート作成`;
         document.getElementById('templateName').value = template?.name || '';
         document.getElementById('deleteTemplateBtn').style.display = templateId ? 'block' : 'none';
         this.tempTemplateItems = template?.items ? [...template.items] : [];
@@ -466,7 +472,7 @@ export class ShoppingList {
             <div class="template-item-row mb-1.5 flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2 ring-1 ring-white/10 last:mb-0">
                 <span class="item-name min-w-0 flex-1 truncate text-sm text-zinc-100">${Utils.escapeHtml(item.name)}</span>
                 <span class="item-category shrink-0 text-xs text-zinc-500">${this.categoryEmojis[item.category] || '📦'} ${Utils.escapeHtml(item.category)}</span>
-                <button class="remove-item flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-xs text-rose-300 transition hover:bg-rose-500/20" onclick="app.shopping.removeTemplateItem(${idx})">✕</button>
+                <button aria-label="削除" class="remove-item flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-xs text-rose-300 transition hover:bg-rose-500/20" onclick="app.shopping.removeTemplateItem(${idx})">${Icons.svg('x')}</button>
             </div>
         `).join('');
     }
@@ -519,7 +525,8 @@ export class ShoppingList {
      * @returns {Promise<boolean>} 削除に成功したか
      */
     async removeTemplateDoc(templateId) {
-        if (!confirm('このテンプレートを削除しますか？')) return false;
+        const confirmed = await Dialog.confirm('このテンプレートを削除しますか？', { okLabel: '削除', danger: true });
+        if (!confirmed) return false;
 
         try {
             await deleteDoc(doc(db, 'shoppingTemplates', templateId));

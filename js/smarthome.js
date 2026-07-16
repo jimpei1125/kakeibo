@@ -4,6 +4,8 @@
  */
 
 import { Utils } from './utils.js';
+import { Icons } from './icons.js';
+import { Dialog } from './dialog.js';
 
 // ============================================================
 // 定数定義
@@ -22,6 +24,9 @@ const DEVICE_ICONS = {
 /** エアコンのデフォルト設定 */
 const DEFAULT_AC_SETTINGS = { temperature: 26, mode: 2, fanSpeed: 1, power: 'on' };
 
+/** 温湿度（status APIから気温・湿度を追加取得する）対象のデバイスタイプ */
+const METER_DEVICE_TYPES = ['Meter', 'MeterPlus', 'Hub 2', 'WoIOSensor'];
+
 // ============================================================
 // スマートホームクラス
 // ============================================================
@@ -32,6 +37,8 @@ export class SmartHome {
         this.secret = localStorage.getItem('switchbot_secret') || '';
         this.devices = [];
         this.infraredDevices = [];
+        /** @type {Object<string, {temperature: number, humidity: number}>} 温湿度計デバイスID→気温湿度 */
+        this.meterStatus = {};
         this.currentAcDevice = null;
         this.acSettings = { ...DEFAULT_AC_SETTINGS };
         this.deviceIcons = DEVICE_ICONS;
@@ -103,9 +110,11 @@ export class SmartHome {
         this.loadDevices();
     }
 
-    clearToken() {
-        if (!confirm('APIトークンを削除しますか？')) return;
-        
+    async clearToken() {
+        const confirmed = await Dialog.confirm('APIトークンを削除しますか？', { okLabel: '削除', danger: true });
+        if (!confirmed) return;
+
+
         localStorage.removeItem('switchbot_token');
         localStorage.removeItem('switchbot_secret');
         this.token = '';
@@ -170,6 +179,7 @@ export class SmartHome {
                 this.infraredDevices = result.body.infraredRemoteList || [];
                 this.renderDevices();
                 statusEl.textContent = `${this.devices.length + this.infraredDevices.length}台のデバイス`;
+                this._loadMeterStatuses();
             } else {
                 statusEl.textContent = `エラー: ${result.message}`;
                 Utils.showToast('デバイス取得に失敗しました');
@@ -179,6 +189,31 @@ export class SmartHome {
             statusEl.textContent = '接続エラー';
             Utils.showToast('接続に失敗しました');
         }
+    }
+
+    /**
+     * 温湿度計系デバイス（Meter/MeterPlus/Hub 2/防水温湿度計）のstatusを追加取得し、
+     * 取得できたものからデバイスカードに反映する
+     */
+    async _loadMeterStatuses() {
+        const meterDevices = this.devices.filter(d => METER_DEVICE_TYPES.includes(d.deviceType));
+        if (meterDevices.length === 0) return;
+
+        await Promise.all(meterDevices.map(async (device) => {
+            try {
+                const result = await this.makeRequest(`/devices/${device.deviceId}/status`);
+                if (result.statusCode === 100 && result.body) {
+                    this.meterStatus[device.deviceId] = {
+                        temperature: result.body.temperature,
+                        humidity: result.body.humidity
+                    };
+                }
+            } catch (err) {
+                console.error(`温湿度取得エラー(${device.deviceName}):`, err);
+            }
+        }));
+
+        this.renderDevices();
     }
 
     renderDevices() {
@@ -209,12 +244,35 @@ export class SmartHome {
             .map(v => JSON.stringify(String(v ?? '')))
             .join(',');
         const onclick = Utils.escapeHtml(`app.smartHome.${method}(${args})`);
+        const meterInfo = isPhysical ? this._renderMeterInfo(device.deviceId) : '';
 
         return `
             <div class="device-card cursor-pointer rounded-xl bg-white/5 p-4 text-center ring-1 ring-white/10 transition hover:bg-white/10" onclick="${onclick}">
                 <div class="device-icon mb-2 text-3xl">${icon}</div>
                 <div class="device-name truncate text-sm font-bold text-zinc-100">${Utils.escapeHtml(device.deviceName)}</div>
                 <div class="device-type mt-1 text-[11px] text-zinc-500">${Utils.escapeHtml(type)}</div>
+                ${meterInfo}
+            </div>
+        `;
+    }
+
+    /**
+     * 温湿度計デバイスの気温・湿度表示HTMLを生成（未取得ならなにも表示しない）
+     * @private
+     * @param {string} deviceId
+     * @returns {string}
+     */
+    _renderMeterInfo(deviceId) {
+        const meter = this.meterStatus[deviceId];
+        if (!meter || meter.temperature == null || meter.humidity == null) return '';
+
+        const temperature = Number(meter.temperature).toFixed(1);
+        const humidity = Math.round(meter.humidity);
+
+        return `
+            <div class="device-meter mt-2 flex items-center justify-center gap-2.5 text-xs font-semibold text-zinc-300">
+                <span>🌡 ${temperature}℃</span>
+                <span>💧 ${humidity}%</span>
             </div>
         `;
     }
@@ -246,7 +304,7 @@ export class SmartHome {
 
     showAcControl(deviceId, deviceName) {
         this.currentAcDevice = { id: deviceId, name: deviceName };
-        document.getElementById('acControlTitle').textContent = `❄️ ${deviceName}`;
+        document.getElementById('acControlTitle').innerHTML = `${Icons.svg('snowflake')} ${Utils.escapeHtml(deviceName)}`;
         document.getElementById('acTempDisplay').textContent = `${this.acSettings.temperature}°C`;
         
         this._updateButtonSelection('.mode-btn', 'mode', this.acSettings.mode);
@@ -348,7 +406,13 @@ export class SmartHome {
     }
 
     async _toggleDevice(deviceId, deviceName, message) {
-        const action = confirm(`${deviceName}\n\n${message}\n\nOK = ON\nキャンセル = OFF`);
+        const action = await Dialog.choose(`${deviceName}\n\n${message}`, [
+            { label: 'キャンセル', value: null, variant: 'neutral' },
+            { label: 'OFFにする', value: false, variant: 'neutral' },
+            { label: 'ONにする', value: true, variant: 'primary' },
+        ]);
+        if (action === null) return;
+
         Utils.showToast('送信中...');
         
         try {

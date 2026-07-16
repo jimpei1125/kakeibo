@@ -4,7 +4,10 @@
  */
 
 import { Utils } from './utils.js';
-import { BudgetManager, Calculator, CSVExporter, CSVImporter } from './budget.js';
+import { Icons } from './icons.js';
+import { BudgetManager, Calculator, CSVExporter, CSVImporter, CopyMonthManager } from './budget.js';
+import { RecurringManager } from './recurring.js';
+import { PayPayRequestManager } from './paypay.js';
 import { HolidayCalendar } from './calendar.js';
 import { ShoppingList } from './shopping.js';
 import { SmartHome } from './smarthome.js';
@@ -46,6 +49,10 @@ class KakeiboApp {
         this.calculator = new Calculator();
         this.csv = new CSVExporter(this.budget);
         this.csvImporter = new CSVImporter(this.budget);
+        this.copyMonth = new CopyMonthManager(this.budget);
+        this.recurring = new RecurringManager(this.budget);
+        this.budget.recurringManager = this.recurring;
+        this.paypay = new PayPayRequestManager(this.budget);
         this.holidayCalendar = new HolidayCalendar();
         this.shopping = new ShoppingList(this.budget);
         this.smartHome = new SmartHome();
@@ -58,7 +65,6 @@ class KakeiboApp {
     showLoginModal() { this.authManager.showLoginModal(); }
     closeLoginModal() { this.authManager.closeLoginModal(); }
     async signInWithGoogle() { await this.authManager.signInWithGoogle(); }
-    async signInAsGuest() { await this.authManager.signInAsGuest(); }
     async signOut() { await this.authManager.signOut(); }
 
     // ==================== メニュー制御 ====================
@@ -79,6 +85,22 @@ class KakeiboApp {
         document.getElementById('menuOverlay')?.classList.remove('show');
     }
 
+    // ==================== その他の機能シート ====================
+
+    /**
+     * 「その他の機能」シート（計算機・CSV出力・CSV取込）を表示
+     */
+    showToolsSheet() {
+        Utils.showModal('toolsSheet');
+    }
+
+    /**
+     * 「その他の機能」シートを閉じる
+     */
+    closeToolsSheet() {
+        Utils.closeModal('toolsSheet');
+    }
+
     // ==================== セクション表示制御 ====================
 
     /**
@@ -91,18 +113,24 @@ class KakeiboApp {
     _showSection(activeSection, hiddenMenuItem, showFooter = false) {
         // 全セクションを非表示
         Object.values(SECTIONS).forEach(id => Utils.setVisible(id, false));
-        
+
         // 対象セクションを表示
         Utils.setVisible(activeSection, true);
-        
+
         // フッター制御
         const footer = document.querySelector('.footer');
         if (footer) footer.style.display = showFooter ? 'block' : 'none';
-        
+
         // メニュー項目の表示制御
         Object.values(MENU_ITEMS).forEach(id => Utils.setVisible(id, true));
         Utils.setVisible(hiddenMenuItem, false);
-        
+
+        // 家計簿ミニヘッダーは家計簿セクション以外では常に非表示
+        // （IntersectionObserverの発火を待たず、切替時に確実に消す）
+        if (activeSection !== SECTIONS.BUDGET) {
+            document.getElementById('miniHeader')?.classList.remove('show');
+        }
+
         // ページトップにスクロール
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -112,12 +140,16 @@ class KakeiboApp {
      */
     showBudget() {
         this._showSection(SECTIONS.BUDGET, MENU_ITEMS.BUDGET, true);
-        
+
         // 現在の日付に設定
         const jstDate = Utils.getJSTDate();
         this.budget.currentYear = jstDate.getFullYear();
         this.budget.currentMonth = jstDate.getMonth() + 1;
         this.budget.updateDisplay();
+
+        // ページトップに戻るため、ミニヘッダーは念のため非表示に
+        // （IntersectionObserverの反映を待たず即座に消す）
+        document.getElementById('miniHeader')?.classList.remove('show');
     }
 
     /**
@@ -153,9 +185,25 @@ class KakeiboApp {
     // ==================== 初期化 ====================
 
     /**
+     * Service Workerを登録（PWA対応）
+     */
+    registerServiceWorker() {
+        if (!('serviceWorker' in navigator)) return;
+        navigator.serviceWorker.register('./service-worker.js').catch((err) => {
+            console.error('Service Worker登録に失敗しました:', err);
+        });
+    }
+
+    /**
      * アプリケーションを初期化
      */
     init() {
+        // 静的HTML内の data-icon をSVGアイコンに展開
+        Icons.hydrate();
+
+        // PWA: Service Workerを登録してオフライン起動に対応
+        this.registerServiceWorker();
+
         // 認証状態の監視を開始
         this.authManager.initAuthStateListener();
         
@@ -165,7 +213,19 @@ class KakeiboApp {
         // データ読み込み
         this.budget.loadFromFirestore();
         this.budget.updateDisplay();
-        
+
+        // CSVインポートの店名→カテゴリルールを購読
+        this.csvImporter.init();
+
+        // PayPay請求のアプリ設定（受け取りリンク）を購読
+        this.paypay.init();
+
+        // 固定費セットを購読（今月分がまだ無ければ自動記帳される）
+        this.recurring.init();
+
+        // 月セレクタのスクロール追従ミニヘッダーを初期化
+        this.budget.initMiniHeader();
+
         // 各モジュールの初期化
         this.holidayCalendar.init();
         this.shopping.init();

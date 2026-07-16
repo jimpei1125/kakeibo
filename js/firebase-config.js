@@ -4,28 +4,29 @@
  */
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-import { 
-    getFirestore, 
-    doc, 
-    setDoc, 
-    onSnapshot, 
-    collection, 
-    addDoc, 
-    updateDoc, 
-    deleteDoc, 
-    query, 
-    where, 
-    getDocs, 
-    orderBy 
+import {
+    getFirestore,
+    doc,
+    getDoc,
+    setDoc,
+    onSnapshot,
+    collection,
+    addDoc,
+    updateDoc,
+    deleteDoc,
+    query,
+    where,
+    getDocs,
+    orderBy
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 import {
     getAuth,
     signInWithPopup,
-    signInAnonymously,
     GoogleAuthProvider,
     onAuthStateChanged,
     signOut
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+import { Icons } from './icons.js';
 
 /** Firebase プロジェクト設定 */
 const firebaseConfig = {
@@ -91,20 +92,28 @@ class AuthManager {
         const authBtn = document.getElementById('authBtn');
         const authUserName = document.getElementById('authUserName');
         const authIcon = document.getElementById('authIcon');
-        
+        const authUserId = document.getElementById('authUserId');
+
         if (!authStatus) return;
 
         if (user) {
             authStatus.classList.add('logged-in');
             if (authUserName) {
-                authUserName.textContent = user.displayName || user.email || 'ゲスト';
+                authUserName.textContent = user.displayName || user.email || 'ユーザー';
             }
             if (authIcon) {
-                authIcon.textContent = '✅';
+                authIcon.innerHTML = Icons.svg('check-circle');
+                authIcon.classList.add('text-emerald-400');
             }
             if (authBtn) {
-                authBtn.textContent = '🚪 ログアウト';
+                authBtn.innerHTML = `${Icons.svg('log-out')} ログアウト`;
                 authBtn.onclick = () => this.signOut();
+            }
+            // Firestoreルール設定用にUIDを表示（タップでコピー）
+            if (authUserId && user.uid) {
+                authUserId.textContent = `ID: ${user.uid}`;
+                authUserId.classList.remove('hidden');
+                authUserId.onclick = () => this.copyUserId(user.uid);
             }
         } else {
             authStatus.classList.remove('logged-in');
@@ -112,11 +121,16 @@ class AuthManager {
                 authUserName.textContent = '未ログイン';
             }
             if (authIcon) {
-                authIcon.textContent = '👤';
+                authIcon.innerHTML = Icons.svg('user');
+                authIcon.classList.remove('text-emerald-400');
             }
             if (authBtn) {
-                authBtn.textContent = '🔐 ログイン';
+                authBtn.innerHTML = `${Icons.svg('log-in')} ログイン`;
                 authBtn.onclick = () => this.showLoginModal();
+            }
+            if (authUserId) {
+                authUserId.classList.add('hidden');
+                authUserId.textContent = '';
             }
         }
     }
@@ -154,18 +168,15 @@ class AuthManager {
     }
 
     /**
-     * 匿名ログイン
+     * ユーザーIDをクリップボードにコピー（Firestoreルール設定用）
+     * @param {string} uid
      */
-    async signInAsGuest() {
+    async copyUserId(uid) {
         try {
-            const result = await signInAnonymously(auth);
-            this.closeLoginModal();
-            this.showToast('ゲストとしてログインしました');
-            return result.user;
-        } catch (error) {
-            console.error('匿名ログインエラー:', error);
-            this.showToast('ログインに失敗しました');
-            return null;
+            await navigator.clipboard.writeText(uid);
+            this.showToast('UIDをコピーしました');
+        } catch {
+            this.showToast('コピーに失敗しました');
         }
     }
 
@@ -212,12 +223,13 @@ class AuthManager {
 // 認証マネージャーのインスタンス
 const authManager = new AuthManager();
 
-export { 
-    db, 
-    doc, 
-    setDoc, 
-    onSnapshot, 
-    collection, 
+export {
+    db,
+    doc,
+    getDoc,
+    setDoc,
+    onSnapshot,
+    collection,
     addDoc, 
     updateDoc, 
     deleteDoc, 
