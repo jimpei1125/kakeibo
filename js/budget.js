@@ -1519,6 +1519,10 @@ export class BudgetManager {
         this.totalFlipped = false;
         /** @type {'pie'|'trend'} 合計カード裏面のタブ（内訳／推移） */
         this.breakdownTab = 'pie';
+        /** @type {import('./recurring.js').RecurringManager|null} 固定費マネージャー（app.jsから注入） */
+        this.recurringManager = null;
+        /** @type {Set<string>} 固定費自動記帳を試行済みの月キー（セッション内で1回のみ） */
+        this._autoEntryAttempted = new Set();
         /** @type {boolean} 明細のドラッグ並び替え中か（同期による再描画をスキップする） */
         this._reordering = false;
     }
@@ -1815,8 +1819,10 @@ export class BudgetManager {
         }
 
         if (this.isInitialLoad) {
-            this.updateDisplay(); // 初回は必ず描画
+            // isInitialLoad解除を先に行う（updateDisplay内の固定費自動記帳判定が
+            // 「初回読み込み未完了」を理由にスキップされないようにするため）
             this._finishInitialLoad('✓ データ読み込み完了');
+            this.updateDisplay(); // 初回は必ず描画
         }
     }
 
@@ -2378,6 +2384,54 @@ export class BudgetManager {
     }
 
     // ----------------------------------------
+    // 固定費の自動記帳
+    // ----------------------------------------
+
+    /**
+     * 固定費セットを自動記帳する（誤爆防止のため以下すべてを満たす時のみ）
+     * - 固定費データ・月データとも初回読み込みが完了している
+     * - 表示中の月が実際の今月と一致する
+     * - この月への自動記帳をこのセッションでまだ試みていない
+     * - その月のデータがまだ1件も存在しない
+     * 上記を満たさない場合は何もしない（過去月・未来月・データがある月には触れない）。
+     */
+    maybeAutoEntry() {
+        if (!this.recurringManager?.loaded || this.isInitialLoad) return;
+
+        const viewingKey = this.getCurrentMonthKey();
+        const jstDate = Utils.getJSTDate();
+        const todayKey = Utils.getMonthKey(jstDate.getFullYear(), jstDate.getMonth() + 1);
+        if (viewingKey !== todayKey) return;
+
+        if (this._autoEntryAttempted.has(viewingKey)) return;
+        this._autoEntryAttempted.add(viewingKey);
+
+        const hasData = !!(this.data[viewingKey]?.categories?.length > 0);
+        if (hasData) return;
+
+        const items = this.recurringManager.items;
+        if (!items.length) return;
+
+        const monthData = this.getMonthData(viewingKey);
+        items.forEach(item => {
+            monthData.categories.push({
+                id: Utils.generateId(),
+                name: item.name,
+                amount: item.amount || 0,
+                payer: item.payer,
+                note: item.note || '',
+                subcategories: []
+            });
+        });
+
+        // 呼び出し元がupdateDisplay()経由なら続く描画で新しい項目が反映される。
+        // Firestore保存後、自分自身の書き込みでbudgetMonthsスナップショットが
+        // 再発火し、そこでも再描画される。
+        this.saveWithStatus();
+        Utils.showToast(`固定費${items.length}件を自動記帳しました`);
+    }
+
+    // ----------------------------------------
     // 出力テキスト生成
     // ----------------------------------------
 
@@ -2451,6 +2505,9 @@ export class BudgetManager {
      * 画面表示を更新
      */
     updateDisplay() {
+        // 固定費の自動記帳判定（今月かつ空月の場合のみthis.dataに追加される）
+        this.maybeAutoEntry();
+
         // 月表示
         const monthLabel = `${this.currentYear}年 ${this.currentMonth}月`;
         document.getElementById('currentMonth').textContent = monthLabel;

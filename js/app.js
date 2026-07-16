@@ -6,6 +6,7 @@
 import { Utils } from './utils.js';
 import { Icons } from './icons.js';
 import { BudgetManager, Calculator, CSVExporter, CSVImporter, CopyMonthManager } from './budget.js';
+import { RecurringManager } from './recurring.js';
 import { PayPayRequestManager } from './paypay.js';
 import { HolidayCalendar } from './calendar.js';
 import { ShoppingList } from './shopping.js';
@@ -49,6 +50,8 @@ class KakeiboApp {
         this.csv = new CSVExporter(this.budget);
         this.csvImporter = new CSVImporter(this.budget);
         this.copyMonth = new CopyMonthManager(this.budget);
+        this.recurring = new RecurringManager(this.budget);
+        this.budget.recurringManager = this.recurring;
         this.paypay = new PayPayRequestManager(this.budget);
         this.holidayCalendar = new HolidayCalendar();
         this.shopping = new ShoppingList(this.budget);
@@ -216,6 +219,9 @@ class KakeiboApp {
 
         // PayPay請求のアプリ設定（受け取りリンク）を購読
         this.paypay.init();
+
+        // 固定費セットを購読（今月分がまだ無ければ自動記帳される）
+        this.recurring.init();
 
         // 月セレクタのスクロール追従ミニヘッダーを初期化
         this.budget.initMiniHeader();

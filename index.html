@@ -277,6 +277,41 @@
         </div>
     </div>
 
+    <!-- 固定費の管理モーダル -->
+    <div class="modal-panel csv-modal csv-import-modal fixed left-1/2 top-1/2 z-[1500] max-h-[88vh] w-[94%] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-zinc-900 shadow-2xl ring-1 ring-white/10" id="recurringModal">
+        <div class="modal-header flex items-center justify-between p-6 pb-4">
+            <h2 class="text-lg font-bold text-white"><span data-icon="repeat"></span> 固定費の管理</h2>
+            <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.recurring.closeModal()"><span data-icon="x"></span></button>
+        </div>
+
+        <div class="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-4">
+            <p class="text-xs text-zinc-500">ここに登録した項目は、表示中の月が実際の今月かつまだデータが無いときにだけ自動で記帳されます。</p>
+
+            <!-- 今月のカテゴリから登録 -->
+            <div class="rounded-xl bg-white/5 p-4 ring-1 ring-white/5">
+                <label class="mb-2 block text-sm font-semibold text-zinc-300"><span data-icon="tag"></span> 今月のカテゴリから登録</label>
+                <div id="recurringFromCategoryList" class="flex flex-wrap gap-2"></div>
+            </div>
+
+            <!-- 固定費セット一覧 -->
+            <div class="overflow-hidden rounded-xl bg-white/5 ring-1 ring-white/5">
+                <div id="recurringList" class="divide-y divide-white/5"></div>
+                <p id="recurringEmpty" class="px-4 py-6 text-center text-sm text-zinc-500" style="display: none;">固定費セットはまだありません</p>
+            </div>
+
+            <!-- 新規追加フォーム -->
+            <div class="rounded-xl bg-white/5 p-4 ring-1 ring-white/5">
+                <label class="mb-2 block text-sm font-semibold text-zinc-300"><span data-icon="plus"></span> 固定費を追加</label>
+                <div class="flex flex-col gap-2.5">
+                    <input type="text" id="recurringNewName" placeholder="名前（例：家賃）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+                    <input type="number" id="recurringNewAmount" placeholder="金額" class="min-w-0 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+                    <input type="text" id="recurringNewNote" placeholder="備考（任意）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+                    <button onclick="app.recurring.add()" class="w-full rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400">追加</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- カテゴリー追加シート（画面下からスライド表示） -->
     <div class="modal-panel bottom-sheet fixed inset-x-0 bottom-0 z-[1500] max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="addCategorySheet" style="padding-bottom: max(24px, env(safe-area-inset-bottom));">
         <div class="modal-header mb-5 flex items-center justify-between">
@@ -307,6 +342,9 @@
             </button>
             <button class="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.closeToolsSheet(); app.csvImporter.showModal();">
                 <span class="text-lg" data-icon="upload"></span> CSV取込
+            </button>
+            <button class="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.closeToolsSheet(); app.recurring.showModal();">
+                <span class="text-lg" data-icon="repeat"></span> 固定費の管理
             </button>
         </div>
     </div>
