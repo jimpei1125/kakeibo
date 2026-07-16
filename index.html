@@ -395,11 +395,20 @@
                         <div class="half-amount mt-2 text-base font-bold text-indigo-300" id="halfAmount">折半: ¥0</div>
                         <div class="copy-hint mt-2 flex items-center justify-center gap-1.5 text-xs text-zinc-500"><span data-icon="pie-chart"></span> タップで内訳グラフを表示</div>
                     </div>
-                    <!-- 裏: カテゴリ別内訳の円グラフ -->
+                    <!-- 裏: カテゴリ別内訳の円グラフ／月次推移グラフ -->
                     <div class="total-flip-back rounded-2xl bg-gradient-to-br from-indigo-500/15 to-white/5 p-6 text-center ring-1 ring-indigo-500/20" id="totalFlipBack">
-                        <h2 class="text-sm font-semibold text-zinc-400">カテゴリ別内訳</h2>
-                        <div class="pie-chart mx-auto mt-2 max-w-[280px]" id="pieChart"></div>
-                        <div class="pie-legend mx-auto mt-3 max-w-[320px] space-y-0.5" id="pieLegend"></div>
+                        <div class="breakdown-tabs mx-auto mb-1 flex max-w-[220px] gap-1.5 rounded-lg bg-white/5 p-1" onclick="event.stopPropagation()">
+                            <button class="breakdown-tab-btn active flex-1 rounded-md px-3 py-1.5 text-xs font-semibold text-zinc-300 transition" id="breakdownTabPie" onclick="app.budget.setBreakdownTab('pie')">内訳</button>
+                            <button class="breakdown-tab-btn flex-1 rounded-md px-3 py-1.5 text-xs font-semibold text-zinc-300 transition" id="breakdownTabTrend" onclick="app.budget.setBreakdownTab('trend')">推移</button>
+                        </div>
+                        <div id="breakdownPieView">
+                            <div class="pie-chart mx-auto mt-2 max-w-[280px]" id="pieChart"></div>
+                            <div class="pie-legend mx-auto mt-3 max-w-[320px] space-y-0.5" id="pieLegend"></div>
+                        </div>
+                        <div id="breakdownTrendView" style="display: none;">
+                            <div class="trend-chart mx-auto mt-2 max-w-[320px]" id="trendChart"></div>
+                            <div class="trend-legend mx-auto mt-3 max-w-[320px] flex flex-wrap items-center justify-center gap-x-3 gap-y-1" id="trendLegend"></div>
+                        </div>
                         <div class="copy-hint mt-3 flex items-center justify-center gap-1.5 text-xs text-zinc-500"><span data-icon="chevron-left"></span> タップで戻る</div>
                     </div>
                 </div>

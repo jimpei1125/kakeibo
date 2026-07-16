@@ -7,7 +7,7 @@ import { db, doc, getDoc, setDoc, onSnapshot, collection } from './firebase-conf
 import { Utils } from './utils.js';
 import { Icons } from './icons.js';
 import { Dialog } from './dialog.js';
-import { buildPie, CATEGORY_COLORS, OTHER_COLOR } from './chart.js';
+import { buildPie, buildTrendChart, CATEGORY_COLORS, OTHER_COLOR } from './chart.js';
 
 // ============================================================
 // 定数定義
@@ -1514,6 +1514,8 @@ export class BudgetManager {
         this._migrationChecked = false;
         /** @type {boolean} 合計カードが円グラフ面を表示中か */
         this.totalFlipped = false;
+        /** @type {'pie'|'trend'} 合計カード裏面のタブ（内訳／推移） */
+        this.breakdownTab = 'pie';
         /** @type {boolean} 明細のドラッグ並び替え中か（同期による再描画をスキップする） */
         this._reordering = false;
     }
@@ -2651,12 +2653,40 @@ export class BudgetManager {
         this.totalFlipped = !this.totalFlipped;
 
         if (this.totalFlipped) {
-            this.renderPie();
+            if (this.breakdownTab === 'trend') this.renderTrend(); else this.renderPie();
             flip.style.height = `${this._measureHeight(back)}px`;
             flip.classList.add('flipped');
         } else {
             flip.style.height = `${this._measureHeight(front)}px`;
             flip.classList.remove('flipped');
+        }
+    }
+
+    /**
+     * 合計カード裏面のタブ（内訳／推移）を切り替える
+     * @param {'pie'|'trend'} tab
+     */
+    setBreakdownTab(tab) {
+        this.breakdownTab = tab;
+
+        const pieBtn = document.getElementById('breakdownTabPie');
+        const trendBtn = document.getElementById('breakdownTabTrend');
+        const pieView = document.getElementById('breakdownPieView');
+        const trendView = document.getElementById('breakdownTrendView');
+        if (!pieBtn || !trendBtn || !pieView || !trendView) return;
+
+        pieBtn.classList.toggle('active', tab === 'pie');
+        trendBtn.classList.toggle('active', tab === 'trend');
+        pieView.style.display = tab === 'pie' ? 'block' : 'none';
+        trendView.style.display = tab === 'trend' ? 'block' : 'none';
+
+        if (tab === 'trend') this.renderTrend(); else this.renderPie();
+
+        // タブ切替で内容の高さが変わるため、合計カードの高さを再調整
+        const flip = document.getElementById('totalFlip');
+        const back = document.getElementById('totalFlipBack');
+        if (flip && back && this.totalFlipped) {
+            flip.style.height = `${this._measureHeight(back)}px`;
         }
     }
 
@@ -2739,6 +2769,87 @@ export class BudgetManager {
         }
 
         const { svg, legend } = buildPie(breakdown, total);
+        chartEl.innerHTML = svg;
+        legendEl.innerHTML = legend;
+    }
+
+    /**
+     * 表示中の月を含む直近6ヶ月分のカテゴリ別内訳を集計
+     * （購読済みの this.data から集計するのみで追加読み込みは発生しない）
+     * @private
+     * @returns {{months: Array<{key: string, label: string, total: number, values: number[]}>, categories: Array<{name: string, color: string}>, currentMonthKey: string}}
+     */
+    _getTrendData() {
+        const monthKeys = [];
+        let y = this.currentYear;
+        let m = this.currentMonth;
+        for (let i = 0; i < 6; i++) {
+            monthKeys.unshift(Utils.getMonthKey(y, m));
+            m--;
+            if (m < 1) { m = 12; y--; }
+        }
+
+        const perMonth = monthKeys.map(key => {
+            const monthData = this.data[key] || { categories: [] };
+            const amounts = {};
+            monthData.categories.forEach(cat => {
+                const amt = cat.subcategories.length > 0
+                    ? cat.subcategories.reduce((sum, sub) => sum + (sub.amount || 0), 0)
+                    : (cat.amount || 0);
+                if (amt > 0) amounts[cat.name] = (amounts[cat.name] || 0) + amt;
+            });
+            const total = Object.values(amounts).reduce((sum, v) => sum + v, 0);
+            return { key, amounts, total };
+        });
+
+        // 集計期間全体での合計額からカテゴリの優先順位（上位5件）を決める
+        // （月ごとに順位が変わると同じ色が別カテゴリを指してしまうため、期間全体で固定）
+        const totals = {};
+        perMonth.forEach(({ amounts }) => {
+            Object.entries(amounts).forEach(([name, amt]) => {
+                totals[name] = (totals[name] || 0) + amt;
+            });
+        });
+        const sortedNames = Object.keys(totals).sort((a, b) => totals[b] - totals[a]);
+        const topNames = sortedNames.slice(0, 5);
+        const hasOther = sortedNames.length > topNames.length;
+
+        const categories = topNames.map((name, i) => ({
+            name,
+            color: CATEGORY_COLORS[i % CATEGORY_COLORS.length]
+        }));
+        if (hasOther) categories.push({ name: 'その他', color: OTHER_COLOR });
+
+        const months = perMonth.map(({ key, amounts, total }) => {
+            const { month } = this._parseMonthKey(key);
+            const values = topNames.map(name => amounts[name] || 0);
+            if (hasOther) {
+                const topSum = topNames.reduce((sum, name) => sum + (amounts[name] || 0), 0);
+                values.push(Math.max(0, total - topSum));
+            }
+            return { key, label: `${month}月`, total, values };
+        });
+
+        return { months, categories, currentMonthKey: this.getCurrentMonthKey() };
+    }
+
+    /**
+     * 月次推移グラフと凡例を描画
+     */
+    renderTrend() {
+        const chartEl = document.getElementById('trendChart');
+        const legendEl = document.getElementById('trendLegend');
+        if (!chartEl || !legendEl) return;
+
+        const trendData = this._getTrendData();
+
+        if (!trendData.months.some(m => m.total > 0)) {
+            chartEl.innerHTML = '';
+            legendEl.innerHTML = '<p class="py-4 text-center text-sm text-zinc-500">データがありません</p>';
+            return;
+        }
+
+        const { svg, legend } = buildTrendChart(trendData);
         chartEl.innerHTML = svg;
         legendEl.innerHTML = legend;
     }

@@ -159,6 +159,12 @@
     color: #ffffff;
 }
 
+/* ---------- 合計カード裏面の内訳／推移タブ ---------- */
+.breakdown-tab-btn.active {
+    background: #6366f1;
+    color: #ffffff;
+}
+
 /* ---------- 合計カードのフリップ（内訳円グラフ） ---------- */
 .total-flip {
     perspective: 1400px;
