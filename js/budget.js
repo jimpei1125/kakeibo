@@ -1324,6 +1324,7 @@ export class CopyMonthManager {
                 name: cat.name,
                 amount,
                 budget: cat.budget || 0,
+                payer: cat.payer,
                 note: cat.note || '',
                 subcategories: cat.subcategories,
                 checked: !currentNames.has(cat.name),
@@ -1468,6 +1469,7 @@ export class CopyMonthManager {
                 id: Utils.generateId(),
                 name: sub.name,
                 amount: keepAmount ? (sub.amount || 0) : 0,
+                payer: sub.payer,
                 note: sub.note || ''
             }));
 
@@ -1476,6 +1478,7 @@ export class CopyMonthManager {
                 name: item.name,
                 amount: keepAmount ? (subcategories.length > 0 ? 0 : item.amount) : 0,
                 budget: item.budget || 0,
+                payer: item.payer,
                 note: item.note,
                 subcategories
             };
@@ -1662,14 +1665,18 @@ export class BudgetManager {
      */
     _updateTotalDisplay() {
         const total = this.calculateTotal();
-        const half = Math.round(total / 2);
-        
+        const settlement = this.calculateSettlement();
+
         const totalEl = document.getElementById('totalAmount');
-        const halfEl = document.getElementById('halfAmount');
+        const breakdownEl = document.getElementById('settlementBreakdown');
+        const settlementEl = document.getElementById('settlementAmount');
         const outputEl = document.getElementById('outputText');
-        
+
         if (totalEl) totalEl.textContent = `¥${Utils.formatCurrency(total)}`;
-        if (halfEl) halfEl.textContent = `折半: ¥${Utils.formatCurrency(half)}`;
+        if (breakdownEl) {
+            breakdownEl.textContent = `夫払い ¥${Utils.formatCurrency(settlement.husband)} / 妻払い ¥${Utils.formatCurrency(settlement.wife)}`;
+        }
+        if (settlementEl) settlementEl.textContent = `精算: ${this._formatSettlementLabel(settlement)}`;
         if (outputEl) outputEl.textContent = this.generateOutput();
 
         // ミニヘッダーの合計額も追従
@@ -2121,6 +2128,40 @@ export class BudgetManager {
         Utils.showToast('保存しました');
     }
 
+    /**
+     * 支払者（夫／妻）を切り替える
+     * @param {number} categoryId - カテゴリID
+     * @param {number|null} subcategoryId - サブカテゴリID（カテゴリ直接の場合はnull）
+     */
+    togglePayer(categoryId, subcategoryId) {
+        const category = this._findCategory(categoryId);
+        if (!category) return;
+
+        const target = subcategoryId === null
+            ? category
+            : category.subcategories.find(s => s.id === subcategoryId);
+        if (!target) return;
+
+        target.payer = target.payer === 'wife' ? undefined : 'wife';
+        const isWife = target.payer === 'wife';
+
+        // チップの見た目を即時更新（DOM全体は再描画しない＝アコーディオンの開閉状態を維持）
+        const chipId = subcategoryId === null ? `payer-${categoryId}` : `payer-${categoryId}-${subcategoryId}`;
+        const chip = document.getElementById(chipId);
+        if (chip) {
+            chip.textContent = isWife ? '妻' : '夫';
+            chip.classList.toggle('bg-pink-500/15', isWife);
+            chip.classList.toggle('text-pink-300', isWife);
+            chip.classList.toggle('ring-pink-500/30', isWife);
+            chip.classList.toggle('bg-white/10', !isWife);
+            chip.classList.toggle('text-zinc-300', !isWife);
+            chip.classList.toggle('ring-white/10', !isWife);
+        }
+
+        this._updateTotalDisplay();
+        this.saveWithStatus();
+    }
+
     // ----------------------------------------
     // アコーディオン
     // ----------------------------------------
@@ -2287,10 +2328,53 @@ export class BudgetManager {
                 return total + (category.amount || 0);
             }
             return total + category.subcategories.reduce(
-                (subTotal, sub) => subTotal + (sub.amount || 0), 
+                (subTotal, sub) => subTotal + (sub.amount || 0),
                 0
             );
         }, 0);
+    }
+
+    /**
+     * 立替精算を計算（夫払い・妻払いの内訳と精算額・方向）
+     * payerフィールドが'wife'の項目のみ妻払い、それ以外（未設定含む）は夫払い扱い。
+     * @returns {{husband: number, wife: number, total: number, settlementAmount: number, direction: 'wife-to-husband'|'husband-to-wife'|'none'}}
+     */
+    calculateSettlement() {
+        const monthData = this.getCurrentMonthData();
+        let husband = 0;
+        let wife = 0;
+
+        monthData.categories.forEach(category => {
+            if (category.subcategories.length > 0) {
+                category.subcategories.forEach(sub => {
+                    if (sub.payer === 'wife') wife += (sub.amount || 0);
+                    else husband += (sub.amount || 0);
+                });
+            } else if (category.payer === 'wife') {
+                wife += (category.amount || 0);
+            } else {
+                husband += (category.amount || 0);
+            }
+        });
+
+        const total = husband + wife;
+        const diff = husband - wife;
+        const settlementAmount = Math.round(Math.abs(diff) / 2);
+        const direction = diff > 0 ? 'wife-to-husband' : (diff < 0 ? 'husband-to-wife' : 'none');
+
+        return { husband, wife, total, settlementAmount, direction };
+    }
+
+    /**
+     * 精算表示用のラベルを生成（例: 「妻→夫 ¥3,000」）
+     * @private
+     * @param {{settlementAmount: number, direction: string}} settlement
+     * @returns {string}
+     */
+    _formatSettlementLabel(settlement) {
+        if (settlement.direction === 'none') return 'なし';
+        const arrow = settlement.direction === 'wife-to-husband' ? '妻→夫' : '夫→妻';
+        return `${arrow} ¥${Utils.formatCurrency(settlement.settlementAmount)}`;
     }
 
     // ----------------------------------------
@@ -2315,10 +2399,11 @@ export class BudgetManager {
         });
         
         const total = this.calculateTotal();
-        const halfTotal = Math.round(total / 2);
+        const settlement = this.calculateSettlement();
         output += '\n━━━━━━━━━━━━━━━━\n';
         output += `💰 Total：${Utils.formatCurrency(total)}円\n`;
-        output += `👥 折半：${Utils.formatCurrency(halfTotal)}円\n`;
+        output += `👤 夫払い：${Utils.formatCurrency(settlement.husband)}円 / 妻払い：${Utils.formatCurrency(settlement.wife)}円\n`;
+        output += `🔄 精算：${this._formatSettlementLabel(settlement)}\n`;
         output += '━━━━━━━━━━━━━━━━';
         
         return output;
@@ -2537,12 +2622,32 @@ export class BudgetManager {
      */
     _renderCategoryNote(category) {
         return `
-            <div class="mt-3">
-                <input type="text" class="note-input w-full rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" id="note-${category.id}"
+            <div class="mt-3 flex items-center gap-2">
+                ${this._renderPayerChip(category.id, null, category.payer)}
+                <input type="text" class="note-input min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" id="note-${category.id}"
                     value="${Utils.escapeHtml(category.note || '')}" placeholder="備考を入力..."
                     onchange="app.budget.updateNote(${category.id}, null)">
             </div>
         `;
+    }
+
+    /**
+     * 支払者チップのHTMLを生成（夫＝デフォルト／妻＝ピンク系トグル）
+     * @private
+     * @param {number} categoryId - カテゴリID
+     * @param {number|null} subcategoryId - サブカテゴリID（カテゴリ直接の場合はnull）
+     * @param {'wife'|undefined} payer - 現在の支払者（'wife'以外は夫扱い）
+     * @returns {string}
+     */
+    _renderPayerChip(categoryId, subcategoryId, payer) {
+        const isWife = payer === 'wife';
+        const subArg = subcategoryId === null ? 'null' : subcategoryId;
+        const chipId = subcategoryId === null ? `payer-${categoryId}` : `payer-${categoryId}-${subcategoryId}`;
+        const classes = isWife
+            ? 'bg-pink-500/15 text-pink-300 ring-1 ring-inset ring-pink-500/30'
+            : 'bg-white/10 text-zinc-300 ring-1 ring-inset ring-white/10';
+
+        return `<button type="button" id="${chipId}" class="payer-chip shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${classes}" onclick="app.budget.togglePayer(${categoryId}, ${subArg})">${isWife ? '妻' : '夫'}</button>`;
     }
 
     /**
@@ -2583,6 +2688,7 @@ export class BudgetManager {
                             onpointerdown="app.budget.startSubcategoryDrag(event, ${category.id}, ${sub.id})">${Icons.svg('grip')}</span>
                     </div>
                     <div class="sub-row-secondary mt-2 flex items-center gap-2">
+                        ${this._renderPayerChip(category.id, sub.id, sub.payer)}
                         <input type="text" class="note-input min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" id="subnote-edit-${category.id}-${sub.id}"
                             value="${Utils.escapeHtml(sub.note || '')}" placeholder="備考を入力..."
                             onchange="app.budget.updateNote(${category.id}, ${sub.id})">
