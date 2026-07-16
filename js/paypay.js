@@ -70,17 +70,16 @@ export class PayPayRequestManager {
     }
 
     /**
-     * 請求文を生成（表示中の月・折半金額から）
+     * 請求文を生成（表示中の月・立替精算額から）
      * @private
      * @returns {string}
      */
     _buildMessage() {
-        const total = this.budgetManager.calculateTotal();
-        const half = Math.round(total / 2);
+        const settlement = this.budgetManager.calculateSettlement();
         const year = this.budgetManager.currentYear;
         const month = this.budgetManager.currentMonth;
 
-        return `📅 ${year}年${month}月分 折半 ¥${Utils.formatCurrency(half)} をお願いします🙏\n`
+        return `📅 ${year}年${month}月分 今月の精算 ¥${Utils.formatCurrency(settlement.settlementAmount)} をお願いします🙏\n`
             + `こちらから送金できます → ${this.link}`;
     }
 

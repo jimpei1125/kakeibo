@@ -7,7 +7,7 @@ import { db, doc, getDoc, setDoc, onSnapshot, collection } from './firebase-conf
 import { Utils } from './utils.js';
 import { Icons } from './icons.js';
 import { Dialog } from './dialog.js';
-import { buildPie, CATEGORY_COLORS, OTHER_COLOR } from './chart.js';
+import { buildPie, buildTrendChart, CATEGORY_COLORS, OTHER_COLOR } from './chart.js';
 
 // ============================================================
 // 定数定義
@@ -1250,7 +1250,7 @@ export class CopyMonthManager {
     constructor(budgetManager) {
         /** @type {BudgetManager} */
         this.budgetManager = budgetManager;
-        /** @type {Array<{id: number, name: string, amount: number, note: string, subcategories: Array, checked: boolean, duplicate: boolean}>} コピー元カテゴリの表示用リスト */
+        /** @type {Array<{id: number, name: string, amount: number, budget: number, note: string, subcategories: Array, checked: boolean, duplicate: boolean}>} コピー元カテゴリの表示用リスト */
         this.items = [];
     }
 
@@ -1323,6 +1323,8 @@ export class CopyMonthManager {
                 id: cat.id,
                 name: cat.name,
                 amount,
+                budget: cat.budget || 0,
+                payer: cat.payer,
                 note: cat.note || '',
                 subcategories: cat.subcategories,
                 checked: !currentNames.has(cat.name),
@@ -1467,6 +1469,7 @@ export class CopyMonthManager {
                 id: Utils.generateId(),
                 name: sub.name,
                 amount: keepAmount ? (sub.amount || 0) : 0,
+                payer: sub.payer,
                 note: sub.note || ''
             }));
 
@@ -1474,6 +1477,8 @@ export class CopyMonthManager {
                 id: Utils.generateId(),
                 name: item.name,
                 amount: keepAmount ? (subcategories.length > 0 ? 0 : item.amount) : 0,
+                budget: item.budget || 0,
+                payer: item.payer,
                 note: item.note,
                 subcategories
             };
@@ -1512,6 +1517,12 @@ export class BudgetManager {
         this._migrationChecked = false;
         /** @type {boolean} 合計カードが円グラフ面を表示中か */
         this.totalFlipped = false;
+        /** @type {'pie'|'trend'} 合計カード裏面のタブ（内訳／推移） */
+        this.breakdownTab = 'pie';
+        /** @type {import('./recurring.js').RecurringManager|null} 固定費マネージャー（app.jsから注入） */
+        this.recurringManager = null;
+        /** @type {Set<string>} 固定費自動記帳を試行済みの月キー（セッション内で1回のみ） */
+        this._autoEntryAttempted = new Set();
         /** @type {boolean} 明細のドラッグ並び替え中か（同期による再描画をスキップする） */
         this._reordering = false;
     }
@@ -1658,14 +1669,18 @@ export class BudgetManager {
      */
     _updateTotalDisplay() {
         const total = this.calculateTotal();
-        const half = Math.round(total / 2);
-        
+        const settlement = this.calculateSettlement();
+
         const totalEl = document.getElementById('totalAmount');
-        const halfEl = document.getElementById('halfAmount');
+        const breakdownEl = document.getElementById('settlementBreakdown');
+        const settlementEl = document.getElementById('settlementAmount');
         const outputEl = document.getElementById('outputText');
-        
+
         if (totalEl) totalEl.textContent = `¥${Utils.formatCurrency(total)}`;
-        if (halfEl) halfEl.textContent = `折半: ¥${Utils.formatCurrency(half)}`;
+        if (breakdownEl) {
+            breakdownEl.textContent = `夫払い ¥${Utils.formatCurrency(settlement.husband)} / 妻払い ¥${Utils.formatCurrency(settlement.wife)}`;
+        }
+        if (settlementEl) settlementEl.textContent = `精算: ${this._formatSettlementLabel(settlement)}`;
         if (outputEl) outputEl.textContent = this.generateOutput();
 
         // ミニヘッダーの合計額も追従
@@ -1804,8 +1819,10 @@ export class BudgetManager {
         }
 
         if (this.isInitialLoad) {
-            this.updateDisplay(); // 初回は必ず描画
+            // isInitialLoad解除を先に行う（updateDisplay内の固定費自動記帳判定が
+            // 「初回読み込み未完了」を理由にスキップされないようにするため）
             this._finishInitialLoad('✓ データ読み込み完了');
+            this.updateDisplay(); // 初回は必ず描画
         }
     }
 
@@ -1925,7 +1942,7 @@ export class BudgetManager {
      */
     closeAddCategorySheet() {
         Utils.closeModal('addCategorySheet');
-        this._clearInputFields(['newCategoryName', 'newCategoryAmount', 'newCategoryNote']);
+        this._clearInputFields(['newCategoryName', 'newCategoryAmount', 'newCategoryBudget', 'newCategoryNote']);
     }
 
     /**
@@ -1934,6 +1951,7 @@ export class BudgetManager {
     addCategory() {
         const name = document.getElementById('newCategoryName')?.value.trim();
         const amount = document.getElementById('newCategoryAmount')?.value;
+        const budget = document.getElementById('newCategoryBudget')?.value;
         const note = document.getElementById('newCategoryNote')?.value.trim();
 
         if (!name) {
@@ -1945,6 +1963,7 @@ export class BudgetManager {
             id: Utils.generateId(),
             name,
             amount: amount ? parseFloat(amount) : 0,
+            budget: budget ? parseFloat(budget) : 0,
             note: note || '',
             subcategories: []
         });
@@ -2078,6 +2097,21 @@ export class BudgetManager {
     }
 
     /**
+     * カテゴリの予算額を更新
+     * @param {number} categoryId - カテゴリID
+     */
+    updateBudget(categoryId) {
+        const category = this._findCategory(categoryId);
+        if (!category) return;
+
+        const input = document.getElementById(`budget-${categoryId}`);
+        category.budget = parseFloat(input?.value) || 0;
+
+        this.saveWithStatus();
+        Utils.showToast('保存しました');
+    }
+
+    /**
      * 備考を更新
      * @param {number} categoryId - カテゴリID
      * @param {number|null} subcategoryId - サブカテゴリID
@@ -2098,6 +2132,40 @@ export class BudgetManager {
         }
         this.saveWithStatus();
         Utils.showToast('保存しました');
+    }
+
+    /**
+     * 支払者（夫／妻）を切り替える
+     * @param {number} categoryId - カテゴリID
+     * @param {number|null} subcategoryId - サブカテゴリID（カテゴリ直接の場合はnull）
+     */
+    togglePayer(categoryId, subcategoryId) {
+        const category = this._findCategory(categoryId);
+        if (!category) return;
+
+        const target = subcategoryId === null
+            ? category
+            : category.subcategories.find(s => s.id === subcategoryId);
+        if (!target) return;
+
+        target.payer = target.payer === 'wife' ? undefined : 'wife';
+        const isWife = target.payer === 'wife';
+
+        // チップの見た目を即時更新（DOM全体は再描画しない＝アコーディオンの開閉状態を維持）
+        const chipId = subcategoryId === null ? `payer-${categoryId}` : `payer-${categoryId}-${subcategoryId}`;
+        const chip = document.getElementById(chipId);
+        if (chip) {
+            chip.textContent = isWife ? '妻' : '夫';
+            chip.classList.toggle('bg-pink-500/15', isWife);
+            chip.classList.toggle('text-pink-300', isWife);
+            chip.classList.toggle('ring-pink-500/30', isWife);
+            chip.classList.toggle('bg-white/10', !isWife);
+            chip.classList.toggle('text-zinc-300', !isWife);
+            chip.classList.toggle('ring-white/10', !isWife);
+        }
+
+        this._updateTotalDisplay();
+        this.saveWithStatus();
     }
 
     // ----------------------------------------
@@ -2266,10 +2334,101 @@ export class BudgetManager {
                 return total + (category.amount || 0);
             }
             return total + category.subcategories.reduce(
-                (subTotal, sub) => subTotal + (sub.amount || 0), 
+                (subTotal, sub) => subTotal + (sub.amount || 0),
                 0
             );
         }, 0);
+    }
+
+    /**
+     * 立替精算を計算（夫払い・妻払いの内訳と精算額・方向）
+     * payerフィールドが'wife'の項目のみ妻払い、それ以外（未設定含む）は夫払い扱い。
+     * @returns {{husband: number, wife: number, total: number, settlementAmount: number, direction: 'wife-to-husband'|'husband-to-wife'|'none'}}
+     */
+    calculateSettlement() {
+        const monthData = this.getCurrentMonthData();
+        let husband = 0;
+        let wife = 0;
+
+        monthData.categories.forEach(category => {
+            if (category.subcategories.length > 0) {
+                category.subcategories.forEach(sub => {
+                    if (sub.payer === 'wife') wife += (sub.amount || 0);
+                    else husband += (sub.amount || 0);
+                });
+            } else if (category.payer === 'wife') {
+                wife += (category.amount || 0);
+            } else {
+                husband += (category.amount || 0);
+            }
+        });
+
+        const total = husband + wife;
+        const diff = husband - wife;
+        const settlementAmount = Math.round(Math.abs(diff) / 2);
+        const direction = diff > 0 ? 'wife-to-husband' : (diff < 0 ? 'husband-to-wife' : 'none');
+
+        return { husband, wife, total, settlementAmount, direction };
+    }
+
+    /**
+     * 精算表示用のラベルを生成（例: 「妻→夫 ¥3,000」）
+     * @private
+     * @param {{settlementAmount: number, direction: string}} settlement
+     * @returns {string}
+     */
+    _formatSettlementLabel(settlement) {
+        if (settlement.direction === 'none') return 'なし';
+        const arrow = settlement.direction === 'wife-to-husband' ? '妻→夫' : '夫→妻';
+        return `${arrow} ¥${Utils.formatCurrency(settlement.settlementAmount)}`;
+    }
+
+    // ----------------------------------------
+    // 固定費の自動記帳
+    // ----------------------------------------
+
+    /**
+     * 固定費セットを自動記帳する（誤爆防止のため以下すべてを満たす時のみ）
+     * - 固定費データ・月データとも初回読み込みが完了している
+     * - 表示中の月が実際の今月と一致する
+     * - この月への自動記帳をこのセッションでまだ試みていない
+     * - その月のデータがまだ1件も存在しない
+     * 上記を満たさない場合は何もしない（過去月・未来月・データがある月には触れない）。
+     */
+    maybeAutoEntry() {
+        if (!this.recurringManager?.loaded || this.isInitialLoad) return;
+
+        const viewingKey = this.getCurrentMonthKey();
+        const jstDate = Utils.getJSTDate();
+        const todayKey = Utils.getMonthKey(jstDate.getFullYear(), jstDate.getMonth() + 1);
+        if (viewingKey !== todayKey) return;
+
+        if (this._autoEntryAttempted.has(viewingKey)) return;
+        this._autoEntryAttempted.add(viewingKey);
+
+        const hasData = !!(this.data[viewingKey]?.categories?.length > 0);
+        if (hasData) return;
+
+        const items = this.recurringManager.items;
+        if (!items.length) return;
+
+        const monthData = this.getMonthData(viewingKey);
+        items.forEach(item => {
+            monthData.categories.push({
+                id: Utils.generateId(),
+                name: item.name,
+                amount: item.amount || 0,
+                payer: item.payer,
+                note: item.note || '',
+                subcategories: []
+            });
+        });
+
+        // 呼び出し元がupdateDisplay()経由なら続く描画で新しい項目が反映される。
+        // Firestore保存後、自分自身の書き込みでbudgetMonthsスナップショットが
+        // 再発火し、そこでも再描画される。
+        this.saveWithStatus();
+        Utils.showToast(`固定費${items.length}件を自動記帳しました`);
     }
 
     // ----------------------------------------
@@ -2294,10 +2453,11 @@ export class BudgetManager {
         });
         
         const total = this.calculateTotal();
-        const halfTotal = Math.round(total / 2);
+        const settlement = this.calculateSettlement();
         output += '\n━━━━━━━━━━━━━━━━\n';
         output += `💰 Total：${Utils.formatCurrency(total)}円\n`;
-        output += `👥 折半：${Utils.formatCurrency(halfTotal)}円\n`;
+        output += `👤 夫払い：${Utils.formatCurrency(settlement.husband)}円 / 妻払い：${Utils.formatCurrency(settlement.wife)}円\n`;
+        output += `🔄 精算：${this._formatSettlementLabel(settlement)}\n`;
         output += '━━━━━━━━━━━━━━━━';
         
         return output;
@@ -2345,6 +2505,9 @@ export class BudgetManager {
      * 画面表示を更新
      */
     updateDisplay() {
+        // 固定費の自動記帳判定（今月かつ空月の場合のみthis.dataに追加される）
+        this.maybeAutoEntry();
+
         // 月表示
         const monthLabel = `${this.currentYear}年 ${this.currentMonth}月`;
         document.getElementById('currentMonth').textContent = monthLabel;
@@ -2418,17 +2581,46 @@ export class BudgetManager {
         ` : '';
 
         return `
-            <div class="category-summary flex cursor-pointer items-center justify-between gap-3 px-4 py-3 transition hover:bg-white/5" onclick="app.budget.toggleAccordion(${category.id})">
-                <div class="category-summary-left flex min-w-0 items-center gap-2.5">
-                    <span class="accordion-icon text-xs text-zinc-500" id="icon-${category.id}">${Icons.svg('chevron-right')}</span>
-                    <span class="category-summary-name truncate text-sm font-semibold text-zinc-100">${Utils.escapeHtml(category.name)}</span>
+            <div class="category-summary cursor-pointer px-4 py-3 transition hover:bg-white/5" onclick="app.budget.toggleAccordion(${category.id})">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="category-summary-left flex min-w-0 items-center gap-2.5">
+                        <span class="accordion-icon text-xs text-zinc-500" id="icon-${category.id}">${Icons.svg('chevron-right')}</span>
+                        <span class="category-summary-name truncate text-sm font-semibold text-zinc-100">${Utils.escapeHtml(category.name)}</span>
+                    </div>
+                    <div class="category-summary-right flex shrink-0 items-center gap-2">
+                        ${quickInput}
+                        <span class="category-summary-amount whitespace-nowrap text-sm font-bold text-white">${Utils.formatCurrency(displayAmount)}円</span>
+                        <span class="drag-handle flex h-8 w-8 shrink-0 cursor-grab items-center justify-center text-lg text-zinc-500 transition hover:text-zinc-300 active:cursor-grabbing"
+                            onpointerdown="app.budget.startCategoryDrag(event, ${category.id})" onclick="event.stopPropagation()">${Icons.svg('grip')}</span>
+                    </div>
                 </div>
-                <div class="category-summary-right flex shrink-0 items-center gap-2">
-                    ${quickInput}
-                    <span class="category-summary-amount whitespace-nowrap text-sm font-bold text-white">${Utils.formatCurrency(displayAmount)}円</span>
-                    <span class="drag-handle flex h-8 w-8 shrink-0 cursor-grab items-center justify-center text-lg text-zinc-500 transition hover:text-zinc-300 active:cursor-grabbing"
-                        onpointerdown="app.budget.startCategoryDrag(event, ${category.id})" onclick="event.stopPropagation()">${Icons.svg('grip')}</span>
+                ${this._renderBudgetBar(displayAmount, category.budget)}
+            </div>
+        `;
+    }
+
+    /**
+     * 予算バーのHTMLを生成（予算が未設定・0の場合は非表示）
+     * @private
+     * @param {number} displayAmount - 現在の使用金額
+     * @param {number} budget - 予算額
+     * @returns {string}
+     */
+    _renderBudgetBar(displayAmount, budget) {
+        if (!budget || budget <= 0) return '';
+
+        const ratio = displayAmount / budget;
+        const percent = Math.round(ratio * 100);
+        const widthPercent = Math.min(100, Math.max(0, ratio * 100));
+        const barColor = ratio >= 1 ? 'bg-rose-500' : (ratio >= 0.8 ? 'bg-amber-400' : 'bg-emerald-500');
+        const textColor = ratio >= 1 ? 'text-rose-300' : (ratio >= 0.8 ? 'text-amber-300' : 'text-emerald-300');
+
+        return `
+            <div class="budget-bar mt-2 flex items-center gap-2">
+                <div class="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-white/10">
+                    <div class="h-full rounded-full ${barColor} transition-[width]" style="width: ${widthPercent}%"></div>
                 </div>
+                <span class="shrink-0 whitespace-nowrap text-[11px] font-semibold ${textColor}">${percent}% / 予算${Utils.formatCurrency(budget)}円</span>
             </div>
         `;
     }
@@ -2473,6 +2665,11 @@ export class BudgetManager {
                     </div>
                 </div>
             </div>
+            <div class="category-budget mt-2.5 flex items-center gap-2">
+                <span class="text-xs font-semibold text-zinc-400">予算</span>
+                <input type="number" id="budget-${category.id}" value="${category.budget || ''}" placeholder="未設定" onchange="app.budget.updateBudget(${category.id})" class="w-28 rounded-lg bg-white/5 px-2.5 py-1.5 text-right text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+                <span class="text-sm text-zinc-400">円</span>
+            </div>
         `;
     }
 
@@ -2482,12 +2679,32 @@ export class BudgetManager {
      */
     _renderCategoryNote(category) {
         return `
-            <div class="mt-3">
-                <input type="text" class="note-input w-full rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" id="note-${category.id}"
+            <div class="mt-3 flex items-center gap-2">
+                ${this._renderPayerChip(category.id, null, category.payer)}
+                <input type="text" class="note-input min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" id="note-${category.id}"
                     value="${Utils.escapeHtml(category.note || '')}" placeholder="備考を入力..."
                     onchange="app.budget.updateNote(${category.id}, null)">
             </div>
         `;
+    }
+
+    /**
+     * 支払者チップのHTMLを生成（夫＝デフォルト／妻＝ピンク系トグル）
+     * @private
+     * @param {number} categoryId - カテゴリID
+     * @param {number|null} subcategoryId - サブカテゴリID（カテゴリ直接の場合はnull）
+     * @param {'wife'|undefined} payer - 現在の支払者（'wife'以外は夫扱い）
+     * @returns {string}
+     */
+    _renderPayerChip(categoryId, subcategoryId, payer) {
+        const isWife = payer === 'wife';
+        const subArg = subcategoryId === null ? 'null' : subcategoryId;
+        const chipId = subcategoryId === null ? `payer-${categoryId}` : `payer-${categoryId}-${subcategoryId}`;
+        const classes = isWife
+            ? 'bg-pink-500/15 text-pink-300 ring-1 ring-inset ring-pink-500/30'
+            : 'bg-white/10 text-zinc-300 ring-1 ring-inset ring-white/10';
+
+        return `<button type="button" id="${chipId}" class="payer-chip shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${classes}" onclick="app.budget.togglePayer(${categoryId}, ${subArg})">${isWife ? '妻' : '夫'}</button>`;
     }
 
     /**
@@ -2528,6 +2745,7 @@ export class BudgetManager {
                             onpointerdown="app.budget.startSubcategoryDrag(event, ${category.id}, ${sub.id})">${Icons.svg('grip')}</span>
                     </div>
                     <div class="sub-row-secondary mt-2 flex items-center gap-2">
+                        ${this._renderPayerChip(category.id, sub.id, sub.payer)}
                         <input type="text" class="note-input min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" id="subnote-edit-${category.id}-${sub.id}"
                             value="${Utils.escapeHtml(sub.note || '')}" placeholder="備考を入力..."
                             onchange="app.budget.updateNote(${category.id}, ${sub.id})">
@@ -2598,12 +2816,40 @@ export class BudgetManager {
         this.totalFlipped = !this.totalFlipped;
 
         if (this.totalFlipped) {
-            this.renderPie();
+            if (this.breakdownTab === 'trend') this.renderTrend(); else this.renderPie();
             flip.style.height = `${this._measureHeight(back)}px`;
             flip.classList.add('flipped');
         } else {
             flip.style.height = `${this._measureHeight(front)}px`;
             flip.classList.remove('flipped');
+        }
+    }
+
+    /**
+     * 合計カード裏面のタブ（内訳／推移）を切り替える
+     * @param {'pie'|'trend'} tab
+     */
+    setBreakdownTab(tab) {
+        this.breakdownTab = tab;
+
+        const pieBtn = document.getElementById('breakdownTabPie');
+        const trendBtn = document.getElementById('breakdownTabTrend');
+        const pieView = document.getElementById('breakdownPieView');
+        const trendView = document.getElementById('breakdownTrendView');
+        if (!pieBtn || !trendBtn || !pieView || !trendView) return;
+
+        pieBtn.classList.toggle('active', tab === 'pie');
+        trendBtn.classList.toggle('active', tab === 'trend');
+        pieView.style.display = tab === 'pie' ? 'block' : 'none';
+        trendView.style.display = tab === 'trend' ? 'block' : 'none';
+
+        if (tab === 'trend') this.renderTrend(); else this.renderPie();
+
+        // タブ切替で内容の高さが変わるため、合計カードの高さを再調整
+        const flip = document.getElementById('totalFlip');
+        const back = document.getElementById('totalFlipBack');
+        if (flip && back && this.totalFlipped) {
+            flip.style.height = `${this._measureHeight(back)}px`;
         }
     }
 
@@ -2686,6 +2932,87 @@ export class BudgetManager {
         }
 
         const { svg, legend } = buildPie(breakdown, total);
+        chartEl.innerHTML = svg;
+        legendEl.innerHTML = legend;
+    }
+
+    /**
+     * 表示中の月を含む直近6ヶ月分のカテゴリ別内訳を集計
+     * （購読済みの this.data から集計するのみで追加読み込みは発生しない）
+     * @private
+     * @returns {{months: Array<{key: string, label: string, total: number, values: number[]}>, categories: Array<{name: string, color: string}>, currentMonthKey: string}}
+     */
+    _getTrendData() {
+        const monthKeys = [];
+        let y = this.currentYear;
+        let m = this.currentMonth;
+        for (let i = 0; i < 6; i++) {
+            monthKeys.unshift(Utils.getMonthKey(y, m));
+            m--;
+            if (m < 1) { m = 12; y--; }
+        }
+
+        const perMonth = monthKeys.map(key => {
+            const monthData = this.data[key] || { categories: [] };
+            const amounts = {};
+            monthData.categories.forEach(cat => {
+                const amt = cat.subcategories.length > 0
+                    ? cat.subcategories.reduce((sum, sub) => sum + (sub.amount || 0), 0)
+                    : (cat.amount || 0);
+                if (amt > 0) amounts[cat.name] = (amounts[cat.name] || 0) + amt;
+            });
+            const total = Object.values(amounts).reduce((sum, v) => sum + v, 0);
+            return { key, amounts, total };
+        });
+
+        // 集計期間全体での合計額からカテゴリの優先順位（上位5件）を決める
+        // （月ごとに順位が変わると同じ色が別カテゴリを指してしまうため、期間全体で固定）
+        const totals = {};
+        perMonth.forEach(({ amounts }) => {
+            Object.entries(amounts).forEach(([name, amt]) => {
+                totals[name] = (totals[name] || 0) + amt;
+            });
+        });
+        const sortedNames = Object.keys(totals).sort((a, b) => totals[b] - totals[a]);
+        const topNames = sortedNames.slice(0, 5);
+        const hasOther = sortedNames.length > topNames.length;
+
+        const categories = topNames.map((name, i) => ({
+            name,
+            color: CATEGORY_COLORS[i % CATEGORY_COLORS.length]
+        }));
+        if (hasOther) categories.push({ name: 'その他', color: OTHER_COLOR });
+
+        const months = perMonth.map(({ key, amounts, total }) => {
+            const { month } = this._parseMonthKey(key);
+            const values = topNames.map(name => amounts[name] || 0);
+            if (hasOther) {
+                const topSum = topNames.reduce((sum, name) => sum + (amounts[name] || 0), 0);
+                values.push(Math.max(0, total - topSum));
+            }
+            return { key, label: `${month}月`, total, values };
+        });
+
+        return { months, categories, currentMonthKey: this.getCurrentMonthKey() };
+    }
+
+    /**
+     * 月次推移グラフと凡例を描画
+     */
+    renderTrend() {
+        const chartEl = document.getElementById('trendChart');
+        const legendEl = document.getElementById('trendLegend');
+        if (!chartEl || !legendEl) return;
+
+        const trendData = this._getTrendData();
+
+        if (!trendData.months.some(m => m.total > 0)) {
+            chartEl.innerHTML = '';
+            legendEl.innerHTML = '<p class="py-4 text-center text-sm text-zinc-500">データがありません</p>';
+            return;
+        }
+
+        const { svg, legend } = buildTrendChart(trendData);
         chartEl.innerHTML = svg;
         legendEl.innerHTML = legend;
     }

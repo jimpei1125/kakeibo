@@ -133,3 +133,79 @@ export function buildPie(breakdown, total) {
 
     return { svg, legend };
 }
+
+// 積み上げ棒グラフの寸法（viewBox基準）
+const TREND_WIDTH = 320;
+const TREND_HEIGHT = 200;
+const TREND_TOP_PAD = 28;   // 金額ラベル用の上部余白
+const TREND_BOTTOM_PAD = 24; // 月ラベル用の下部余白
+const TREND_BAR_GAP = 10;
+
+/**
+ * 直近6ヶ月の月別カテゴリ内訳から積み上げ棒グラフのSVG＋凡例HTMLを生成
+ * @param {Object} trendData
+ * @param {Array<{key: string, label: string, total: number, values: number[]}>} trendData.months - 古い順の月別データ
+ * @param {Array<{name: string, color: string}>} trendData.categories - valuesと同じ順のカテゴリ（上位5＋その他）
+ * @param {string} trendData.currentMonthKey - 表示中の月キー（ハイライト対象）
+ * @returns {{svg: string, legend: string}}
+ */
+export function buildTrendChart(trendData) {
+    const { months, categories, currentMonthKey } = trendData;
+    const maxTotal = Math.max(...months.map(m => m.total), 0);
+
+    if (!months.length || maxTotal <= 0) {
+        return { svg: '', legend: '' };
+    }
+
+    const plotHeight = TREND_HEIGHT - TREND_TOP_PAD - TREND_BOTTOM_PAD;
+    const barWidth = (TREND_WIDTH - TREND_BAR_GAP * (months.length + 1)) / months.length;
+
+    let bars = '';
+    months.forEach((month, i) => {
+        const x = TREND_BAR_GAP + i * (barWidth + TREND_BAR_GAP);
+        const isCurrent = month.key === currentMonthKey;
+        const barHeight = maxTotal > 0 ? (month.total / maxTotal) * plotHeight : 0;
+        let y = TREND_HEIGHT - TREND_BOTTOM_PAD - barHeight;
+        const barTop = y;
+
+        // 下から積み上げる（カテゴリ配列の先頭＝上位カテゴリを下段に）
+        let stackY = TREND_HEIGHT - TREND_BOTTOM_PAD;
+        let segments = '';
+        month.values.forEach((value, ci) => {
+            if (value <= 0) return;
+            const segHeight = (value / maxTotal) * plotHeight;
+            stackY -= segHeight;
+            segments += `<rect x="${f2(x)}" y="${f2(stackY)}" width="${f2(barWidth)}" height="${f2(segHeight)}" `
+                + `fill="${categories[ci].color}"/>`;
+        });
+
+        const highlightStroke = isCurrent
+            ? `<rect x="${f2(x - 1.5)}" y="${f2(barTop - 1.5)}" width="${f2(barWidth + 3)}" height="${f2(barHeight + 3)}" `
+                + `fill="none" stroke="#ffffff" stroke-width="2" rx="3"/>`
+            : '';
+
+        const totalLabel = month.total > 0
+            ? `<text x="${f2(x + barWidth / 2)}" y="${f2(Math.max(barTop - 8, 10))}" text-anchor="middle" `
+                + `font-size="10" font-weight="700" fill="${isCurrent ? '#ffffff' : '#d4d4d8'}">`
+                + `¥${Utils.formatCurrency(month.total)}</text>`
+            : '';
+
+        const monthLabel = `<text x="${f2(x + barWidth / 2)}" y="${f2(TREND_HEIGHT - 6)}" text-anchor="middle" `
+            + `font-size="11" font-weight="${isCurrent ? '700' : '400'}" fill="${isCurrent ? '#ffffff' : '#a1a1aa'}">`
+            + `${Utils.escapeHtml(month.label)}</text>`;
+
+        bars += segments + highlightStroke + totalLabel + monthLabel;
+    });
+
+    const svg = `<svg viewBox="0 0 ${TREND_WIDTH} ${TREND_HEIGHT}" class="trend-svg" role="img" `
+        + `aria-label="月別支出の推移グラフ" xmlns="http://www.w3.org/2000/svg">${bars}</svg>`;
+
+    const legend = categories.map(cat => `
+        <div class="trend-legend-item flex items-center gap-1.5">
+            <span class="trend-legend-chip h-3 w-3 shrink-0 rounded-sm" style="background:${cat.color}"></span>
+            <span class="text-xs text-zinc-300">${Utils.escapeHtml(cat.name)}</span>
+        </div>
+    `).join('');
+
+    return { svg, legend };
+}
