@@ -453,7 +453,8 @@
             <button class="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xs text-zinc-200 transition hover:bg-white/20" onclick="app.holidayCalendar.changeEditMonth(1)">▶</button>
         </div>
         <div class="edit-calendar" id="editCalendar"></div>
-        <div class="edit-calendar-actions mt-4 flex gap-2.5">
+        <button class="weekend-holiday-btn mt-4 w-full rounded-lg bg-indigo-500/15 px-4 py-2.5 text-sm font-semibold text-indigo-200 ring-1 ring-inset ring-indigo-500/40 transition hover:bg-indigo-500/25" onclick="app.holidayCalendar.toggleWeekendHolidays()">🗓️ 土日祝をまとめて選択</button>
+        <div class="edit-calendar-actions mt-2.5 flex gap-2.5">
             <button class="complete-btn flex-1 rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-400" onclick="app.holidayCalendar.saveHolidays()">✓ 保存</button>
             <button class="cancel-btn flex-1 rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.holidayCalendar.cancelHolidayEdit()">キャンセル</button>
         </div>

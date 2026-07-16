@@ -26,6 +26,64 @@ const GCAL_CONFIG = {
     scopes: 'https://www.googleapis.com/auth/calendar.events'
 };
 
+// 日本の祝日を計算（固定祝日・ハッピーマンデー・春分/秋分・国民の休日・振替休日に対応）
+const _holidayCache = {};
+function getJapaneseHolidays(year) {
+    if (_holidayCache[year]) return _holidayCache[year];
+
+    const pad = (n) => String(n).padStart(2, '0');
+    const toStr = (dt) => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+    const parse = (ds) => { const [y, m, d] = ds.split('-').map(Number); return new Date(y, m - 1, d); };
+    const holidays = {};
+    const add = (month, day, name) => { holidays[toStr(new Date(year, month - 1, day))] = name; };
+    // 指定月の第n月曜日（ハッピーマンデー用）
+    const nthMonday = (month, n) => {
+        const firstDow = new Date(year, month - 1, 1).getDay();
+        return 1 + ((1 - firstDow + 7) % 7) + (n - 1) * 7;
+    };
+
+    add(1, 1, '元日');
+    add(1, nthMonday(1, 2), '成人の日');
+    add(2, 11, '建国記念の日');
+    if (year >= 2020) add(2, 23, '天皇誕生日');
+    add(3, Math.floor(20.8431 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4)), '春分の日');
+    add(4, 29, '昭和の日');
+    add(5, 3, '憲法記念日');
+    add(5, 4, 'みどりの日');
+    add(5, 5, 'こどもの日');
+    add(7, nthMonday(7, 3), '海の日');
+    if (year >= 2016) add(8, 11, '山の日');
+    add(9, nthMonday(9, 3), '敬老の日');
+    add(9, Math.floor(23.2488 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4)), '秋分の日');
+    add(10, nthMonday(10, 2), 'スポーツの日');
+    add(11, 3, '文化の日');
+    add(11, 23, '勤労感謝の日');
+
+    const base = { ...holidays };
+
+    // 国民の休日：前日と翌日がともに祝日の平日（例：敬老の日と秋分の日に挟まれた日）
+    Object.keys(base).forEach(ds => {
+        const mid = parse(ds); mid.setDate(mid.getDate() + 1);
+        const next = parse(ds); next.setDate(next.getDate() + 2);
+        if (base[toStr(next)] && !base[toStr(mid)] && mid.getDay() !== 0) {
+            holidays[toStr(mid)] = '国民の休日';
+        }
+    });
+
+    // 振替休日：日曜と重なった祝日の後、最初の平日
+    Object.keys(base).forEach(ds => {
+        const dt = parse(ds);
+        if (dt.getDay() === 0) {
+            const sub = new Date(dt);
+            do { sub.setDate(sub.getDate() + 1); } while (holidays[toStr(sub)]);
+            holidays[toStr(sub)] = '振替休日';
+        }
+    });
+
+    _holidayCache[year] = holidays;
+    return holidays;
+}
+
 export class HolidayCalendar {
     constructor() {
         const now = new Date();
@@ -796,18 +854,30 @@ export class HolidayCalendar {
         document.getElementById('editCalendarMonth').textContent = `${this.editYear}年${this.editMonth}月`;
         const daysInMonth = new Date(this.editYear, this.editMonth, 0).getDate();
         const startDow = new Date(this.editYear, this.editMonth - 1, 1).getDay();
-        
-        let html = WEEKDAYS.map(d => `<div class="edit-calendar-weekday p-1.5 text-center text-[11px] font-bold text-zinc-500 sm:text-xs">${d}</div>`).join('');
+        const jpHolidays = getJapaneseHolidays(this.editYear);
+
+        let html = WEEKDAYS.map((d, i) => {
+            const color = i === 0 ? 'text-rose-400' : i === 6 ? 'text-sky-400' : 'text-zinc-500';
+            return `<div class="edit-calendar-weekday p-1.5 text-center text-[11px] font-bold ${color} sm:text-xs">${d}</div>`;
+        }).join('');
         for (let i = 0; i < startDow; i++) html += '<div class="edit-calendar-cell empty"></div>';
 
-        const cellBase = 'edit-calendar-cell flex aspect-square min-h-[35px] cursor-pointer items-center justify-center rounded-md p-0.5 text-xs font-bold transition sm:min-h-[40px] sm:text-[13px]';
+        const cellBase = 'edit-calendar-cell relative flex aspect-square min-h-[35px] cursor-pointer items-center justify-center rounded-md p-0.5 text-xs font-bold transition sm:min-h-[40px] sm:text-[13px]';
         for (let day = 1; day <= daysInMonth; day++) {
             const dateStr = `${this.editYear}-${String(this.editMonth).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+            const dow = new Date(this.editYear, this.editMonth - 1, day).getDay();
+            const holidayName = jpHolidays[dateStr];
             const sel = this.tempHolidays.includes(dateStr);
-            const cls = sel
-                ? `${cellBase} selected bg-indigo-500 text-white shadow-lg shadow-indigo-500/30`
-                : `${cellBase} bg-white/5 text-zinc-100 hover:scale-105 hover:bg-white/15`;
-            html += `<div class="${cls}" onclick="app.holidayCalendar.toggleHoliday('${dateStr}')">${day}</div>`;
+            let cls;
+            if (sel) {
+                cls = `${cellBase} selected bg-indigo-500 text-white shadow-lg shadow-indigo-500/30`;
+            } else {
+                const textColor = (dow === 0 || holidayName) ? 'text-rose-300' : dow === 6 ? 'text-sky-300' : 'text-zinc-100';
+                cls = `${cellBase} bg-white/5 ${textColor} hover:scale-105 hover:bg-white/15`;
+            }
+            const title = holidayName ? ` title="${holidayName}"` : '';
+            const dot = holidayName ? '<span class="absolute right-1 top-1 h-1 w-1 rounded-full bg-rose-400"></span>' : '';
+            html += `<div class="${cls}"${title} onclick="app.holidayCalendar.toggleHoliday('${dateStr}')">${dot}${day}</div>`;
         }
         document.getElementById('editCalendar').innerHTML = html;
     }
@@ -816,6 +886,29 @@ export class HolidayCalendar {
         const idx = this.tempHolidays.indexOf(dateStr);
         if (idx > -1) this.tempHolidays.splice(idx, 1);
         else this.tempHolidays.push(dateStr);
+        this.renderEditCalendar();
+    }
+
+    // 表示中の月の土日・祝日をまとめて選択／解除する
+    toggleWeekendHolidays() {
+        const daysInMonth = new Date(this.editYear, this.editMonth, 0).getDate();
+        const jpHolidays = getJapaneseHolidays(this.editYear);
+        const targets = [];
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dow = new Date(this.editYear, this.editMonth - 1, day).getDay();
+            const dateStr = `${this.editYear}-${String(this.editMonth).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+            if (dow === 0 || dow === 6 || jpHolidays[dateStr]) targets.push(dateStr);
+        }
+        if (!targets.length) return;
+
+        const allSelected = targets.every(d => this.tempHolidays.includes(d));
+        if (allSelected) {
+            this.tempHolidays = this.tempHolidays.filter(d => !targets.includes(d));
+            Utils.showToast(`土日祝の選択を解除しました（${targets.length}日）`);
+        } else {
+            targets.forEach(d => { if (!this.tempHolidays.includes(d)) this.tempHolidays.push(d); });
+            Utils.showToast(`土日祝を休日に設定しました（${targets.length}日）`);
+        }
         this.renderEditCalendar();
     }
 
