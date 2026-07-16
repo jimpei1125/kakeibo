@@ -1250,7 +1250,7 @@ export class CopyMonthManager {
     constructor(budgetManager) {
         /** @type {BudgetManager} */
         this.budgetManager = budgetManager;
-        /** @type {Array<{id: number, name: string, amount: number, note: string, subcategories: Array, checked: boolean, duplicate: boolean}>} コピー元カテゴリの表示用リスト */
+        /** @type {Array<{id: number, name: string, amount: number, budget: number, note: string, subcategories: Array, checked: boolean, duplicate: boolean}>} コピー元カテゴリの表示用リスト */
         this.items = [];
     }
 
@@ -1323,6 +1323,7 @@ export class CopyMonthManager {
                 id: cat.id,
                 name: cat.name,
                 amount,
+                budget: cat.budget || 0,
                 note: cat.note || '',
                 subcategories: cat.subcategories,
                 checked: !currentNames.has(cat.name),
@@ -1474,6 +1475,7 @@ export class CopyMonthManager {
                 id: Utils.generateId(),
                 name: item.name,
                 amount: keepAmount ? (subcategories.length > 0 ? 0 : item.amount) : 0,
+                budget: item.budget || 0,
                 note: item.note,
                 subcategories
             };
@@ -1925,7 +1927,7 @@ export class BudgetManager {
      */
     closeAddCategorySheet() {
         Utils.closeModal('addCategorySheet');
-        this._clearInputFields(['newCategoryName', 'newCategoryAmount', 'newCategoryNote']);
+        this._clearInputFields(['newCategoryName', 'newCategoryAmount', 'newCategoryBudget', 'newCategoryNote']);
     }
 
     /**
@@ -1934,6 +1936,7 @@ export class BudgetManager {
     addCategory() {
         const name = document.getElementById('newCategoryName')?.value.trim();
         const amount = document.getElementById('newCategoryAmount')?.value;
+        const budget = document.getElementById('newCategoryBudget')?.value;
         const note = document.getElementById('newCategoryNote')?.value.trim();
 
         if (!name) {
@@ -1945,6 +1948,7 @@ export class BudgetManager {
             id: Utils.generateId(),
             name,
             amount: amount ? parseFloat(amount) : 0,
+            budget: budget ? parseFloat(budget) : 0,
             note: note || '',
             subcategories: []
         });
@@ -2073,6 +2077,21 @@ export class BudgetManager {
                 subcategory.amount = parseFloat(input?.value) || 0;
             }
         }
+        this.saveWithStatus();
+        Utils.showToast('保存しました');
+    }
+
+    /**
+     * カテゴリの予算額を更新
+     * @param {number} categoryId - カテゴリID
+     */
+    updateBudget(categoryId) {
+        const category = this._findCategory(categoryId);
+        if (!category) return;
+
+        const input = document.getElementById(`budget-${categoryId}`);
+        category.budget = parseFloat(input?.value) || 0;
+
         this.saveWithStatus();
         Utils.showToast('保存しました');
     }
@@ -2418,17 +2437,46 @@ export class BudgetManager {
         ` : '';
 
         return `
-            <div class="category-summary flex cursor-pointer items-center justify-between gap-3 px-4 py-3 transition hover:bg-white/5" onclick="app.budget.toggleAccordion(${category.id})">
-                <div class="category-summary-left flex min-w-0 items-center gap-2.5">
-                    <span class="accordion-icon text-xs text-zinc-500" id="icon-${category.id}">${Icons.svg('chevron-right')}</span>
-                    <span class="category-summary-name truncate text-sm font-semibold text-zinc-100">${Utils.escapeHtml(category.name)}</span>
+            <div class="category-summary cursor-pointer px-4 py-3 transition hover:bg-white/5" onclick="app.budget.toggleAccordion(${category.id})">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="category-summary-left flex min-w-0 items-center gap-2.5">
+                        <span class="accordion-icon text-xs text-zinc-500" id="icon-${category.id}">${Icons.svg('chevron-right')}</span>
+                        <span class="category-summary-name truncate text-sm font-semibold text-zinc-100">${Utils.escapeHtml(category.name)}</span>
+                    </div>
+                    <div class="category-summary-right flex shrink-0 items-center gap-2">
+                        ${quickInput}
+                        <span class="category-summary-amount whitespace-nowrap text-sm font-bold text-white">${Utils.formatCurrency(displayAmount)}円</span>
+                        <span class="drag-handle flex h-8 w-8 shrink-0 cursor-grab items-center justify-center text-lg text-zinc-500 transition hover:text-zinc-300 active:cursor-grabbing"
+                            onpointerdown="app.budget.startCategoryDrag(event, ${category.id})" onclick="event.stopPropagation()">${Icons.svg('grip')}</span>
+                    </div>
                 </div>
-                <div class="category-summary-right flex shrink-0 items-center gap-2">
-                    ${quickInput}
-                    <span class="category-summary-amount whitespace-nowrap text-sm font-bold text-white">${Utils.formatCurrency(displayAmount)}円</span>
-                    <span class="drag-handle flex h-8 w-8 shrink-0 cursor-grab items-center justify-center text-lg text-zinc-500 transition hover:text-zinc-300 active:cursor-grabbing"
-                        onpointerdown="app.budget.startCategoryDrag(event, ${category.id})" onclick="event.stopPropagation()">${Icons.svg('grip')}</span>
+                ${this._renderBudgetBar(displayAmount, category.budget)}
+            </div>
+        `;
+    }
+
+    /**
+     * 予算バーのHTMLを生成（予算が未設定・0の場合は非表示）
+     * @private
+     * @param {number} displayAmount - 現在の使用金額
+     * @param {number} budget - 予算額
+     * @returns {string}
+     */
+    _renderBudgetBar(displayAmount, budget) {
+        if (!budget || budget <= 0) return '';
+
+        const ratio = displayAmount / budget;
+        const percent = Math.round(ratio * 100);
+        const widthPercent = Math.min(100, Math.max(0, ratio * 100));
+        const barColor = ratio >= 1 ? 'bg-rose-500' : (ratio >= 0.8 ? 'bg-amber-400' : 'bg-emerald-500');
+        const textColor = ratio >= 1 ? 'text-rose-300' : (ratio >= 0.8 ? 'text-amber-300' : 'text-emerald-300');
+
+        return `
+            <div class="budget-bar mt-2 flex items-center gap-2">
+                <div class="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-white/10">
+                    <div class="h-full rounded-full ${barColor} transition-[width]" style="width: ${widthPercent}%"></div>
                 </div>
+                <span class="shrink-0 whitespace-nowrap text-[11px] font-semibold ${textColor}">${percent}% / 予算${Utils.formatCurrency(budget)}円</span>
             </div>
         `;
     }
@@ -2472,6 +2520,11 @@ export class BudgetManager {
                         <button class="delete-btn rounded-md bg-rose-500/10 px-2.5 py-1.5 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20" onclick="app.budget.deleteCategory(${category.id})">削除</button>
                     </div>
                 </div>
+            </div>
+            <div class="category-budget mt-2.5 flex items-center gap-2">
+                <span class="text-xs font-semibold text-zinc-400">予算</span>
+                <input type="number" id="budget-${category.id}" value="${category.budget || ''}" placeholder="未設定" onchange="app.budget.updateBudget(${category.id})" class="w-28 rounded-lg bg-white/5 px-2.5 py-1.5 text-right text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+                <span class="text-sm text-zinc-400">円</span>
             </div>
         `;
     }
