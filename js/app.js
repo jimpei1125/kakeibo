@@ -223,3 +223,26 @@ window.app = app;
 
 // アプリケーションを初期化
 app.init();
+
+// ============================================================
+// PWA: Service Worker登録
+// ============================================================
+
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then((registration) => {
+                registration.addEventListener('updatefound', () => {
+                    const newWorker = registration.installing;
+                    newWorker?.addEventListener('statechange', () => {
+                        // 既存タブが制御中のまま新しいSWが待機状態になった
+                        // ＝次回起動時（全タブを閉じて開き直したとき）に反映される
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            Utils.showToast('新しいバージョンを準備しました。次回起動時に反映されます');
+                        }
+                    });
+                });
+            })
+            .catch((error) => console.error('Service Worker登録エラー:', error));
+    });
+}

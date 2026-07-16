@@ -43,3 +43,13 @@ npm run watch:css
 - `js/icons.js` … インラインSVGアイコン
 - `js/firebase-config.js` … Firestore/認証設定
 - `firestore.rules` … Firestore セキュリティルール（家族UID限定・要デプロイ手順は同ファイル参照）
+- `sw.js` / `manifest.webmanifest` / `icons/` … PWA（ホーム画面アプリ化・オフライン起動）
+
+## PWA（Service Worker）のキャッシュ運用
+
+`sw.js` が同一オリジンのファイルを stale-while-revalidate 方式でキャッシュします
+（キャッシュを即返しつつ裏で最新版を取得し、次回以降に反映）。個々のファイルの
+内容更新はバージョンを上げなくても自動的に反映されますが、**`sw.js` の
+`APP_SHELL` にファイルを追加・削除したときは `CACHE_VERSION` の値
+（例: `kakeibo-v1` → `kakeibo-v2`）を必ず上げてください**。上げないと古いキャッシュが
+残り続け、削除したファイルへの参照や新規ファイルの初回キャッシュに支障が出ます。

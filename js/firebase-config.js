@@ -5,7 +5,9 @@
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
 import {
-    getFirestore,
+    initializeFirestore,
+    persistentLocalCache,
+    persistentMultipleTabManager,
     doc,
     getDoc,
     setDoc,
@@ -41,8 +43,15 @@ const firebaseConfig = {
 // Firebase初期化
 const firebaseApp = initializeApp(firebaseConfig);
 
-/** Firestoreデータベースインスタンス */
-const db = getFirestore(firebaseApp);
+/**
+ * Firestoreデータベースインスタンス
+ * オフライン永続化を有効化（PWA化に伴い、圏外でも前回同期済みの
+ * データを閲覧できるように）。複数タブ間でキャッシュを共有する
+ * persistentMultipleTabManager を使用
+ */
+const db = initializeFirestore(firebaseApp, {
+    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+});
 
 /** Firebase Authインスタンス */
 const auth = getAuth(firebaseApp);
