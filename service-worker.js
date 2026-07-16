@@ -1,6 +1,6 @@
 // アプリシェルのみをキャッシュするService Worker
 // Firestore/Auth/外部API（SwitchBot・Hue・Discord等）へのリクエストは一切傍受しない
-const CACHE_NAME = 'kakeibo-shell-v1';
+const CACHE_NAME = 'kakeibo-shell-v2';
 
 const APP_SHELL = [
     './',
@@ -67,17 +67,18 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 静的アセット: キャッシュ優先、裏側でネットワークから更新（stale-while-revalidate）
+    // 静的アセット(JS/CSS/画像): ネットワーク優先、オフライン時のみキャッシュを返す。
+    // 以前は stale-while-revalidate（キャッシュ優先）だったが、ページ遷移(index.html)は
+    // ネットワーク優先のため、更新直後に「新しいindex.html + 古いJS」が混在し、
+    // 追加された機能のボタン(例: 土日祝の一括選択)がメソッド未定義で無反応になる版ずれが発生していた。
+    // HTMLとJS/CSSの版を常に揃えるためネットワーク優先に統一する。
     event.respondWith(
-        caches.match(request).then((cached) => {
-            const network = fetch(request).then((response) => {
-                if (response && response.ok) {
-                    const clone = response.clone();
-                    caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-                }
-                return response;
-            }).catch(() => cached);
-            return cached || network;
-        })
+        fetch(request).then((response) => {
+            if (response && response.ok) {
+                const clone = response.clone();
+                caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+            }
+            return response;
+        }).catch(() => caches.match(request))
     );
 });
