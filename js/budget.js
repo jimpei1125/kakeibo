@@ -1324,6 +1324,7 @@ export class CopyMonthManager {
                 name: cat.name,
                 amount,
                 note: cat.note || '',
+                budget: cat.budget || null,
                 subcategories: cat.subcategories,
                 checked: !currentNames.has(cat.name),
                 duplicate: currentNames.has(cat.name)
@@ -1475,6 +1476,7 @@ export class CopyMonthManager {
                 name: item.name,
                 amount: keepAmount ? (subcategories.length > 0 ? 0 : item.amount) : 0,
                 note: item.note,
+                budget: item.budget || null,
                 subcategories
             };
         });
@@ -1671,6 +1673,22 @@ export class BudgetManager {
         // ミニヘッダーの合計額も追従
         const miniTotalEl = document.getElementById('miniHeaderTotal');
         if (miniTotalEl) miniTotalEl.textContent = `¥${Utils.formatCurrency(total)}`;
+
+        // 予算残り表示（予算設定があるカテゴリが1つもなければ非表示）
+        const budgetEl = document.getElementById('budgetRemaining');
+        if (budgetEl) {
+            const { totalBudget, remaining } = this._calculateBudgetSummary();
+            if (totalBudget > 0) {
+                budgetEl.style.display = 'block';
+                budgetEl.textContent = remaining >= 0
+                    ? `予算残り ¥${Utils.formatCurrency(remaining)}`
+                    : `予算超過 ¥${Utils.formatCurrency(-remaining)}`;
+                budgetEl.classList.toggle('text-emerald-400', remaining >= 0);
+                budgetEl.classList.toggle('text-rose-400', remaining < 0);
+            } else {
+                budgetEl.style.display = 'none';
+            }
+        }
 
         // 円グラフ面を表示中ならグラフも更新
         if (this.totalFlipped) this.renderPie();
@@ -2100,6 +2118,43 @@ export class BudgetManager {
         Utils.showToast('保存しました');
     }
 
+    /**
+     * カテゴリの月間予算を更新
+     * @param {number} categoryId - カテゴリID
+     */
+    updateBudget(categoryId) {
+        const category = this._findCategory(categoryId);
+        if (!category) return;
+
+        const input = document.getElementById(`budget-${categoryId}`);
+        const value = parseFloat(input?.value);
+        category.budget = (Number.isFinite(value) && value > 0) ? value : null;
+
+        this.saveWithStatus();
+        Utils.showToast('保存しました');
+    }
+
+    /**
+     * 予算が設定されているカテゴリだけを対象に、予算合計・使用合計を集計
+     * @private
+     * @returns {{totalBudget: number, totalUsed: number, remaining: number}}
+     */
+    _calculateBudgetSummary() {
+        const monthData = this.getCurrentMonthData();
+        let totalBudget = 0;
+        let totalUsed = 0;
+
+        monthData.categories.forEach(category => {
+            if (!(category.budget > 0)) return;
+            const subTotal = category.subcategories.reduce((sum, sub) => sum + (sub.amount || 0), 0);
+            const amount = category.subcategories.length > 0 ? subTotal : (category.amount || 0);
+            totalBudget += category.budget;
+            totalUsed += amount;
+        });
+
+        return { totalBudget, totalUsed, remaining: totalBudget - totalUsed };
+    }
+
     // ----------------------------------------
     // アコーディオン
     // ----------------------------------------
@@ -2395,7 +2450,26 @@ export class BudgetManager {
         return `
             <div class="category-item overflow-hidden rounded-xl bg-white/5 ring-1 ring-white/10" data-cat-id="${category.id}">
                 ${this._renderCategorySummary(category, displayAmount)}
+                ${this._renderBudgetBar(category, displayAmount)}
                 ${this._renderCategoryDetails(category, displayAmount)}
+            </div>
+        `;
+    }
+
+    /**
+     * 予算使用率バーのHTMLを生成（予算未設定のカテゴリでは何も表示しない）
+     * @private
+     */
+    _renderBudgetBar(category, displayAmount) {
+        if (!(category.budget > 0)) return '';
+
+        const pct = Math.round((displayAmount / category.budget) * 100);
+        const widthPct = Math.min(100, Math.max(0, pct));
+        const colorClass = pct > 100 ? 'bg-rose-500' : pct >= 80 ? 'bg-amber-400' : 'bg-indigo-500';
+
+        return `
+            <div class="budget-bar-track h-1 w-full bg-black/20" title="予算${Utils.formatCurrency(category.budget)}円中${Utils.formatCurrency(displayAmount)}円使用（${pct}%）">
+                <div class="budget-bar-fill h-full ${colorClass} transition-all" style="width:${widthPct}%"></div>
             </div>
         `;
     }
@@ -2472,6 +2546,13 @@ export class BudgetManager {
                         <button class="delete-btn rounded-md bg-rose-500/10 px-2.5 py-1.5 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20" onclick="app.budget.deleteCategory(${category.id})">削除</button>
                     </div>
                 </div>
+            </div>
+            <div class="category-budget mt-2.5 flex items-center gap-2">
+                <label class="text-xs text-zinc-500" for="budget-${category.id}">月の予算</label>
+                <input type="number" id="budget-${category.id}" value="${category.budget ?? ''}" placeholder="未設定"
+                    onchange="app.budget.updateBudget(${category.id})"
+                    class="w-24 rounded-lg bg-white/5 px-2.5 py-1.5 text-right text-xs text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+                <span class="text-xs text-zinc-500">円/月</span>
             </div>
         `;
     }
