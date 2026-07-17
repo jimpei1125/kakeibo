@@ -161,20 +161,20 @@
     <!-- CSVインポートモーダル -->
     <div class="modal-panel csv-modal csv-import-modal fixed left-1/2 top-1/2 z-[1500] max-h-[88vh] w-[94%] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-zinc-900 shadow-2xl ring-1 ring-white/10" id="csvImportModal">
         <div class="modal-header flex items-center justify-between p-6 pb-4">
-            <h2 class="text-lg font-bold text-white"><span data-icon="upload"></span> CSVインポート</h2>
+            <h2 class="text-lg font-bold text-white"><span data-icon="upload"></span> 明細読み込み</h2>
             <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.csvImporter.closeModal()"><span data-icon="x"></span></button>
         </div>
 
         <div class="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-4">
             <!-- ファイル選択 -->
             <div class="rounded-xl bg-white/5 p-4 ring-1 ring-white/5">
-                <input type="file" id="csvFileInput" accept=".csv,text/csv,application/csv,text/comma-separated-values" onchange="app.csvImporter.handleFileSelect(event)" class="hidden">
+                <input type="file" id="csvFileInput" accept=".csv,.pdf,text/csv,application/csv,text/comma-separated-values,application/pdf" onchange="app.csvImporter.handleFileSelect(event)" class="hidden">
                 <button onclick="document.getElementById('csvFileInput').click()" type="button"
                     class="w-full rounded-lg bg-white/10 px-4 py-3 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15">
-                    <span data-icon="folder"></span> CSVファイルを選択
+                    <span data-icon="folder"></span> ファイルを選択（CSV / PDF）
                 </button>
                 <div id="csvFileName" class="mt-2.5 text-sm text-emerald-400" style="display: none;"></div>
-                <p class="mt-2 text-xs text-zinc-500">※ クレジットカードの利用明細CSVファイル（PayPayカード等）を選択してください</p>
+                <p class="mt-2 text-xs text-zinc-500">※ クレジットカードの利用明細（PayPayカード等のCSV、Amazon Mastercard等のPDF）を選択してください</p>
             </div>
 
             <!-- 取込設定（ファイル読み込み後に表示） -->
@@ -327,7 +327,7 @@
         </div>
     </div>
 
-    <!-- その他の機能シート（計算機・CSV出力・CSV取込） -->
+    <!-- その他の機能シート（計算機・CSV出力・明細読み込み） -->
     <div class="modal-panel bottom-sheet fixed inset-x-0 bottom-0 z-[1500] max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="toolsSheet" style="padding-bottom: max(24px, env(safe-area-inset-bottom));">
         <div class="modal-header mb-5 flex items-center justify-between">
             <h2 class="text-lg font-bold text-white">その他の機能</h2>
@@ -341,7 +341,7 @@
                 <span class="text-lg" data-icon="download"></span> CSV出力
             </button>
             <button class="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.closeToolsSheet(); app.csvImporter.showModal();">
-                <span class="text-lg" data-icon="upload"></span> CSV取込
+                <span class="text-lg" data-icon="upload"></span> 明細読み込み（CSVなど）
             </button>
             <button class="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.closeToolsSheet(); app.recurring.showModal();">
                 <span class="text-lg" data-icon="repeat"></span> 固定費の管理
