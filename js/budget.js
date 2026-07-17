@@ -416,20 +416,73 @@ export class CSVExporter {
 }
 
 // ============================================================
-// CSVインポートクラス
+// 明細読み込みクラス（CSV / PDF）
 // ============================================================
 
 /** カテゴリ候補のデフォルト値（既存カテゴリ・学習済みルールに追加で表示） */
 const DEFAULT_CATEGORY_SUGGESTIONS = ['食費', '日用品', '外食', '光熱費', '通信費', '交際費', 'その他'];
 
 /**
- * クレジットカード明細CSVを読み込み、明細ごとにカテゴリを割り当てて
+ * 康熙部首（Kangxi Radicals/CJK Radicals Supplement）の字形を通常の漢字に正規化するマップ
+ * 三井住友カードの明細PDFは一部の漢字（日・月・支・金・手など）を、見た目は同じだが
+ * 意味的に異なるUnicodeの部首ブロック（U+2E80-2EFF, U+2F00-2FDF）のコードポイントで
+ * 埋め込んでいるため、固定文言の正規表現マッチが失敗する（例: "金"→"⾦"で「遅延損害金」の判定が外れる）。
+ * NFKC等の標準正規化では復元できないため、実測で確認した対応表を明示的に用意する。
+ */
+const KANGXI_RADICAL_TO_KANJI = {
+    '⼈': '人', // ⼈→人
+    '⼊': '入', // ⼊→入
+    '⼤': '大', // ⼤→大
+    '⼿': '手', // ⼿→手
+    '⽀': '支', // ⽀→支
+    '⽇': '日', // ⽇→日
+    '⽉': '月', // ⽉→月
+    '⽊': '木', // ⽊→木
+    '⽤': '用', // ⽤→用
+    '⽬': '目', // ⽬→目
+    '⽰': '示', // ⽰→示
+    '⾏': '行', // ⾏→行
+    '⾦': '金', // ⾦→金
+    '⾮': '非', // ⾮→非
+    '⻑': '長'  // ⻑→長
+};
+
+/**
+ * 康熙部首の字形を通常の漢字に置換する
+ * @param {string} text - 変換前の文字列
+ * @returns {string} 変換後の文字列
+ */
+function normalizeKangxiRadicals(text) {
+    return text.replace(/[⺀-⻿⼀-⿟]/g, (ch) => KANGXI_RADICAL_TO_KANJI[ch] || ch);
+}
+
+/** pdf.jsの読み込みPromise（PDF選択時に初回のみCDNから動的import） */
+let _pdfjsPromise = null;
+
+/**
+ * pdf.jsをCDNから動的に読み込む（PDF未選択時は一切ロードしない）
+ * @returns {Promise<any>} pdfjsモジュール
+ */
+function loadPdfJs() {
+    if (!_pdfjsPromise) {
+        const VER = '6.1.200';
+        const base = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${VER}/build`;
+        _pdfjsPromise = import(/* webpackIgnore: true */ `${base}/pdf.min.mjs`).then((pdfjs) => {
+            pdfjs.GlobalWorkerOptions.workerSrc = `${base}/pdf.worker.min.mjs`;
+            return pdfjs;
+        });
+    }
+    return _pdfjsPromise;
+}
+
+/**
+ * クレジットカード明細（CSV / PDF）を読み込み、明細ごとにカテゴリを割り当てて
  * 家計簿に取り込むクラス
  *
  * フロー:
- * 1. CSVファイル選択 → 明細（利用日/店名/金額）を一覧表示
+ * 1. ファイル選択（拡張子でCSV/PDFを自動判定） → 明細（利用日/店名/金額）を一覧表示
  * 2. 明細にチェックを入れ、カテゴリチップをタップして割り当て
- * 3. 取込先の月（「当月お支払日」から自動設定）を確認してインポート
+ * 3. 取込先の月（CSVは「当月お支払日」、PDFは「お支払い日」から自動設定）を確認してインポート
  *
  * 店名→カテゴリの割り当てはFirestoreに保存され、次回から自動分類される。
  */
@@ -561,7 +614,7 @@ export class CSVImporter {
     }
 
     /**
-     * CSVファイルが選択されたときの処理
+     * ファイルが選択されたときの処理（拡張子でCSV/PDFを自動判定）
      * @param {Event} event - ファイル選択イベント
      */
     async handleFileSelect(event) {
@@ -575,16 +628,22 @@ export class CSVImporter {
             fileNameDisplay.style.display = 'block';
         }
 
-        if (!file.name.toLowerCase().endsWith('.csv')) {
-            Utils.showToast('CSVファイルを選択してください', 'error');
+        const lower = file.name.toLowerCase();
+        if (!lower.endsWith('.csv') && !lower.endsWith('.pdf')) {
+            Utils.showToast('CSVまたはPDFファイルを選択してください', 'error');
             return;
         }
 
         try {
-            Utils.showToast('CSV読み込み中...');
-            const content = await this._readFile(file);
-            this.fileHash = await this._sha256(content);
-            this._parseTransactions(content);
+            if (lower.endsWith('.pdf')) {
+                Utils.showToast('PDF読み込み中...');
+                await this._handlePdfFile(file);
+            } else {
+                Utils.showToast('CSV読み込み中...');
+                const content = await this._readFile(file);
+                this.fileHash = await this._sha256(content);
+                this._parseTransactions(content);
+            }
             this._setupImportUI();
 
             const autoAssigned = this.transactions.filter(t => t.category).length;
@@ -592,8 +651,8 @@ export class CSVImporter {
                 ? `${this.transactions.length}件読み込み（${autoAssigned}件を自動分類）`
                 : `${this.transactions.length}件読み込みました`);
         } catch (error) {
-            console.error('CSV読み込みエラー:', error);
-            Utils.showToast(`CSVファイルの読み込みに失敗しました: ${error.message}`, 'error');
+            console.error('明細読み込みエラー:', error);
+            Utils.showToast(`ファイルの読み込みに失敗しました: ${error.message}`, 'error');
             this._resetImportState();
         }
     }
@@ -790,6 +849,175 @@ export class CSVImporter {
     }
 
     // ----------------------------------------
+    // PDF明細の読み込み・パース
+    // （三井住友カード「お支払い明細」＝Amazon Mastercard発行分。
+    //  詳細は docs/statement-import-design.md 参照）
+    // ----------------------------------------
+
+    /**
+     * PDFファイルを読み込み、明細リストを作成する
+     * @private
+     * @param {File} file - 選択されたPDFファイル
+     */
+    async _handlePdfFile(file) {
+        const buf = await file.arrayBuffer();
+        this.fileHash = await this._sha256Bytes(buf);
+        const lines = await this._extractPdfLines(buf);
+        this._parsePdfStatement(lines);
+    }
+
+    /**
+     * ArrayBufferのSHA-256ハッシュ（16進）を計算
+     * @private
+     * @param {ArrayBuffer} buf
+     * @returns {Promise<string>}
+     */
+    async _sha256Bytes(buf) {
+        const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+        return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    /**
+     * PDFのテキストをy座標でグルーピングし、上から下・左から右の行データに変換する
+     * @private
+     * @param {ArrayBuffer} buf - PDFファイルの内容
+     * @returns {Promise<Array<{y: number, text: string, tokens: string[]}>>}
+     */
+    async _extractPdfLines(buf) {
+        const pdfjs = await loadPdfJs();
+        const doc = await pdfjs.getDocument({ data: new Uint8Array(buf), useSystemFonts: true }).promise;
+        const lines = [];
+
+        for (let p = 1; p <= doc.numPages; p++) {
+            const page = await doc.getPage(p);
+            const tc = await page.getTextContent();
+            const byY = new Map();
+
+            for (const item of tc.items) {
+                if (!item.str) continue;
+                // 康熙部首の字形を通常の漢字に正規化し、制御文字を除去する。
+                // 空白文字（実際の列の区切り）はここでは捨てずに残す。
+                const s = normalizeKangxiRadicals(item.str).replace(/[\x00-\x1f]/g, '');
+                if (!s) continue;
+                const y = Math.round(item.transform[5]);
+                // 近接するyは同一行とみなす（±2px）
+                let key = y;
+                for (const k of byY.keys()) {
+                    if (Math.abs(k - y) <= 2) { key = k; break; }
+                }
+                if (!byY.has(key)) byY.set(key, []);
+                byY.get(key).push({ x: item.transform[4], s });
+            }
+
+            for (const [y, arr] of byY) {
+                arr.sort((a, b) => a.x - b.x);
+                // pdf.jsが返す空白文字は実際の列の区切りをそのまま表しているため、
+                // 独自の区切り文字を挿入せずに連結する（挿入すると単語の途中に
+                // 余分な空白が入ってしまう。例: 「手数料」が複数グリフに分割されている場合）。
+                const text = arr.map(a => a.s).join('').replace(/\s+/g, ' ').trim();
+                const tokens = text.split(/\s+/).filter(Boolean);
+                if (tokens.length) lines.push({ y, text, tokens });
+            }
+        }
+
+        lines.sort((a, b) => b.y - a.y); // 紙面の上から下の順に
+        return lines;
+    }
+
+    /**
+     * 三井住友カード（Amazon Mastercard）のお支払い明細PDFをパースして明細リストを作成
+     * 分割払いは「当月支払額」（各行末尾の半角金額）を採用する
+     * @private
+     * @param {Array<{y: number, text: string, tokens: string[]}>} lines - 抽出済みの行データ
+     */
+    _parsePdfStatement(lines) {
+        const isSmbc = lines.some(l => /お支払い明細|三井住友カード|お支払い合計額/.test(l.text));
+        if (!isSmbc) {
+            throw new Error('対応していないPDF形式です（三井住友カード/Amazon Mastercardの明細PDFを選択してください）');
+        }
+
+        const MONEY = /^\d{1,3}(?:,\d{3})*$/; // 半角・カンマ区切りの整数（全角の回数列とは区別される）
+        const DATE = /^\d{2}\/\d{2}\/\d{2}$/; // YY/MM/DD
+
+        const txs = [];
+        let total = null;
+        let payMonth = null;
+
+        for (const { text, tokens } of lines) {
+            const pay = text.match(/お支払い日\s*(\d{4})年(\d{1,2})月(\d{1,2})日/);
+            if (pay) payMonth = Utils.getMonthKey(parseInt(pay[1]), parseInt(pay[2]));
+
+            // 「＜お支払金額総合計＞ 54,739」のように、ラベルと金額が同じ行にまとまって出現する
+            const grand = text.match(/＜お支払金額総合計＞[^\d]*([\d,]+)/);
+            if (grand) total = this._parseAmount(grand[1]);
+
+            if (/＜お支払金額総合計＞/.test(text)) continue; // 合計行は明細に含めない
+
+            const moneyTokens = tokens.filter(t => MONEY.test(t));
+            const dateTok = tokens.find(t => DATE.test(t));
+
+            if (dateTok && moneyTokens.length) {
+                const amount = this._parseAmount(moneyTokens[moneyTokens.length - 1]); // 当月支払額
+                if (!amount) continue;
+                const dateIdx = tokens.indexOf(dateTok);
+                const moneyIdx = tokens.indexOf(moneyTokens[0]);
+                const store = tokens.slice(dateIdx + 1, moneyIdx).join(' ').trim();
+                if (!store) continue;
+                txs.push({
+                    id: txs.length,
+                    date: this._normPdfDate(dateTok),
+                    store,
+                    amount,
+                    category: this.rules[store] || null,
+                    checked: false
+                });
+            } else if (/^遅延損害金/.test(text) && moneyTokens.length) {
+                const amount = this._parseAmount(moneyTokens[moneyTokens.length - 1]);
+                const store = text.replace(/\s*[\d,]+\s*$/, '').trim();
+                if (amount) {
+                    txs.push({
+                        id: txs.length,
+                        date: '',
+                        store,
+                        amount,
+                        category: this.rules[store] || null,
+                        checked: false
+                    });
+                }
+            }
+        }
+
+        if (txs.length === 0) {
+            throw new Error('有効な明細が見つかりませんでした');
+        }
+
+        this.transactions = txs;
+        this.payMonth = payMonth || this._detectPayMonth([]);
+
+        // 明細合計と総合計を検算（不一致でも取込自体は継続する）
+        if (total != null) {
+            const sum = txs.reduce((s, t) => s + t.amount, 0);
+            if (Math.abs(sum - total) >= 1) {
+                Utils.showToast(
+                    `注意: 明細合計(¥${Utils.formatCurrency(sum)})と総合計(¥${Utils.formatCurrency(total)})が一致しません`,
+                    'error'
+                );
+            }
+        }
+    }
+
+    /**
+     * PDF内の日付表記（YY/MM/DD）を YYYY/MM/DD に変換
+     * @private
+     * @param {string} yymmdd - 例: "26/05/31"
+     * @returns {string} 例: "2026/05/31"
+     */
+    _normPdfDate(yymmdd) {
+        const [y, m, d] = yymmdd.split('/');
+        return `20${y}/${m}/${d}`;
+    }
+
+    // ----------------------------------------
     // 取込設定UIの描画
     // ----------------------------------------
 
@@ -808,7 +1036,7 @@ export class CSVImporter {
         const monthHint = document.getElementById('csvImportMonthHint');
         if (monthHint) {
             monthHint.textContent = this.payMonth
-                ? '※ CSVの「当月お支払日」から自動設定しています'
+                ? '※ 明細の「お支払日」から自動設定しています'
                 : '';
         }
 
