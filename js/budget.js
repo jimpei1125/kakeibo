@@ -1753,6 +1753,21 @@ export class BudgetManager {
         this._autoEntryAttempted = new Set();
         /** @type {boolean} 明細のドラッグ並び替え中か（同期による再描画をスキップする） */
         this._reordering = false;
+        /** @type {boolean} テキスト出力を詳細（全小カテゴリー展開）にするか。false=概要（上位のみ圧縮） */
+        this.outputDetailMode = this._loadOutputDetailMode();
+    }
+
+    /**
+     * テキスト出力モードの保存値を復元する（デフォルトは概要）
+     * @private
+     * @returns {boolean}
+     */
+    _loadOutputDetailMode() {
+        try {
+            return localStorage.getItem('budgetOutputDetailMode') === 'detail';
+        } catch {
+            return false;
+        }
     }
 
     // ----------------------------------------
@@ -1910,6 +1925,7 @@ export class BudgetManager {
         }
         if (settlementEl) settlementEl.textContent = `精算: ${this._formatSettlementLabel(settlement)}`;
         if (outputEl) outputEl.textContent = this.generateOutput();
+        this._updateOutputModeToggle();
 
         // ミニヘッダーの合計額も追従
         const miniTotalEl = document.getElementById('miniHeaderTotal');
@@ -2712,17 +2728,65 @@ export class BudgetManager {
         if (category.subcategories.length === 0) {
             return `■ ${category.name}：${Utils.formatCurrency(category.amount)}円\n`;
         }
-        
+
         const subTotal = category.subcategories.reduce((sum, sub) => sum + (sub.amount || 0), 0);
         let output = `■ ${category.name}：${Utils.formatCurrency(subTotal)}円\n`;
-        
-        category.subcategories.forEach((sub, index) => {
-            const isLast = index === category.subcategories.length - 1;
+
+        // 表示する小カテゴリー行を決定する。
+        // 概要モードで小カテゴリーが多い場合は、金額上位のみ残して残りを「ほか」に集約し、
+        // 明細取込などで出力が長くなりすぎないようにする。詳細モードは全件展開。
+        const TOP_N = 3;          // 概要モードで個別表示する上位件数
+        const COLLAPSE_FROM = 5;  // この件数以上のときだけ圧縮（4件以下は「ほか1件」を避けて全表示）
+        const lines = [];
+        if (!this.outputDetailMode && category.subcategories.length >= COLLAPSE_FROM) {
+            const sorted = [...category.subcategories].sort((a, b) => (b.amount || 0) - (a.amount || 0));
+            const top = sorted.slice(0, TOP_N);
+            const rest = sorted.slice(TOP_N);
+            top.forEach(sub => lines.push({ name: sub.name, amount: sub.amount }));
+            const restSum = rest.reduce((sum, sub) => sum + (sub.amount || 0), 0);
+            lines.push({ name: `ほか${rest.length}件`, amount: restSum });
+        } else {
+            category.subcategories.forEach(sub => lines.push({ name: sub.name, amount: sub.amount }));
+        }
+
+        lines.forEach((line, index) => {
+            const isLast = index === lines.length - 1;
             const prefix = isLast ? '  └ ' : '  ├ ';
-            output += `${prefix}${sub.name}：${Utils.formatCurrency(sub.amount)}円\n`;
+            output += `${prefix}${line.name}：${Utils.formatCurrency(line.amount)}円\n`;
         });
-        
+
         return output;
+    }
+
+    /**
+     * テキスト出力の概要／詳細モードを切り替える
+     * @param {'summary'|'detail'} mode
+     */
+    setOutputMode(mode) {
+        this.outputDetailMode = mode === 'detail';
+        try {
+            localStorage.setItem('budgetOutputDetailMode', mode === 'detail' ? 'detail' : 'summary');
+        } catch {
+            // localStorage不可でも動作は継続
+        }
+
+        const outputEl = document.getElementById('outputText');
+        if (outputEl) outputEl.textContent = this.generateOutput();
+        this._updateOutputModeToggle();
+    }
+
+    /**
+     * 概要／詳細トグルのアクティブ表示を更新する
+     * @private
+     */
+    _updateOutputModeToggle() {
+        const summaryBtn = document.getElementById('outputModeSummary');
+        const detailBtn = document.getElementById('outputModeDetail');
+        if (!summaryBtn || !detailBtn) return;
+        const active = 'bg-white/15 text-white';
+        const inactive = 'text-zinc-400';
+        summaryBtn.className = `output-mode-btn rounded-md px-2.5 py-1 text-xs font-semibold transition ${this.outputDetailMode ? inactive : active}`;
+        detailBtn.className = `output-mode-btn rounded-md px-2.5 py-1 text-xs font-semibold transition ${this.outputDetailMode ? active : inactive}`;
     }
 
     // ----------------------------------------
