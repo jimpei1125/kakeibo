@@ -3,7 +3,7 @@
  * 休日カレンダー、ユーザー管理、メモ機能、Googleカレンダー連携を提供
  */
 
-import { db, collection, addDoc, deleteDoc, query, where, getDocs, orderBy, onSnapshot } from './firebase-config.js';
+import { db, doc, setDoc, collection, addDoc, deleteDoc, query, where, getDocs, orderBy, onSnapshot } from './firebase-config.js';
 import { Utils } from './utils.js';
 import { Icons } from './icons.js';
 import { Dialog } from './dialog.js';
@@ -408,7 +408,46 @@ export class HolidayCalendar {
         onSnapshot(collection(db, 'holidays'), (snap) => {
             this.holidays = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             this.renderCalendar();
+            this._dedupeHolidays();
         });
+    }
+
+    /**
+     * 同一ユーザー×同一日付で重複しているドキュメントを1件に整理する。
+     * 旧実装（保存のたびにランダムIDでaddDoc）で作られた重複データの自動修復用。
+     * 重複が無ければ何もしないため、通常時のコストは配列走査のみ。
+     */
+    async _dedupeHolidays() {
+        // 実行中、または権限不足などで一度失敗した場合は再試行しない（スナップショット毎の空振りを防ぐ）
+        if (this._dedupingHolidays || this._dedupeHolidaysFailed) return;
+
+        // userId+date ごとにドキュメントをまとめ、2件以上あるものだけ対象にする
+        const groups = {};
+        this.holidays.forEach(h => {
+            if (!h.userId || !h.date) return;
+            (groups[`${h.userId}_${h.date}`] ||= []).push(h);
+        });
+
+        const removals = [];
+        Object.entries(groups).forEach(([canonicalId, docs]) => {
+            if (docs.length < 2) return;
+            // 残す1件は全端末で同じ結果になるよう決める（固定IDがあればそれ、無ければID最小）
+            const keep = docs.find(h => h.id === canonicalId)
+                || [...docs].sort((a, b) => a.id.localeCompare(b.id))[0];
+            docs.forEach(h => { if (h.id !== keep.id) removals.push(h.id); });
+        });
+        if (removals.length === 0) return;
+
+        this._dedupingHolidays = true;
+        try {
+            await Promise.all(removals.map(id => deleteDoc(doc(db, 'holidays', id))));
+            Utils.showToast(`休日データの重複を整理しました（${removals.length}件）`);
+        } catch (e) {
+            console.error('休日重複整理エラー:', e);
+            this._dedupeHolidaysFailed = true;
+        } finally {
+            this._dedupingHolidays = false;
+        }
     }
 
     async loadMemos() {
@@ -850,7 +889,8 @@ export class HolidayCalendar {
         if (!this.selectedUser) return;
         this.editYear = this.currentYear;
         this.editMonth = this.currentMonth;
-        this.tempHolidays = this.holidays.filter(h => h.userId === this.selectedUser.id).map(h => h.date);
+        // 重複データが残っていても選択状態は1日1件として扱う
+        this.tempHolidays = [...new Set(this.holidays.filter(h => h.userId === this.selectedUser.id).map(h => h.date))];
         document.getElementById('holidayEditTitle').innerHTML = `${Icons.svg('calendar-days')} ${Utils.escapeHtml(this.selectedUser.name)}さんの休日編集`;
         this.renderEditCalendar();
         Utils.showModal('holidayEditModal');
@@ -918,15 +958,60 @@ export class HolidayCalendar {
         this.renderEditCalendar();
     }
 
+    /**
+     * 休日ドキュメントの固定ID（ユーザー×日付で一意）
+     * ランダムIDのaddDocだと同じ日付が何度でも追加できてしまうため、
+     * 「1ユーザー1日1件」をID自体で保証する。
+     */
+    _holidayDocId(userId, date) { return `${userId}_${date}`; }
+
     async saveHolidays() {
         if (!this.selectedUser) return;
+        // 保存中の再入を防ぐ（保存ボタンの連打で二重登録されないように）
+        if (this._savingHolidays) return;
+        this._savingHolidays = true;
+        const saveBtn = document.getElementById('holidaySaveBtn');
+        if (saveBtn) saveBtn.disabled = true;
+
         try {
-            const snap = await getDocs(query(collection(db, 'holidays'), where('userId', '==', this.selectedUser.id)));
-            await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
-            await Promise.all(this.tempHolidays.map(date => addDoc(collection(db, 'holidays'), { userId: this.selectedUser.id, date, createdAt: new Date().toISOString() })));
+            const userId = this.selectedUser.id;
+            const snap = await getDocs(query(collection(db, 'holidays'), where('userId', '==', userId)));
+            const desired = [...new Set(this.tempHolidays)];
+            const desiredSet = new Set(desired);
+
+            // 既存ドキュメントのcreatedAtを引き継ぐ（保存のたびに作成日時が変わらないように）
+            const createdAtByDate = {};
+            snap.docs.forEach(d => {
+                const { date, createdAt } = d.data();
+                if (date && createdAt && !createdAtByDate[date]) createdAtByDate[date] = createdAt;
+            });
+
+            // 解除された日付と、旧ランダムID（＝重複の原因）のドキュメントを削除する。
+            // 固定IDのドキュメントはこのあとsetDocで上書きするため残す。
+            const deletions = snap.docs
+                .filter(d => {
+                    const { date } = d.data();
+                    return !desiredSet.has(date) || d.id !== this._holidayDocId(userId, date);
+                })
+                .map(d => deleteDoc(d.ref));
+
+            // 固定IDで書き込むため、同じ保存を何度実行しても件数は増えない（冪等）
+            const now = new Date().toISOString();
+            const writes = desired.map(date => setDoc(
+                doc(db, 'holidays', this._holidayDocId(userId, date)),
+                { userId, date, createdAt: createdAtByDate[date] || now }
+            ));
+
+            await Promise.all([...deletions, ...writes]);
             Utils.showToast('休日を保存しました');
             Utils.closeModal('holidayEditModal');
-        } catch (e) { console.error('休日保存エラー:', e); Utils.showToast('保存に失敗しました', 'error'); }
+        } catch (e) {
+            console.error('休日保存エラー:', e);
+            Utils.showToast('保存に失敗しました', 'error');
+        } finally {
+            this._savingHolidays = false;
+            if (saveBtn) saveBtn.disabled = false;
+        }
     }
 
     cancelHolidayEdit() { Utils.closeModal('holidayEditModal'); }
