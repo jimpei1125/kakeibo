@@ -241,9 +241,9 @@ export class SmartHome {
         const method = isPhysical ? 'controlPhysicalDevice' : 'controlDevice';
         // 引数をJS文字列リテラル化した上でHTML属性用にエスケープ（XSS対策）
         const args = [device.deviceId, type, device.deviceName]
-            .map(v => JSON.stringify(String(v ?? '')))
+            .map(v => Utils.escapeJsArg(v))
             .join(',');
-        const onclick = Utils.escapeHtml(`app.smartHome.${method}(${args})`);
+        const onclick = `app.smartHome.${method}(${args})`;
         const meterInfo = isPhysical ? this._renderMeterInfo(device.deviceId) : '';
 
         return `
@@ -282,9 +282,9 @@ export class SmartHome {
     controlDevice(deviceId, deviceType, deviceName) {
         switch (deviceType) {
             case 'Air Conditioner': this.showAcControl(deviceId, deviceName); break;
-            case 'Fan': this.showFanControl(deviceId, deviceName); break;
-            case 'Light': this.toggleLight(deviceId, deviceName); break;
-            case 'TV': this.toggleTV(deviceId, deviceName); break;
+            case 'Fan':
+            case 'Light':
+            case 'TV': this._toggleDevice(deviceId, deviceName); break;
             default: this.sendCommand(deviceId, 'turnOn');
         }
     }
@@ -294,7 +294,7 @@ export class SmartHome {
             this.sendCommand(deviceId, 'press');
             Utils.showToast(`${deviceName}を押しました`);
         } else if (deviceType.includes('Plug')) {
-            this.togglePlug(deviceId, deviceName);
+            this._toggleDevice(deviceId, deviceName);
         } else {
             Utils.showToast(`${deviceName}は直接操作できません`);
         }
@@ -389,24 +389,14 @@ export class SmartHome {
 
     // ==================== 他デバイス制御 ====================
 
-    async showFanControl(deviceId, deviceName) {
-        await this._toggleDevice(deviceId, deviceName, 'ON/OFFを切り替えますか？');
-    }
-
-    async toggleLight(deviceId, deviceName) {
-        await this._toggleDevice(deviceId, deviceName, 'ON/OFFを切り替えますか？');
-    }
-
-    async toggleTV(deviceId, deviceName) {
-        await this._toggleDevice(deviceId, deviceName, 'ON/OFFを切り替えますか？');
-    }
-
-    async togglePlug(deviceId, deviceName) {
-        await this._toggleDevice(deviceId, deviceName, 'ON/OFFを切り替えますか？');
-    }
-
-    async _toggleDevice(deviceId, deviceName, message) {
-        const action = await Dialog.choose(`${deviceName}\n\n${message}`, [
+    /**
+     * ON/OFF選択ダイアログを表示してデバイスを操作（扇風機・照明・TV・プラグ共通）
+     * @private
+     * @param {string} deviceId
+     * @param {string} deviceName
+     */
+    async _toggleDevice(deviceId, deviceName) {
+        const action = await Dialog.choose(`${deviceName}\n\nON/OFFを切り替えますか？`, [
             { label: 'キャンセル', value: null, variant: 'neutral' },
             { label: 'OFFにする', value: false, variant: 'neutral' },
             { label: 'ONにする', value: true, variant: 'primary' },

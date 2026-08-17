@@ -206,14 +206,23 @@ export class PhilipsHue {
 
     // ==================== 描画 ====================
 
+    /**
+     * 制御対象（Room/Zone）のグループID一覧を取得
+     * @private
+     * @returns {string[]}
+     */
+    _roomGroupIds() {
+        return Object.keys(this.groups).filter(id =>
+            ['Room', 'Zone'].includes(this.groups[id].type)
+        );
+    }
+
     renderGroups() {
         const listEl = document.getElementById('hueLightList');
         if (!listEl) return;
-        
-        const roomGroups = Object.keys(this.groups).filter(id => 
-            ['Room', 'Zone'].includes(this.groups[id].type)
-        );
-        
+
+        const roomGroups = this._roomGroupIds();
+
         if (roomGroups.length === 0) {
             listEl.innerHTML = '<div class="no-devices col-span-full py-6 text-center text-sm text-zinc-500">グループが見つかりません</div>';
             return;
@@ -405,11 +414,7 @@ export class PhilipsHue {
         Utils.showToast(`${message}中...`);
         
         try {
-            const groupIds = Object.keys(this.groups).filter(id => 
-                ['Room', 'Zone'].includes(this.groups[id].type)
-            );
-            
-            for (const id of groupIds) {
+            for (const id of this._roomGroupIds()) {
                 await this.apiRequestV1(`/groups/${id}/action`, 'PUT', { on });
                 if (this.groups[id].state) {
                     this.groups[id].state.any_on = on;

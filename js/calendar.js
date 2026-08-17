@@ -3,7 +3,7 @@
  * 休日カレンダー、ユーザー管理、メモ機能、Googleカレンダー連携を提供
  */
 
-import { db, doc, setDoc, collection, addDoc, deleteDoc, query, where, getDocs, orderBy, onSnapshot } from './firebase-config.js';
+import { db, doc, setDoc, updateDoc, collection, addDoc, deleteDoc, query, where, getDocs, orderBy, onSnapshot } from './firebase-config.js';
 import { Utils } from './utils.js';
 import { Icons } from './icons.js';
 import { Dialog } from './dialog.js';
@@ -27,6 +27,26 @@ const GCAL_CONFIG = {
     clientId: '120845540864-apujs76kfni95rndqsueaupi48ccfetd.apps.googleusercontent.com',
     scopes: 'https://www.googleapis.com/auth/calendar.events'
 };
+
+/**
+ * 年月日を YYYY-MM-DD 形式の文字列に変換
+ * @param {number} year
+ * @param {number} month - 1-12
+ * @param {number} day
+ * @returns {string}
+ */
+function toDateStr(year, month, day) {
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+/**
+ * FirestoreのスナップショットをID付きオブジェクト配列に変換
+ * @param {Object} snap - QuerySnapshot
+ * @returns {Array<Object>}
+ */
+function docsToList(snap) {
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
 
 // 日本の祝日を計算（固定祝日・ハッピーマンデー・春分/秋分・国民の休日・振替休日に対応）
 const _holidayCache = {};
@@ -261,9 +281,9 @@ export class HolidayCalendar {
             getDocs(collection(db, 'holidays')),
             getDocs(query(collection(db, 'holidayUsers'), orderBy('order', 'asc')))
         ]);
-        this.memos = memosSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        this.holidays = holidaysSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        this.users = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        this.memos = docsToList(memosSnap);
+        this.holidays = docsToList(holidaysSnap);
+        this.users = docsToList(usersSnap);
         this.renderCalendar();
         if (this.memoListVisible) this.renderMemoList();
     }
@@ -314,17 +334,26 @@ export class HolidayCalendar {
 
     toggleGoogleCalendar() {
         if (this.gcalConnected) {
-            this.gcalAccessToken = null;
-            this.gcalConnected = false;
-            localStorage.removeItem('gcal_access_token');
-            localStorage.removeItem('gcal_token_expiry');
-            this.updateGcalStatus();
-            Utils.showToast('Googleカレンダーの連携を解除しました');
+            this._disconnectGcal('Googleカレンダーの連携を解除しました');
         } else if (this.gcalTokenClient) {
             this.gcalTokenClient.requestAccessToken();
         } else {
             Utils.showToast('認証の準備中です');
         }
+    }
+
+    /**
+     * Googleカレンダー連携を切断（トークン破棄・表示更新）
+     * @private
+     * @param {string} message - トースト表示するメッセージ
+     */
+    _disconnectGcal(message) {
+        this.gcalAccessToken = null;
+        this.gcalConnected = false;
+        localStorage.removeItem('gcal_access_token');
+        localStorage.removeItem('gcal_token_expiry');
+        this.updateGcalStatus();
+        Utils.showToast(message);
     }
 
     updateGcalStatus() {
@@ -376,12 +405,7 @@ export class HolidayCalendar {
     }
 
     _handleTokenExpired() {
-        this.gcalConnected = false;
-        this.gcalAccessToken = null;
-        localStorage.removeItem('gcal_access_token');
-        localStorage.removeItem('gcal_token_expiry');
-        this.updateGcalStatus();
-        Utils.showToast('Googleカレンダーの認証が切れました');
+        this._disconnectGcal('Googleカレンダーの認証が切れました');
     }
 
     async deleteGoogleCalendarEvent(eventId) {
@@ -398,7 +422,7 @@ export class HolidayCalendar {
 
     async loadUsers() {
         onSnapshot(query(collection(db, 'holidayUsers'), orderBy('order', 'asc')), (snap) => {
-            this.users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            this.users = docsToList(snap);
             this.updateUsersList();
             this.renderCalendar();
         });
@@ -406,7 +430,7 @@ export class HolidayCalendar {
 
     async loadHolidays() {
         onSnapshot(collection(db, 'holidays'), (snap) => {
-            this.holidays = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            this.holidays = docsToList(snap);
             this.renderCalendar();
             this._dedupeHolidays();
         });
@@ -452,7 +476,7 @@ export class HolidayCalendar {
 
     async loadMemos() {
         onSnapshot(collection(db, 'calendarMemos'), (snap) => {
-            this.memos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            this.memos = docsToList(snap);
             this.renderCalendar();
             if (this.memoListVisible) this.renderMemoList();
         });
@@ -482,9 +506,9 @@ export class HolidayCalendar {
     _adjustMonth(type, delta) {
         const y = type === 'edit' ? 'editYear' : 'currentYear';
         const m = type === 'edit' ? 'editMonth' : 'currentMonth';
-        this[m] += delta;
-        if (this[m] > 12) { this[m] = 1; this[y]++; }
-        else if (this[m] < 1) { this[m] = 12; this[y]--; }
+        const shifted = Utils.shiftMonth(this[y], this[m], delta);
+        this[y] = shifted.year;
+        this[m] = shifted.month;
     }
 
     // ==================== カレンダー描画 ====================
@@ -508,7 +532,7 @@ export class HolidayCalendar {
         for (let i = startDow - 1; i >= 0; i--) html += otherMonthCell(prevDays - i);
 
         for (let day = 1; day <= daysInMonth; day++) {
-            const dateStr = `${this.currentYear}-${String(this.currentMonth).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+            const dateStr = toDateStr(this.currentYear, this.currentMonth, day);
             const isToday = dateStr === todayStr;
             const dayH = this.holidays.filter(h => h.date === dateStr);
             const dayM = this.memos.filter(m => m.date === dateStr);
@@ -576,7 +600,6 @@ export class HolidayCalendar {
         if (!this.draggedMemo || this.draggedMemo.date === newDate) return;
 
         try {
-            const { updateDoc, doc } = await import('./firebase-config.js');
             await updateDoc(doc(db, 'calendarMemos', this.draggedMemo.id), { date: newDate, updatedAt: new Date().toISOString() });
             if (this.draggedMemo.gcalEventId && this.gcalConnected) {
                 await this.updateGoogleCalendarEvent(this.draggedMemo.gcalEventId, { ...this.draggedMemo, date: newDate });
@@ -653,7 +676,6 @@ export class HolidayCalendar {
         try {
             if (this.editingMemoId) {
                 const existingMemo = this.memos.find(m => m.id === this.editingMemoId);
-                const { updateDoc, doc } = await import('./firebase-config.js');
                 await updateDoc(doc(db, 'calendarMemos', this.editingMemoId), memoData);
                 if (existingMemo?.gcalEventId && this.gcalConnected) {
                     await this.updateGoogleCalendarEvent(existingMemo.gcalEventId, memoData);
@@ -696,7 +718,7 @@ export class HolidayCalendar {
         const c = document.getElementById('memoList');
         if (!c) return;
         
-        const monthStr = `${this.currentYear}-${String(this.currentMonth).padStart(2,'0')}`;
+        const monthStr = Utils.getMonthKey(this.currentYear, this.currentMonth);
         let memos = this.memos.filter(m => m.date?.startsWith(monthStr));
         if (this.memoFilter !== 'all') memos = memos.filter(m => m.type === this.memoFilter);
         memos = memos.sort((a,b) => a.date !== b.date ? a.date.localeCompare(b.date) : (a.type === 'task' ? -1 : 1));
@@ -722,7 +744,7 @@ export class HolidayCalendar {
                 html += `<div class="memo-date-header mt-2.5 border-b border-white/10 pb-1 pt-2 text-sm font-bold text-indigo-300 first:mt-0${headerClass}">${isToday ? `${Icons.svg('pin')} 今日 - ` : ''}${m.date.substring(5).replace('-','/')} (${WEEKDAYS[new Date(m.date).getDay()]})</div>`;
             }
             const icon = m.type === 'task' ? Icons.svg('pin') : Icons.svg('calendar');
-            const timeText = m.type === 'schedule' && m.startTime ? `${m.startTime}${m.endTime ? ' - '+m.endTime : ''}` : m.taskTime ? `${Icons.svg('bell')} ${m.taskTime}` : '';
+            const timeText = this._memoTimeText(m);
             const time = timeText ? `<span class="memo-time text-[11px] text-zinc-400">${timeText}</span>` : '';
             html += `<div class="memo-item ${m.type} mb-2 flex cursor-grab items-center justify-between gap-2 rounded-lg border-l-[3px] ${m.type === 'task' ? 'border-amber-400' : 'border-sky-400'} bg-white/5 p-3 ring-1 ring-inset ring-white/10" draggable="true" ondragstart="app.holidayCalendar.handleDragStart(event, '${m.id}')" ondragend="app.holidayCalendar.handleDragEnd(event)">
                 <div class="memo-item-content group flex min-w-0 flex-1 cursor-pointer items-center gap-2" onclick="app.holidayCalendar.editMemoFromList('${m.id}')">
@@ -737,11 +759,23 @@ export class HolidayCalendar {
         c.innerHTML = html;
     }
 
+    /**
+     * メモの時刻表示テキストを生成（予定は開始-終了、タスクは通知時刻）
+     * @private
+     * @param {Object} memo
+     * @returns {string} 表示テキスト（時刻情報がなければ空文字）
+     */
+    _memoTimeText(memo) {
+        if (memo.type === 'schedule' && memo.startTime) {
+            return `${memo.startTime}${memo.endTime ? ' - ' + memo.endTime : ''}`;
+        }
+        return memo.taskTime ? `${Icons.svg('bell')} ${memo.taskTime}` : '';
+    }
+
     async deleteMemo(memoId) {
         try {
             const memo = this.memos.find(m => m.id === memoId);
             if (memo?.gcalEventId && await this.deleteGoogleCalendarEvent(memo.gcalEventId)) Utils.showToast('Googleカレンダーからも削除しました');
-            const { doc } = await import('./firebase-config.js');
             await deleteDoc(doc(db, 'calendarMemos', memoId));
             if (!memo?.gcalEventId) Utils.showToast('メモを削除しました');
         } catch (e) { console.error('メモ削除エラー:', e); Utils.showToast('削除に失敗しました'); }
@@ -774,7 +808,7 @@ export class HolidayCalendar {
         let mHtml = memos.length ? `<div class="${sectionTitleClass}">${Icons.svg('file-text')} メモ</div>` : '<div class="no-memos p-5 text-center text-sm text-zinc-500">メモはありません</div>';
         memos.forEach(m => {
             const icon = m.type === 'task' ? Icons.svg('pin') : Icons.svg('calendar');
-            const timeText = m.type === 'schedule' && m.startTime ? `${m.startTime}${m.endTime ? ' - '+m.endTime : ''}` : m.taskTime ? `${Icons.svg('bell')} ${m.taskTime}` : '';
+            const timeText = this._memoTimeText(m);
             const time = timeText ? `<div class="detail-memo-time ml-6 mt-1 text-xs text-zinc-400">${timeText}</div>` : '';
             mHtml += `<div class="detail-memo-item ${m.type} relative mb-2 flex cursor-grab flex-col rounded-lg border-l-[3px] ${m.type === 'task' ? 'border-amber-400' : 'border-sky-400'} bg-white/5 p-3 ring-1 ring-inset ring-white/10" draggable="true" ondragstart="app.holidayCalendar.handleDragStart(event, '${m.id}')" ondragend="app.holidayCalendar.handleDragEnd(event)">
                 <div class="detail-memo-main group flex flex-1 cursor-pointer items-center gap-2 pr-7" onclick="app.holidayCalendar.editMemo('${m.id}')">
@@ -841,7 +875,6 @@ export class HolidayCalendar {
         if (!this.selectedColor) return Utils.showToast('色を選択してください');
         try {
             if (this.editingUserId) {
-                const { updateDoc, doc } = await import('./firebase-config.js');
                 await updateDoc(doc(db, 'holidayUsers', this.editingUserId), { name, color: this.selectedColor });
                 Utils.showToast('更新しました');
             } else {
@@ -857,7 +890,6 @@ export class HolidayCalendar {
         const confirmed = await Dialog.confirm('このユーザーを削除しますか？', { okLabel: '削除', danger: true });
         if (!confirmed) return;
         try {
-            const { doc } = await import('./firebase-config.js');
             await deleteDoc(doc(db, 'holidayUsers', this.editingUserId));
             const snap = await getDocs(query(collection(db, 'holidays'), where('userId', '==', this.editingUserId)));
             await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
@@ -910,7 +942,7 @@ export class HolidayCalendar {
 
         const cellBase = 'edit-calendar-cell relative flex aspect-square min-h-[35px] cursor-pointer items-center justify-center rounded-md p-0.5 text-xs font-bold transition sm:min-h-[40px] sm:text-[13px]';
         for (let day = 1; day <= daysInMonth; day++) {
-            const dateStr = `${this.editYear}-${String(this.editMonth).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+            const dateStr = toDateStr(this.editYear, this.editMonth, day);
             const dow = new Date(this.editYear, this.editMonth - 1, day).getDay();
             const holidayName = jpHolidays[dateStr];
             const sel = this.tempHolidays.includes(dateStr);
@@ -942,7 +974,7 @@ export class HolidayCalendar {
         const targets = [];
         for (let day = 1; day <= daysInMonth; day++) {
             const dow = new Date(this.editYear, this.editMonth - 1, day).getDay();
-            const dateStr = `${this.editYear}-${String(this.editMonth).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+            const dateStr = toDateStr(this.editYear, this.editMonth, day);
             if (dow === 0 || dow === 6 || jpHolidays[dateStr]) targets.push(dateStr);
         }
         if (!targets.length) return;

@@ -23,6 +23,18 @@ const SYNC_STATUS = {
     ERROR: 'error'
 };
 
+/**
+ * カテゴリの表示金額を計算する
+ * 小カテゴリーを持つ場合はその合計、持たない場合はカテゴリ直接の金額
+ * @param {{amount?: number, subcategories?: Array<{amount?: number}>}} category
+ * @returns {number}
+ */
+function categoryDisplayAmount(category) {
+    return category.subcategories?.length > 0
+        ? category.subcategories.reduce((sum, sub) => sum + (sub.amount || 0), 0)
+        : (category.amount || 0);
+}
+
 // ============================================================
 // 計算機クラス
 // ============================================================
@@ -261,7 +273,7 @@ export class CSVExporter {
      */
     _getCurrentMonth() {
         const today = new Date();
-        return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+        return Utils.getMonthKey(today.getFullYear(), today.getMonth() + 1);
     }
 
     /**
@@ -535,13 +547,14 @@ export class CSVImporter {
     }
 
     /**
-     * 文字列のSHA-256ハッシュ（16進）を計算
+     * SHA-256ハッシュ（16進）を計算
      * @private
-     * @param {string} text
+     * @param {string|ArrayBuffer} data - 文字列（CSV）またはバイト列（PDF）
      * @returns {Promise<string>}
      */
-    async _sha256(text) {
-        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+    async _sha256(data) {
+        const bytes = typeof data === 'string' ? new TextEncoder().encode(data) : data;
+        const buf = await crypto.subtle.digest('SHA-256', bytes);
         return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
@@ -861,20 +874,9 @@ export class CSVImporter {
      */
     async _handlePdfFile(file) {
         const buf = await file.arrayBuffer();
-        this.fileHash = await this._sha256Bytes(buf);
+        this.fileHash = await this._sha256(buf);
         const lines = await this._extractPdfLines(buf);
         this._parsePdfStatement(lines);
-    }
-
-    /**
-     * ArrayBufferのSHA-256ハッシュ（16進）を計算
-     * @private
-     * @param {ArrayBuffer} buf
-     * @returns {Promise<string>}
-     */
-    async _sha256Bytes(buf) {
-        const hashBuf = await crypto.subtle.digest('SHA-256', buf);
-        return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
     /**
@@ -1488,12 +1490,8 @@ export class CopyMonthManager {
      * @returns {string} YYYY-MM形式
      */
     _getDefaultSourceMonth() {
-        let month = this.budgetManager.currentMonth - 1;
-        let year = this.budgetManager.currentYear;
-        if (month < 1) {
-            month = 12;
-            year--;
-        }
+        const { year, month } = Utils.shiftMonth(
+            this.budgetManager.currentYear, this.budgetManager.currentMonth, -1);
         return Utils.getMonthKey(year, month);
     }
 
@@ -1544,13 +1542,10 @@ export class CopyMonthManager {
         );
 
         this.items = (sourceData?.categories || []).map(cat => {
-            const amount = cat.subcategories.length > 0
-                ? cat.subcategories.reduce((sum, sub) => sum + (sub.amount || 0), 0)
-                : (cat.amount || 0);
             return {
                 id: cat.id,
                 name: cat.name,
-                amount,
+                amount: categoryDisplayAmount(cat),
                 budget: cat.budget || 0,
                 payer: cat.payer,
                 note: cat.note || '',
@@ -1891,10 +1886,9 @@ export class BudgetManager {
     _updateCategorySummaryAmount(categoryId) {
         const category = this._findCategory(categoryId);
         if (!category) return;
-        
-        const subTotal = category.subcategories.reduce((sum, sub) => sum + (sub.amount || 0), 0);
-        const displayAmount = category.subcategories.length > 0 ? subTotal : category.amount;
-        
+
+        const displayAmount = categoryDisplayAmount(category);
+
         // icon要素からサマリー行を取得（getElementByIdは小数点を含むIDでも動作）
         const iconEl = document.getElementById(`icon-${categoryId}`);
         if (iconEl) {
@@ -2135,16 +2129,9 @@ export class BudgetManager {
      * @param {number} delta - 増減値（-1: 前月, 1: 翌月）
      */
     changeMonth(delta) {
-        this.currentMonth += delta;
-
-        // 年をまたぐ処理
-        if (this.currentMonth > 12) {
-            this.currentMonth = 1;
-            this.currentYear++;
-        } else if (this.currentMonth < 1) {
-            this.currentMonth = 12;
-            this.currentYear--;
-        }
+        const { year, month } = Utils.shiftMonth(this.currentYear, this.currentMonth, delta);
+        this.currentYear = year;
+        this.currentMonth = month;
 
         // 月を切り替えたら合計カードは表（合計金額）に戻す
         this._resetTotalView();
@@ -2188,7 +2175,7 @@ export class BudgetManager {
      */
     closeAddCategorySheet() {
         Utils.closeModal('addCategorySheet');
-        this._clearInputFields(['newCategoryName', 'newCategoryAmount', 'newCategoryBudget', 'newCategoryNote']);
+        Utils.clearInputs(['newCategoryName', 'newCategoryAmount', 'newCategoryBudget', 'newCategoryNote']);
     }
 
     /**
@@ -2274,7 +2261,7 @@ export class BudgetManager {
             note: note || ''
         });
 
-        this._clearInputFields([
+        Utils.clearInputs([
             `subname-${categoryId}`,
             `subamount-${categoryId}`,
             `subnote-${categoryId}`
@@ -2578,17 +2565,8 @@ export class BudgetManager {
      * @returns {number} 合計金額
      */
     calculateTotal() {
-        const monthData = this.getCurrentMonthData();
-        
-        return monthData.categories.reduce((total, category) => {
-            if (category.subcategories.length === 0) {
-                return total + (category.amount || 0);
-            }
-            return total + category.subcategories.reduce(
-                (subTotal, sub) => subTotal + (sub.amount || 0),
-                0
-            );
-        }, 0);
+        return this.getCurrentMonthData().categories
+            .reduce((total, category) => total + categoryDisplayAmount(category), 0);
     }
 
     /**
@@ -2736,8 +2714,7 @@ export class BudgetManager {
             return `■ ${category.name}：${Utils.formatCurrency(category.amount)}円\n`;
         }
 
-        const subTotal = category.subcategories.reduce((sum, sub) => sum + (sub.amount || 0), 0);
-        let output = `■ ${category.name}：${Utils.formatCurrency(subTotal)}円\n`;
+        let output = `■ ${category.name}：${Utils.formatCurrency(categoryDisplayAmount(category))}円\n`;
 
         // 表示する小カテゴリー行を決定する。
         // 概要モードで小カテゴリーが多い場合は、金額上位のみ残して残りを「ほか」に集約し、
@@ -2851,8 +2828,7 @@ export class BudgetManager {
      * @returns {string} HTML文字列
      */
     _renderCategory(category) {
-        const subTotal = category.subcategories.reduce((sum, sub) => sum + (sub.amount || 0), 0);
-        const displayAmount = category.subcategories.length > 0 ? subTotal : category.amount;
+        const displayAmount = categoryDisplayAmount(category);
 
         return `
             <div class="category-item overflow-hidden rounded-xl bg-white/5 ring-1 ring-white/10" data-cat-id="${category.id}">
@@ -3187,13 +3163,10 @@ export class BudgetManager {
     _getCategoryBreakdown() {
         const monthData = this.getCurrentMonthData();
 
-        const items = monthData.categories.map(cat => {
-            const amount = cat.subcategories.length > 0
-                ? cat.subcategories.reduce((sum, sub) => sum + (sub.amount || 0), 0)
-                : (cat.amount || 0);
-            return { name: cat.name, amount };
-        }).filter(item => item.amount > 0)
-          .sort((a, b) => b.amount - a.amount);
+        const items = monthData.categories
+            .map(cat => ({ name: cat.name, amount: categoryDisplayAmount(cat) }))
+            .filter(item => item.amount > 0)
+            .sort((a, b) => b.amount - a.amount);
 
         const total = items.reduce((sum, item) => sum + item.amount, 0);
 
@@ -3243,21 +3216,16 @@ export class BudgetManager {
      */
     _getTrendData() {
         const monthKeys = [];
-        let y = this.currentYear;
-        let m = this.currentMonth;
         for (let i = 0; i < 6; i++) {
-            monthKeys.unshift(Utils.getMonthKey(y, m));
-            m--;
-            if (m < 1) { m = 12; y--; }
+            const { year, month } = Utils.shiftMonth(this.currentYear, this.currentMonth, -i);
+            monthKeys.unshift(Utils.getMonthKey(year, month));
         }
 
         const perMonth = monthKeys.map(key => {
             const monthData = this.data[key] || { categories: [] };
             const amounts = {};
             monthData.categories.forEach(cat => {
-                const amt = cat.subcategories.length > 0
-                    ? cat.subcategories.reduce((sum, sub) => sum + (sub.amount || 0), 0)
-                    : (cat.amount || 0);
+                const amt = categoryDisplayAmount(cat);
                 if (amt > 0) amounts[cat.name] = (amounts[cat.name] || 0) + amt;
             });
             const total = Object.values(amounts).reduce((sum, v) => sum + v, 0);
@@ -3328,18 +3296,6 @@ export class BudgetManager {
      */
     _findCategory(categoryId) {
         return this.getCurrentMonthData().categories.find(c => c.id === categoryId);
-    }
-
-    /**
-     * 入力フィールドをクリア
-     * @private
-     * @param {string[]} fieldIds - フィールドID配列
-     */
-    _clearInputFields(fieldIds) {
-        fieldIds.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.value = '';
-        });
     }
 
     /**

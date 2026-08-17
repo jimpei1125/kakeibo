@@ -139,10 +139,7 @@ export class RecurringManager {
             note: note || ''
         });
 
-        ['recurringNewName', 'recurringNewAmount', 'recurringNewNote'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.value = '';
-        });
+        Utils.clearInputs(['recurringNewName', 'recurringNewAmount', 'recurringNewNote']);
 
         this._save();
         this._renderList();

@@ -56,6 +56,18 @@ export class Utils {
     }
 
     /**
+     * 年月をdeltaヶ月ずらす（年またぎを正規化）
+     * @param {number} year - 年
+     * @param {number} month - 月（1-12）
+     * @param {number} delta - 増減月数（負値で過去方向）
+     * @returns {{year: number, month: number}}
+     */
+    static shiftMonth(year, month, delta) {
+        const index = year * 12 + (month - 1) + delta;
+        return { year: Math.floor(index / 12), month: (index % 12 + 12) % 12 + 1 };
+    }
+
+    /**
      * 今日の日付文字列を取得
      * @returns {string} YYYY-MM-DD形式の今日の日付
      */
@@ -145,12 +157,24 @@ export class Utils {
     }
 
     /**
-     * 深いコピーを作成
-     * @param {Object} obj - コピー元オブジェクト
-     * @returns {Object} コピーされたオブジェクト
+     * onclick属性内のJS文字列引数として安全な形にエスケープする
+     * （JS文字列リテラル化 → HTML属性用エスケープの二段階）
+     * @param {*} value - エスケープする値
+     * @returns {string} 属性内に埋め込めるJS文字列リテラル
      */
-    static deepCopy(obj) {
-        return JSON.parse(JSON.stringify(obj));
+    static escapeJsArg(value) {
+        return Utils.escapeHtml(JSON.stringify(String(value ?? '')));
+    }
+
+    /**
+     * 指定IDの入力フィールドを空にする
+     * @param {string[]} fieldIds - フィールドID配列
+     */
+    static clearInputs(fieldIds) {
+        fieldIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
     }
 
     /** @type {number} ID生成用の連番カウンター */
