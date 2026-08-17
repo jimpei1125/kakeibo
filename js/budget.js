@@ -1697,7 +1697,9 @@ export class CopyMonthManager {
                 id: Utils.generateId(),
                 name: sub.name,
                 amount: keepAmount ? (sub.amount || 0) : 0,
-                payer: sub.payer,
+                // payerは「未設定＝夫払い」。undefinedのキーを作るとFirestoreの保存が
+                // 失敗するため、妻払いのときだけフィールドを持たせる
+                ...(sub.payer ? { payer: sub.payer } : {}),
                 note: sub.note || ''
             }));
 
@@ -1706,8 +1708,8 @@ export class CopyMonthManager {
                 name: item.name,
                 amount: keepAmount ? (subcategories.length > 0 ? 0 : item.amount) : 0,
                 budget: item.budget || 0,
-                payer: item.payer,
-                note: item.note,
+                ...(item.payer ? { payer: item.payer } : {}),
+                note: item.note || '',
                 subcategories
             };
         });
@@ -2392,7 +2394,12 @@ export class BudgetManager {
             : category.subcategories.find(s => s.id === subcategoryId);
         if (!target) return;
 
-        target.payer = target.payer === 'wife' ? undefined : 'wife';
+        // 夫払いに戻すときはキーごと削除する（undefinedを代入するとFirestoreの保存が失敗する）
+        if (target.payer === 'wife') {
+            delete target.payer;
+        } else {
+            target.payer = 'wife';
+        }
         const isWife = target.payer === 'wife';
 
         // チップの見た目を即時更新（DOM全体は再描画しない＝アコーディオンの開閉状態を維持）
@@ -2662,7 +2669,7 @@ export class BudgetManager {
                 id: Utils.generateId(),
                 name: item.name,
                 amount: item.amount || 0,
-                payer: item.payer,
+                ...(item.payer ? { payer: item.payer } : {}),
                 note: item.note || '',
                 subcategories: []
             });
