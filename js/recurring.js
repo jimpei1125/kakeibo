@@ -107,7 +107,9 @@ export class RecurringManager {
             id: Utils.generateId(),
             name: category.name,
             amount: category.amount || 0,
-            payer: category.payer,
+            // payerは「未設定＝夫払い」。undefinedのキーを作るとFirestoreの保存が
+            // 失敗するため、妻払いのときだけフィールドを持たせる
+            ...(category.payer ? { payer: category.payer } : {}),
             note: category.note || ''
         });
 
@@ -172,7 +174,12 @@ export class RecurringManager {
         const item = this.items.find(i => i.id === id);
         if (!item) return;
 
-        item.payer = item.payer === 'wife' ? undefined : 'wife';
+        // 夫払いに戻すときはキーごと削除する（undefinedを代入するとFirestoreの保存が失敗する）
+        if (item.payer === 'wife') {
+            delete item.payer;
+        } else {
+            item.payer = 'wife';
+        }
         this._save();
         this._renderList();
     }

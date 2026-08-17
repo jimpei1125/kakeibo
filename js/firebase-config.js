@@ -8,7 +8,7 @@ import {
     getFirestore,
     doc,
     getDoc,
-    setDoc,
+    setDoc as firestoreSetDoc,
     onSnapshot,
     collection,
     addDoc,
@@ -27,6 +27,7 @@ import {
     signOut
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 import { Icons } from './icons.js';
+import { Utils } from './utils.js';
 
 /** Firebase プロジェクト設定 */
 const firebaseConfig = {
@@ -43,6 +44,30 @@ const firebaseApp = initializeApp(firebaseConfig);
 
 /** Firestoreデータベースインスタンス */
 const db = getFirestore(firebaseApp);
+
+/**
+ * setDoc のラッパー。値がundefinedのフィールドを取り除いてから書き込む。
+ *
+ * このアプリには payer のように「未設定＝undefined（＝夫払い）」を意味する
+ * フィールドがあり、undefinedのまま渡すとFirestoreが
+ * 「Unsupported field value: undefined」で書き込み全体を失敗させてしまう
+ * （他の月からコピーした際の同期エラーの原因）。
+ * undefinedは「フィールドを持たない」と同義なので、取り除くのが正しい挙動になる。
+ *
+ * 各モジュールは setDoc をこのファイル経由でimportしているため、
+ * ここを通すことで同種の不具合が保存全体を壊すことを防ぐ。
+ *
+ * @param {Object} ref - ドキュメント参照
+ * @param {Object} data - 書き込むデータ
+ * @param {Object} [options] - setDocのオプション（{ merge: true } など）
+ * @returns {Promise<void>}
+ */
+function setDoc(ref, data, options) {
+    const sanitized = Utils.stripUndefined(data);
+    return options === undefined
+        ? firestoreSetDoc(ref, sanitized)
+        : firestoreSetDoc(ref, sanitized, options);
+}
 
 /** Firebase Authインスタンス */
 const auth = getAuth(firebaseApp);

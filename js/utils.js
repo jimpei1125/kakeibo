@@ -100,6 +100,36 @@ export class Utils {
     }
 
     /**
+     * 値がundefinedのフィールドを再帰的に取り除いたコピーを返す
+     *
+     * Firestoreはundefinedのフィールドを受け付けず、1つでも含まれると
+     * 書き込み全体が「Unsupported field value: undefined」で失敗する。
+     * undefinedは「フィールドを持たない」と同義なので、保存前に取り除く。
+     *
+     * プレーンなオブジェクトと配列のみ再帰し、Dateなどのインスタンスは
+     * そのまま返す（Firestoreが解釈できる形を壊さないため）。
+     * 配列内のundefined要素は、詰めると添字がずれて別の壊れ方をするため
+     * あえて残す（この場合はFirestore側のエラーで気づけるようにする）。
+     *
+     * @param {*} value - 対象の値
+     * @returns {*} undefinedのフィールドを除いた値
+     */
+    static stripUndefined(value) {
+        if (Array.isArray(value)) return value.map(item => Utils.stripUndefined(item));
+
+        const proto = value === null ? null : Object.getPrototypeOf(value);
+        if (typeof value === 'object' && value !== null && (proto === Object.prototype || proto === null)) {
+            const result = {};
+            for (const [key, item] of Object.entries(value)) {
+                if (item !== undefined) result[key] = Utils.stripUndefined(item);
+            }
+            return result;
+        }
+
+        return value;
+    }
+
+    /**
      * HTMLエスケープ（XSS対策）
      * ユーザー入力をinnerHTMLに埋め込む前に必ず通すこと
      * @param {*} value - エスケープする値
