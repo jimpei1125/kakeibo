@@ -35,16 +35,6 @@ const PRIORITY_BADGES = {
     low: '<span class="priority-badge rounded-full bg-sky-500/15 px-2 py-0.5 text-[11px] font-semibold text-sky-300 ring-1 ring-inset ring-sky-500/20">後で</span>'
 };
 
-/**
- * onclick属性内のJS文字列引数として安全な形にエスケープする
- * （JS文字列リテラル化 → HTML属性用エスケープの二段階）
- * @param {*} value - エスケープする値
- * @returns {string} 属性内に埋め込めるJS文字列リテラル
- */
-function escapeJsArg(value) {
-    return Utils.escapeHtml(JSON.stringify(String(value ?? '')));
-}
-
 // ============================================================
 // 買い物リストクラス
 // ============================================================
@@ -142,7 +132,7 @@ export class ShoppingList {
             <div class="suggestions-title border-b border-white/10 px-3 py-2 text-xs font-semibold text-zinc-400">${Icons.svg('lightbulb')} 過去の購入履歴から</div>
             <div class="suggestion-items max-h-56 overflow-y-auto">
                 ${suggestions.map(i => `
-                    <div class="suggestion-item cursor-pointer px-3 py-2 text-sm text-zinc-100 transition hover:bg-white/10" onclick="app.shopping.selectSuggestion(${escapeJsArg(i.name)},${escapeJsArg(i.category || 'その他')})">
+                    <div class="suggestion-item cursor-pointer px-3 py-2 text-sm text-zinc-100 transition hover:bg-white/10" onclick="app.shopping.selectSuggestion(${Utils.escapeJsArg(i.name)},${Utils.escapeJsArg(i.category || 'その他')})">
                         ${Utils.escapeHtml(i.name)}<span class="count ml-1.5 text-xs text-zinc-500">(${i.count}回)</span>
                     </div>
                 `).join('')}
