@@ -23,10 +23,15 @@ const USER_COLORS = [
     { name: '茶', value: '#8B4513', emoji: '🟤' }
 ];
 
-const GCAL_CONFIG = {
-    clientId: '120845540864-apujs76kfni95rndqsueaupi48ccfetd.apps.googleusercontent.com',
-    scopes: 'https://www.googleapis.com/auth/calendar.events'
-};
+/**
+ * Googleカレンダー同期Worker（gcal-sync）のURL
+ * OAuth・トークン管理・予定キャッシュはすべてWorker側が担うため、
+ * ブラウザでのGoogle認証は発生しない（worker/gcal-sync/ 参照）
+ */
+const GCAL_WORKER_URL = 'https://gcal-sync.zinnpei11251818.workers.dev';
+
+/** カレンダーのマスに個別表示する予定の最大件数（超過分は +n 表示） */
+const GCAL_MAX_EVENTS_PER_CELL = 2;
 
 /**
  * 年月日を YYYY-MM-DD 形式の文字列に変換
@@ -141,15 +146,21 @@ export class HolidayCalendar {
         this.pullDistance = 0;
         
         this.gcalConnected = false;
-        this.gcalTokenClient = null;
-        this.gcalAccessToken = null;
+        /** @type {string} Worker連携用のアプリキー（合言葉） */
+        this.gcalAppKey = localStorage.getItem('gcal_app_key') || '';
+        /** @type {Array<{id: string, title: string, start: string, end: string, allDay: boolean, location: string}>} 同期済みの予定 */
+        this.gcalEvents = [];
+        try {
+            // 前回取得分のキャッシュで即描画（オフライン時もここまでは出る）
+            this.gcalEvents = JSON.parse(localStorage.getItem('gcal_events_cache')) || [];
+        } catch { /* キャッシュ破損時は空のまま */ }
         this.colors = USER_COLORS;
     }
 
     async init() {
         await Promise.all([this.loadUsers(), this.loadHolidays(), this.loadMemos()]);
         this.renderCalendar();
-        this.initGoogleCalendar();
+        this.initGcalSync();
         this.initSwipeNavigation();
         this.initPullToRefresh();
     }
@@ -279,7 +290,8 @@ export class HolidayCalendar {
         const [memosSnap, holidaysSnap, usersSnap] = await Promise.all([
             getDocs(collection(db, 'calendarMemos')),
             getDocs(collection(db, 'holidays')),
-            getDocs(query(collection(db, 'holidayUsers'), orderBy('order', 'asc')))
+            getDocs(query(collection(db, 'holidayUsers'), orderBy('order', 'asc'))),
+            this.loadGcalEvents(true) // Googleカレンダーの予定も再同期（エラーは内部処理済み）
         ]);
         this.memos = docsToList(memosSnap);
         this.holidays = docsToList(holidaysSnap);
@@ -288,79 +300,161 @@ export class HolidayCalendar {
         if (this.memoListVisible) this.renderMemoList();
     }
 
-    // ==================== Googleカレンダー連携 ====================
+    // ==================== Googleカレンダー連携（Worker経由） ====================
 
-    initGoogleCalendar() {
-        this._loadScript('https://accounts.google.com/gsi/client', () => this.setupGoogleAuth());
-        this._loadScript('https://apis.google.com/js/api.js', () => {
-            gapi.load('client', () => gapi.client.init({}).then(() => gapi.client.load('calendar', 'v3')));
-        });
-        this._restoreSavedToken();
-    }
+    /**
+     * Worker連携の初期化（連携状態の確認と予定の取得）
+     * ブラウザでのGoogle認証は行わない
+     */
+    initGcalSync() {
+        // 旧方式（ブラウザ内トークン）の残骸を掃除
+        localStorage.removeItem('gcal_access_token');
+        localStorage.removeItem('gcal_token_expiry');
 
-    _loadScript(src, onload) {
-        const script = Object.assign(document.createElement('script'), { src, async: true, defer: true, onload });
-        document.head.appendChild(script);
-    }
-
-    _restoreSavedToken() {
-        const savedToken = localStorage.getItem('gcal_access_token');
-        const savedExpiry = localStorage.getItem('gcal_token_expiry');
-        if (savedToken && savedExpiry && Date.now() < parseInt(savedExpiry)) {
-            this.gcalAccessToken = savedToken;
-            this.gcalConnected = true;
-            this.updateGcalStatus();
-        }
-    }
-
-    setupGoogleAuth() {
-        this.gcalTokenClient = google.accounts.oauth2.initTokenClient({
-            client_id: GCAL_CONFIG.clientId,
-            scope: GCAL_CONFIG.scopes,
-            callback: (res) => {
-                if (res.access_token) {
-                    this.gcalAccessToken = res.access_token;
-                    this.gcalConnected = true;
-                    localStorage.setItem('gcal_access_token', res.access_token);
-                    localStorage.setItem('gcal_token_expiry', Date.now() + (res.expires_in * 1000));
-                    this.updateGcalStatus();
-                    Utils.showToast('Googleカレンダーと連携しました');
-                }
-            },
-            error_callback: () => Utils.showToast('認証に失敗しました')
-        });
         this.updateGcalStatus();
+        if (!this.gcalAppKey) return;
+
+        this._gcalRequest('/status')
+            .then(data => {
+                this.gcalConnected = !!data.linked;
+                this.updateGcalStatus();
+            })
+            .catch(e => console.error('連携状態確認エラー:', e));
+        this.loadGcalEvents();
     }
 
+    /**
+     * 同期Workerへのリクエスト
+     * @private
+     * @param {string} path - エンドポイント（例: '/events'）
+     * @param {string} [method]
+     * @param {Object|null} [body]
+     * @returns {Promise<Object>}
+     */
+    async _gcalRequest(path, method = 'GET', body = null) {
+        const options = {
+            method,
+            headers: { 'X-App-Key': this.gcalAppKey, 'Content-Type': 'application/json' },
+        };
+        if (body) options.body = JSON.stringify(body);
+        const res = await fetch(`${GCAL_WORKER_URL}${path}`, options);
+        if (res.status === 401) throw new Error('アプリキーが正しくありません');
+        return res.json();
+    }
+
+    /**
+     * 予定をWorkerから取得して描画
+     * @param {boolean} [force] - trueでWorkerにGoogleカレンダーの再同期を要求（引っ張って更新用）
+     */
+    async loadGcalEvents(force = false) {
+        if (!this.gcalAppKey) return;
+        try {
+            const data = force
+                ? await this._gcalRequest('/sync', 'POST')
+                : await this._gcalRequest('/events');
+            this.gcalEvents = data.events || [];
+            try {
+                localStorage.setItem('gcal_events_cache', JSON.stringify(this.gcalEvents));
+            } catch { /* 容量超過等は無視（次回オンライン取得で復旧） */ }
+            this.renderCalendar();
+        } catch (e) { console.error('予定取得エラー:', e); }
+    }
+
+    /**
+     * アプリキーを保存して連携を初期化
+     */
+    saveGcalAppKey() {
+        const input = document.getElementById('gcalAppKeyInput');
+        const key = input?.value.trim();
+        if (!key) return Utils.showToast('アプリキーを入力してください');
+
+        this.gcalAppKey = key;
+        localStorage.setItem('gcal_app_key', key);
+        Utils.showToast('アプリキーを保存しました');
+        this.initGcalSync();
+    }
+
+    /**
+     * 連携/解除ボタン（連携＝Worker経由のGoogle認可を新規タブで開く。一度だけ）
+     */
     toggleGoogleCalendar() {
+        if (!this.gcalAppKey) return;
         if (this.gcalConnected) {
-            this._disconnectGcal('Googleカレンダーの連携を解除しました');
-        } else if (this.gcalTokenClient) {
-            this.gcalTokenClient.requestAccessToken();
+            this._unlinkGcal();
         } else {
-            Utils.showToast('認証の準備中です');
+            window.open(
+                `${GCAL_WORKER_URL}/oauth/start?key=${encodeURIComponent(this.gcalAppKey)}`,
+                '_blank', 'noopener,noreferrer'
+            );
+            // 別タブでの認可完了をポーリングで検知する（完了したら自動で連携中表示になる）
+            this._pollGcalStatus(24);
         }
     }
 
     /**
-     * Googleカレンダー連携を切断（トークン破棄・表示更新）
+     * 認可完了を5秒間隔で確認（最大attempts回＝約2分）
      * @private
-     * @param {string} message - トースト表示するメッセージ
      */
-    _disconnectGcal(message) {
-        this.gcalAccessToken = null;
-        this.gcalConnected = false;
-        localStorage.removeItem('gcal_access_token');
-        localStorage.removeItem('gcal_token_expiry');
-        this.updateGcalStatus();
-        Utils.showToast(message);
+    _pollGcalStatus(attempts) {
+        if (this._gcalPollTimer) clearTimeout(this._gcalPollTimer);
+        if (attempts <= 0 || this.gcalConnected) return;
+
+        this._gcalPollTimer = setTimeout(async () => {
+            try {
+                const data = await this._gcalRequest('/status');
+                if (data.linked) {
+                    this.gcalConnected = true;
+                    this.updateGcalStatus();
+                    Utils.showToast('Googleカレンダーと連携しました');
+                    this.loadGcalEvents();
+                    return;
+                }
+            } catch { /* 一時的な失敗は次の試行へ */ }
+            this._pollGcalStatus(attempts - 1);
+        }, 5000);
+    }
+
+    /**
+     * 連携解除（Worker側のトークンを破棄。家族全員に影響するため確認をはさむ）
+     * @private
+     */
+    async _unlinkGcal() {
+        const confirmed = await Dialog.confirm(
+            'Googleカレンダーの連携を解除しますか？\n（家族全員の端末で予定表示が無効になります）',
+            { okLabel: '解除', danger: true }
+        );
+        if (!confirmed) return;
+
+        try {
+            await this._gcalRequest('/oauth', 'DELETE');
+            this.gcalConnected = false;
+            this.gcalEvents = [];
+            localStorage.removeItem('gcal_events_cache');
+            this.updateGcalStatus();
+            this.renderCalendar();
+            Utils.showToast('Googleカレンダーの連携を解除しました');
+        } catch (e) {
+            console.error('連携解除エラー:', e);
+            Utils.showToast('解除に失敗しました');
+        }
     }
 
     updateGcalStatus() {
         const statusText = document.getElementById('gcalStatusText');
         const linkBtn = document.getElementById('gcalLinkBtn');
         if (!statusText || !linkBtn) return;
-        statusText.textContent = this.gcalConnected ? 'Googleカレンダー: 連携中 ✓' : 'Googleカレンダー: 未連携';
+
+        // アプリキー未設定の間は入力欄を出し、連携ボタンは隠す
+        Utils.setVisible('gcalKeySetup', !this.gcalAppKey);
+        if (!this.gcalAppKey) {
+            statusText.textContent = 'Googleカレンダー: アプリキー未設定';
+            statusText.style.color = '';
+            linkBtn.style.display = 'none';
+            return;
+        }
+
+        linkBtn.style.display = '';
+        statusText.textContent = this.gcalConnected ? 'Googleカレンダー: 連携中（家族で共有）✓' : 'Googleカレンダー: 未連携';
         statusText.style.color = this.gcalConnected ? '#34d399' : '';
         linkBtn.innerHTML = this.gcalConnected ? `${Icons.svg('x')} 解除` : `${Icons.svg('link')} 連携`;
         linkBtn.classList.toggle('connected', this.gcalConnected);
@@ -378,44 +472,114 @@ export class HolidayCalendar {
     }
 
     async createGoogleCalendarEvent(memo) {
-        if (!this.gcalConnected || !this.gcalAccessToken) return null;
+        if (!this.gcalConnected || !this.gcalAppKey) return null;
         try {
-            const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${this.gcalAccessToken}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify(this._buildGcalEvent(memo))
-            });
-            if (res.ok) return (await res.json()).id;
-            if (res.status === 401) this._handleTokenExpired();
-            return null;
+            const data = await this._gcalRequest('/gcal/events', 'POST', this._buildGcalEvent(memo));
+            return data.id || null;
         } catch (e) { console.error('Googleカレンダー連携エラー:', e); return null; }
     }
 
     async updateGoogleCalendarEvent(eventId, memo) {
-        if (!this.gcalConnected || !this.gcalAccessToken || !eventId) return false;
+        if (!this.gcalConnected || !this.gcalAppKey || !eventId) return false;
         try {
-            const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`, {
-                method: 'PUT',
-                headers: { 'Authorization': `Bearer ${this.gcalAccessToken}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify(this._buildGcalEvent(memo))
-            });
-            if (res.status === 401) this._handleTokenExpired();
-            return res.ok;
+            const data = await this._gcalRequest(
+                `/gcal/events/${encodeURIComponent(eventId)}`, 'PUT', this._buildGcalEvent(memo));
+            return !data.error;
         } catch (e) { console.error('Googleカレンダー更新エラー:', e); return false; }
     }
 
-    _handleTokenExpired() {
-        this._disconnectGcal('Googleカレンダーの認証が切れました');
+    async deleteGoogleCalendarEvent(eventId) {
+        if (!this.gcalConnected || !this.gcalAppKey || !eventId) return false;
+        try {
+            const data = await this._gcalRequest(`/gcal/events/${encodeURIComponent(eventId)}`, 'DELETE');
+            return !!data.ok;
+        } catch (e) { console.error('Googleカレンダー削除エラー:', e); return false; }
     }
 
-    async deleteGoogleCalendarEvent(eventId) {
-        if (!this.gcalConnected || !this.gcalAccessToken || !eventId) return false;
-        try {
-            const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`, {
-                method: 'DELETE', headers: { 'Authorization': `Bearer ${this.gcalAccessToken}` }
-            });
-            return res.ok || res.status === 204;
-        } catch (e) { console.error('Googleカレンダー削除エラー:', e); return false; }
+    // ==================== 予定の日付マッピング・表示 ====================
+
+    /**
+     * 日付（YYYY-MM-DD）→予定配列のマップを構築
+     * アプリのメモ由来の予定（gcalEventIdが一致）は除外する（メモバッジと二重表示になるため）
+     * @private
+     * @returns {Object<string, Array>}
+     */
+    _buildGcalEventMap() {
+        const map = {};
+        if (!this.gcalEvents.length) return map;
+
+        const memoEventIds = new Set(this.memos.map(m => m.gcalEventId).filter(Boolean));
+
+        for (const ev of this.gcalEvents) {
+            // 繰り返し予定のインスタンスIDは「元ID_タイムスタンプ」形式のため、元IDでも照合する
+            if (memoEventIds.has(ev.id) || memoEventIds.has(String(ev.id).split('_')[0])) continue;
+            for (const dateStr of this._gcalEventDates(ev)) {
+                (map[dateStr] ||= []).push(ev);
+            }
+        }
+        return map;
+    }
+
+    /**
+     * 予定が表示される日付の一覧
+     * 終日は start〜end（endは排他的）を展開、時刻ありは開始時刻のJST日付1日のみ
+     * @private
+     * @param {Object} ev
+     * @returns {string[]}
+     */
+    _gcalEventDates(ev) {
+        if (!/^\d{4}-\d{2}-\d{2}/.test(ev.start || '')) return [];
+
+        if (ev.allDay) {
+            const dates = [];
+            const [y, m, d] = ev.start.split('-').map(Number);
+            const cursor = new Date(Date.UTC(y, m - 1, d));
+            // 安全弁: 異常に長い期間でも62日で打ち切る
+            for (let i = 0; i < 62; i++) {
+                const ds = toDateStr(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, cursor.getUTCDate());
+                if (ev.end && ds >= ev.end) break; // YYYY-MM-DD同士は辞書順比較でよい
+                dates.push(ds);
+                cursor.setUTCDate(cursor.getUTCDate() + 1);
+            }
+            return dates.length ? dates : [ev.start];
+        }
+
+        const t = new Date(ev.start);
+        if (Number.isNaN(t.getTime())) return [];
+        const jst = new Date(t.getTime() + 9 * 60 * 60 * 1000);
+        return [toDateStr(jst.getUTCFullYear(), jst.getUTCMonth() + 1, jst.getUTCDate())];
+    }
+
+    /**
+     * RFC3339時刻をJSTの HH:MM に整形（不正な値は空文字）
+     * @private
+     */
+    _jstTimeHHMM(iso) {
+        const t = new Date(iso);
+        if (Number.isNaN(t.getTime())) return '';
+        const jst = new Date(t.getTime() + 9 * 60 * 60 * 1000);
+        return `${String(jst.getUTCHours()).padStart(2, '0')}:${String(jst.getUTCMinutes()).padStart(2, '0')}`;
+    }
+
+    /**
+     * マス表示用の予定ラベル（時刻あり: "HH:MM タイトル"）
+     * @private
+     */
+    _gcalEventLabel(ev) {
+        if (ev.allDay) return ev.title;
+        const time = this._jstTimeHHMM(ev.start);
+        return time ? `${time} ${ev.title}` : ev.title;
+    }
+
+    /**
+     * 詳細モーダル用の時刻表示（"10:00 - 11:00" / 終日）
+     * @private
+     */
+    _gcalEventTimeRange(ev) {
+        if (ev.allDay) return '終日';
+        const start = this._jstTimeHHMM(ev.start);
+        const end = this._jstTimeHHMM(ev.end);
+        return end ? `${start} - ${end}` : start;
     }
 
     // ==================== データ読み込み ====================
@@ -527,6 +691,8 @@ export class HolidayCalendar {
         const numberClass = 'calendar-date-number mb-0.5 text-[10px] font-bold leading-none text-white sm:text-[11px]';
         const otherMonthCell = (n) => `<div class="calendar-date-cell other-month min-h-[25px] rounded-md bg-white/5 p-0.5 opacity-30 sm:min-h-[30px]"><div class="${numberClass}">${n}</div></div>`;
 
+        const gcalMap = this._buildGcalEventMap();
+
         let html = WEEKDAYS.map(d => `<div class="calendar-weekday py-1.5 text-center text-[9px] font-bold text-zinc-500 sm:text-[10px]">${d}</div>`).join('');
 
         for (let i = startDow - 1; i >= 0; i--) html += otherMonthCell(prevDays - i);
@@ -536,6 +702,7 @@ export class HolidayCalendar {
             const isToday = dateStr === todayStr;
             const dayH = this.holidays.filter(h => h.date === dateStr);
             const dayM = this.memos.filter(m => m.date === dateStr);
+            const dayE = gcalMap[dateStr] || [];
 
             let cellClass = 'calendar-date-cell flex min-h-[85px] cursor-pointer flex-col rounded-md p-0.5 transition sm:min-h-[95px]';
             cellClass += isToday ? ' today bg-indigo-500/15 ring-2 ring-inset ring-indigo-500' : ' bg-white/5 hover:bg-white/10';
@@ -551,6 +718,14 @@ export class HolidayCalendar {
                 if (tc) html += `<span class="memo-badge task rounded-sm bg-black/40 px-0.5 text-[5px] leading-snug text-rose-300 sm:text-[6px]">${Icons.svg('pin')}${tc}</span>`;
                 if (sc) html += `<span class="memo-badge schedule rounded-sm bg-black/40 px-0.5 text-[5px] leading-snug text-sky-300 sm:text-[6px]">${Icons.svg('calendar')}${sc}</span>`;
                 html += '</div>';
+            }
+
+            // Googleカレンダーの予定チップ（休日行と同じ極小スタイル・スカイ系で区別）
+            dayE.slice(0, GCAL_MAX_EVENTS_PER_CELL).forEach(ev => {
+                html += `<div class="calendar-gcal-event flex items-center rounded-sm bg-sky-500/15 px-0.5 text-[6px] leading-tight text-sky-300 sm:text-[7px]"><span class="truncate">${Utils.escapeHtml(this._gcalEventLabel(ev))}</span></div>`;
+            });
+            if (dayE.length > GCAL_MAX_EVENTS_PER_CELL) {
+                html += `<div class="calendar-more-events text-center text-[8px] text-sky-300/70">+${dayE.length - GCAL_MAX_EVENTS_PER_CELL}</div>`;
             }
 
             dayH.slice(0, 3).forEach(h => {
@@ -802,7 +977,24 @@ export class HolidayCalendar {
             const u = this.users.find(x => x.id === h.userId);
             return u ? `<div class="detail-holiday-user mb-2 flex items-center gap-2.5 rounded-lg bg-white/5 p-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10"><div class="user-color-dot h-3 w-3 shrink-0 rounded-full" style="background-color:${u.color}"></div><span>${Utils.escapeHtml(u.name)}</span></div>` : '';
         }).join('') : '';
-        document.getElementById('dateDetailHolidays').innerHTML = hHtml;
+
+        // Googleカレンダーの予定（メモ由来は_buildGcalEventMapで除外済み）
+        const dayEvents = this._buildGcalEventMap()[dateStr] || [];
+        let eHtml = '';
+        if (dayEvents.length) {
+            eHtml = `<div class="${sectionTitleClass}">${Icons.svg('calendar-days')} 予定（Googleカレンダー）</div>` + dayEvents.map(ev => {
+                const location = ev.location
+                    ? `<div class="detail-gcal-location ml-6 mt-0.5 text-xs text-zinc-500">${Icons.svg('pin')} ${Utils.escapeHtml(ev.location)}</div>`
+                    : '';
+                return `<div class="detail-gcal-event mb-2 rounded-lg border-l-[3px] border-sky-400 bg-white/5 p-3 ring-1 ring-inset ring-white/10">
+                    <div class="flex items-center gap-2">
+                        <span class="shrink-0 text-xs font-semibold text-sky-300">${Utils.escapeHtml(this._gcalEventTimeRange(ev))}</span>
+                        <span class="break-words text-sm text-zinc-100">${Utils.escapeHtml(ev.title)}</span>
+                    </div>${location}
+                </div>`;
+            }).join('');
+        }
+        document.getElementById('dateDetailHolidays').innerHTML = hHtml + eHtml;
 
         const memos = this.memos.filter(m => m.date === dateStr).sort((a,b) => a.type === 'task' ? -1 : 1);
         let mHtml = memos.length ? `<div class="${sectionTitleClass}">${Icons.svg('file-text')} メモ</div>` : '<div class="no-memos p-5 text-center text-sm text-zinc-500">メモはありません</div>';
