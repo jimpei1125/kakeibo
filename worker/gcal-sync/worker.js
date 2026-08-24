@@ -29,41 +29,52 @@ const CORS_HEADERS = {
 
 export default {
     async fetch(request, env) {
-        if (request.method === 'OPTIONS') {
-            return new Response(null, { status: 204, headers: CORS_HEADERS });
+        try {
+            return await route(request, env);
+        } catch (err) {
+            // 未捕捉例外をそのまま投げるとCORSヘッダなしの500になり、
+            // アプリ側でエラー内容が読めないため、必ずJSONで返す
+            console.error('リクエスト処理エラー:', err);
+            return json({ error: err.message || 'internal error' }, 500);
         }
-        const url = new URL(request.url);
-        const path = url.pathname;
-
-        // OAuth系（startはクエリ、callbackはstateで認可を担保）
-        if (path === '/oauth/start') return oauthStart(url, env);
-        if (path === '/oauth/callback') return oauthCallback(url, env);
-
-        // 以降はすべてAPP_KEY必須
-        if (request.headers.get('X-App-Key') !== env.APP_KEY) {
-            return json({ error: 'unauthorized' }, 401);
-        }
-
-        if (path === '/status' && request.method === 'GET') return status(env);
-        if (path === '/events' && request.method === 'GET') return events(env);
-        if (path === '/sync' && request.method === 'POST') return manualSync(env);
-        if (path === '/oauth' && request.method === 'DELETE') return unlink(env);
-        if (path === '/gcal/events' && request.method === 'POST') {
-            return proxyGcal(env, 'POST', '', await request.text());
-        }
-        const eventMatch = path.match(/^\/gcal\/events\/([^/]+)$/);
-        if (eventMatch && (request.method === 'PUT' || request.method === 'DELETE')) {
-            const body = request.method === 'PUT' ? await request.text() : null;
-            return proxyGcal(env, request.method, `/${eventMatch[1]}`, body);
-        }
-
-        return json({ error: 'not found' }, 404);
     },
 
     async scheduled(event, env, ctx) {
         ctx.waitUntil(syncEvents(env).catch(err => console.error('定期同期エラー:', err)));
     },
 };
+
+async function route(request, env) {
+    if (request.method === 'OPTIONS') {
+        return new Response(null, { status: 204, headers: CORS_HEADERS });
+    }
+    const url = new URL(request.url);
+    const path = url.pathname;
+
+    // OAuth系（startはクエリ、callbackはstateで認可を担保）
+    if (path === '/oauth/start') return oauthStart(url, env);
+    if (path === '/oauth/callback') return oauthCallback(url, env);
+
+    // 以降はすべてAPP_KEY必須
+    if (request.headers.get('X-App-Key') !== env.APP_KEY) {
+        return json({ error: 'unauthorized' }, 401);
+    }
+
+    if (path === '/status' && request.method === 'GET') return status(env);
+    if (path === '/events' && request.method === 'GET') return events(env);
+    if (path === '/sync' && request.method === 'POST') return manualSync(env);
+    if (path === '/oauth' && request.method === 'DELETE') return unlink(env);
+    if (path === '/gcal/events' && request.method === 'POST') {
+        return proxyGcal(env, 'POST', '', await request.text());
+    }
+    const eventMatch = path.match(/^\/gcal\/events\/([^/]+)$/);
+    if (eventMatch && (request.method === 'PUT' || request.method === 'DELETE')) {
+        const body = request.method === 'PUT' ? await request.text() : null;
+        return proxyGcal(env, request.method, `/${eventMatch[1]}`, body);
+    }
+
+    return json({ error: 'not found' }, 404);
+}
 
 function json(body, status = 200) {
     return new Response(JSON.stringify(body), {
@@ -234,8 +245,9 @@ async function manualSync(env) {
     // 家族が同時に引っ張って更新してもAPIを叩きすぎないようガード
     const last = parseInt(await env.GCAL_KV.get('last_sync') || '0');
     if (Date.now() - last >= MANUAL_SYNC_INTERVAL_MS) {
-        await env.GCAL_KV.put('last_sync', String(Date.now()));
         await syncEvents(env);
+        // 成功したときだけ記録する（失敗時は次の引っ張って更新で即座に再試行できる）
+        await env.GCAL_KV.put('last_sync', String(Date.now()));
     }
     return events(env);
 }

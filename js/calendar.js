@@ -45,6 +45,18 @@ function toDateStr(year, month, day) {
 }
 
 /**
+ * YYYY-MM-DD をローカルタイムゾーンのDateとして解釈する
+ * new Date('YYYY-MM-DD') はUTC深夜として解釈されるため、ローカルのgetterと
+ * 組み合わせると負オフセットのタイムゾーンで前日にずれる。それを避ける。
+ * @param {string} ds - YYYY-MM-DD
+ * @returns {Date}
+ */
+function parseDateLocal(ds) {
+    const [y, m, d] = ds.split('-').map(Number);
+    return new Date(y, m - 1, d);
+}
+
+/**
  * FirestoreのスナップショットをID付きオブジェクト配列に変換
  * @param {Object} snap - QuerySnapshot
  * @returns {Array<Object>}
@@ -60,7 +72,6 @@ function getJapaneseHolidays(year) {
 
     const pad = (n) => String(n).padStart(2, '0');
     const toStr = (dt) => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
-    const parse = (ds) => { const [y, m, d] = ds.split('-').map(Number); return new Date(y, m - 1, d); };
     const holidays = {};
     const add = (month, day, name) => { holidays[toStr(new Date(year, month - 1, day))] = name; };
     // 指定月の第n月曜日（ハッピーマンデー用）
@@ -90,8 +101,8 @@ function getJapaneseHolidays(year) {
 
     // 国民の休日：前日と翌日がともに祝日の平日（例：敬老の日と秋分の日に挟まれた日）
     Object.keys(base).forEach(ds => {
-        const mid = parse(ds); mid.setDate(mid.getDate() + 1);
-        const next = parse(ds); next.setDate(next.getDate() + 2);
+        const mid = parseDateLocal(ds); mid.setDate(mid.getDate() + 1);
+        const next = parseDateLocal(ds); next.setDate(next.getDate() + 2);
         if (base[toStr(next)] && !base[toStr(mid)] && mid.getDay() !== 0) {
             holidays[toStr(mid)] = '国民の休日';
         }
@@ -99,7 +110,7 @@ function getJapaneseHolidays(year) {
 
     // 振替休日：日曜と重なった祝日の後、最初の平日
     Object.keys(base).forEach(ds => {
-        const dt = parse(ds);
+        const dt = parseDateLocal(ds);
         if (dt.getDay() === 0) {
             const sub = new Date(dt);
             do { sub.setDate(sub.getDate() + 1); } while (holidays[toStr(sub)]);
@@ -319,7 +330,18 @@ export class HolidayCalendar {
                 this.gcalConnected = !!data.linked;
                 this.updateGcalStatus();
             })
-            .catch(e => console.error('連携状態確認エラー:', e));
+            .catch(e => {
+                if (e.status === 401) {
+                    // キーの打ち間違いを無言で放置しない（入力欄を再表示してやり直せるように）
+                    Utils.showToast('アプリキーが正しくありません。入力し直してください', 'error');
+                    this.gcalAppKey = '';
+                    localStorage.removeItem('gcal_app_key');
+                    this.updateGcalStatus();
+                } else {
+                    // ネットワーク断など一時的な失敗はキーを保持したまま静かに流す
+                    console.error('連携状態確認エラー:', e);
+                }
+            });
         this.loadGcalEvents();
     }
 
@@ -338,7 +360,11 @@ export class HolidayCalendar {
         };
         if (body) options.body = JSON.stringify(body);
         const res = await fetch(`${GCAL_WORKER_URL}${path}`, options);
-        if (res.status === 401) throw new Error('アプリキーが正しくありません');
+        if (res.status === 401) {
+            const error = new Error('アプリキーが正しくありません');
+            error.status = 401; // 呼び出し元がネットワーク障害と区別できるように
+            throw error;
+        }
         return res.json();
     }
 
@@ -916,7 +942,7 @@ export class HolidayCalendar {
                 const headerClass = isToday
                     ? ' today rounded-md border-l-2 border-l-indigo-400 bg-indigo-500/15 pl-3'
                     : '';
-                html += `<div class="memo-date-header mt-2.5 border-b border-white/10 pb-1 pt-2 text-sm font-bold text-indigo-300 first:mt-0${headerClass}">${isToday ? `${Icons.svg('pin')} 今日 - ` : ''}${m.date.substring(5).replace('-','/')} (${WEEKDAYS[new Date(m.date).getDay()]})</div>`;
+                html += `<div class="memo-date-header mt-2.5 border-b border-white/10 pb-1 pt-2 text-sm font-bold text-indigo-300 first:mt-0${headerClass}">${isToday ? `${Icons.svg('pin')} 今日 - ` : ''}${m.date.substring(5).replace('-','/')} (${WEEKDAYS[parseDateLocal(m.date).getDay()]})</div>`;
             }
             const icon = m.type === 'task' ? Icons.svg('pin') : Icons.svg('calendar');
             const timeText = this._memoTimeText(m);
@@ -968,7 +994,7 @@ export class HolidayCalendar {
 
     showDateDetail(dateStr) {
         this.selectedDateForMemo = dateStr;
-        const d = new Date(dateStr);
+        const d = parseDateLocal(dateStr);
         document.getElementById('dateDetailTitle').innerHTML = `${Icons.svg('calendar')} ${d.getMonth()+1}/${d.getDate()} (${WEEKDAYS[d.getDay()]})`;
         
         const sectionTitleClass = 'detail-section-title mb-2.5 border-b border-white/10 pb-2 text-sm font-bold text-indigo-300';

@@ -9,6 +9,9 @@ export class Utils {
     /** 日本標準時のオフセット（分） */
     static JST_OFFSET_MINUTES = 9 * 60;
 
+    /** @type {number|null} トースト自動非表示のタイマー */
+    static _toastTimer = null;
+
     /**
      * トースト通知を表示
      * @param {string} message - 表示するメッセージ
@@ -21,7 +24,9 @@ export class Utils {
         toast.textContent = message;
         toast.classList.toggle('toast-error', type === 'error');
         toast.classList.add('show');
-        setTimeout(() => toast.classList.remove('show'), this.TOAST_DURATION);
+        // 連続表示時、前のトーストのタイマーが新しいトーストを早期に消さないようにする
+        if (Utils._toastTimer) clearTimeout(Utils._toastTimer);
+        Utils._toastTimer = setTimeout(() => toast.classList.remove('show'), this.TOAST_DURATION);
     }
 
     /**
