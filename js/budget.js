@@ -2267,6 +2267,10 @@ export class BudgetManager {
             `subnote-${categoryId}`
         ]);
         this.saveWithStatus();
+
+        // 続けて次の明細を入力できるよう、名前欄へフォーカスを戻す
+        // （保存による再描画後もupdateDisplayのフォーカス復元で維持される）
+        document.getElementById(`subname-${categoryId}`)?.focus({ preventScroll: true });
     }
 
     /**
@@ -2791,10 +2795,36 @@ export class BudgetManager {
         const miniMonthEl = document.getElementById('miniHeaderMonth');
         if (miniMonthEl) miniMonthEl.textContent = monthLabel;
 
+        // innerHTMLの丸ごと再構築で失われる画面状態を退避する。
+        // 保存のたびに自分の書き込みでスナップショットが再発火して再描画されるため、
+        // これがないと小カテゴリー追加などのたびにアコーディオンが全部閉じ、
+        // ページ高さが縮んでスクロール位置が上に飛んでしまう。
+        const listEl = document.getElementById('categoryList');
+        const openIds = listEl
+            ? [...listEl.querySelectorAll('.category-details.open')].map(el => el.id.replace('details-', ''))
+            : [];
+        const focusedId = document.activeElement?.id || null;
+        const scrollY = window.scrollY;
+
         // カテゴリリスト
         const monthData = this.getCurrentMonthData();
-        document.getElementById('categoryList').innerHTML =
-            monthData.categories.map(cat => this._renderCategory(cat)).join('');
+        if (listEl) {
+            listEl.innerHTML = monthData.categories.map(cat => this._renderCategory(cat)).join('');
+        }
+
+        // 開いていたカテゴリを復元（カテゴリ削除で消えた場合はスキップされる）
+        openIds.forEach(id => {
+            document.getElementById(`details-${id}`)?.classList.add('open');
+            document.getElementById(`icon-${id}`)?.classList.add('open');
+        });
+
+        // 入力フォーカスを復元（再構築で要素が作り直されたときだけ。IDは安定している）
+        if (focusedId && document.activeElement?.id !== focusedId) {
+            document.getElementById(focusedId)?.focus({ preventScroll: true });
+        }
+
+        // 高さ復元後にスクロール位置を戻す（再構築中のクランプ対策）
+        window.scrollTo(0, scrollY);
 
         // 合計表示
         this._updateTotalDisplay();
