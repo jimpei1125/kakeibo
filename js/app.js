@@ -5,7 +5,11 @@
 
 import { Utils } from './utils.js';
 import { Icons } from './icons.js';
-import { BudgetManager, Calculator, CSVExporter, CSVImporter, CopyMonthManager } from './budget.js';
+import { BudgetManager } from './budget.js';
+import { Calculator } from './calculator.js';
+import { CSVExporter } from './csv-export.js';
+import { CSVImporter } from './statement-import.js';
+import { CopyMonthManager } from './copy-month.js';
 import { RecurringManager } from './recurring.js';
 import { PayPayRequestManager } from './paypay.js';
 import { HolidayCalendar } from './calendar.js';
