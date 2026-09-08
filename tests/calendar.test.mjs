@@ -236,5 +236,51 @@ console.log('\n【8】showToastのタイマー競合修正');
     globalThis.clearTimeout = origClear;
 }
 
+console.log('\n【9】メモ削除: Googleカレンダー側の削除失敗時に孤児化させない');
+{
+    const { deleteLog } = await import('./stubs/firebase-config.mjs');
+    const { Dialog } = await import('../js/dialog.js');
+    const origFetch = globalThis.fetch;
+    cal.gcalAppKey = 'k';
+    cal.memos = [
+        { id: 'm-gcal', gcalEventId: 'ev1', type: 'schedule', date: '2026-09-10', content: 'GCal連携メモ' },
+        { id: 'm-plain', type: 'task', date: '2026-09-10', content: '通常メモ' },
+    ];
+
+    // (a) 連携中・Worker側の削除が失敗 → メモは削除しない
+    cal.gcalConnected = true;
+    globalThis.fetch = async () => ({ status: 200, json: async () => ({ ok: false }) });
+    deleteLog.length = 0;
+    const r1 = await cal.deleteMemo('m-gcal');
+    check('GCal削除失敗時はfalseを返す', r1 === false);
+    check('GCal削除失敗時はFirestoreのメモを削除しない', deleteLog.length === 0);
+
+    // (b) 連携中・Worker側の削除が成功 → メモも削除
+    globalThis.fetch = async () => ({ status: 200, json: async () => ({ ok: true }) });
+    const r2 = await cal.deleteMemo('m-gcal');
+    check('GCal削除成功時はメモも削除される', r2 === true && deleteLog.includes('calendarMemos/m-gcal'));
+
+    // (c) 未連携でGCal連携メモ → 確認ダイアログ。キャンセルなら削除しない
+    cal.gcalConnected = false;
+    const origConfirm = Dialog.confirm;
+    let asked = 0;
+    Dialog.confirm = async () => { asked++; return false; };
+    deleteLog.length = 0;
+    const r3 = await cal.deleteMemo('m-gcal');
+    check('未連携時は確認ダイアログが出る', asked === 1);
+    check('キャンセルなら削除しない', r3 === false && deleteLog.length === 0);
+    Dialog.confirm = async () => { asked++; return true; };
+    const r4 = await cal.deleteMemo('m-gcal');
+    check('「メモだけ削除」を選べば削除される', r4 === true && deleteLog.includes('calendarMemos/m-gcal'));
+    Dialog.confirm = origConfirm;
+
+    // (d) GCal連携のないメモは従来どおり即削除
+    deleteLog.length = 0;
+    const r5 = await cal.deleteMemo('m-plain');
+    check('通常メモは確認なしで削除', r5 === true && deleteLog.includes('calendarMemos/m-plain'));
+
+    globalThis.fetch = origFetch;
+}
+
 console.log(`\n結果: ${pass}件成功 / ${fail}件失敗`);
 process.exit(fail === 0 ? 0 : 1);

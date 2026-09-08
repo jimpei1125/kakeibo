@@ -25,10 +25,13 @@ const DISCORD_CHANNEL_URL = 'https://discord.com/channels/1360206899278118972/13
 export class PayPayRequestManager {
     /**
      * @param {import('./budget.js').BudgetManager} budgetManager - 予算管理インスタンス
+     * @param {import('./discord.js').DiscordNotifier} [discord] - Discord送信（Webhook設定時は直接投稿に使う）
      */
-    constructor(budgetManager) {
+    constructor(budgetManager, discord = null) {
         /** @type {import('./budget.js').BudgetManager} */
         this.budgetManager = budgetManager;
+        /** @type {import('./discord.js').DiscordNotifier|null} */
+        this.discord = discord;
         /** @type {string} 保存済みの受け取りリンク */
         this.link = '';
     }
@@ -190,9 +193,17 @@ export class PayPayRequestManager {
     }
 
     /**
-     * 請求文をコピーしてDiscordチャンネルを開く（貼り付けるだけの状態にする）
+     * 請求文をDiscordへ送る。Webhookが設定されていれば直接投稿し、
+     * 未設定ならコピーしてチャンネルを開く（貼り付けるだけの状態にする）
      */
     async sendToDiscord() {
+        const message = this._getMessage();
+        if (!message) return;
+
+        if (this.discord?.configured) {
+            if (await this.discord.send(message)) Utils.showToast('Discordに送信しました');
+            return;
+        }
         const copied = await this.copyMessage();
         if (copied) {
             window.open(DISCORD_CHANNEL_URL, '_blank', 'noopener,noreferrer');

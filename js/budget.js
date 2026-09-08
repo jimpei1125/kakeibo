@@ -46,7 +46,7 @@ export function categoryDisplayAmount(category) {
  */
 export class BudgetManager {
     constructor() {
-        const now = new Date();
+        const now = Utils.getJSTDate();
         /** @type {number} 現在表示中の年 */
         this.currentYear = now.getFullYear();
         /** @type {number} 現在表示中の月 */
@@ -365,7 +365,8 @@ export class BudgetManager {
         this.data = newData;
 
         // 初回かつ空 → 旧形式（budgetData/data）からの移行を試みる
-        if (this.isInitialLoad && snap.empty && !this._migrationChecked) {
+        // （オフライン永続化のキャッシュ由来の空スナップショットでは判定しない）
+        if (this.isInitialLoad && snap.empty && !snap.metadata?.fromCache && !this._migrationChecked) {
             this._migrationChecked = true;
             this._migrateLegacyData();
             return; // 移行後にsnapshotが再発火するのでここでは描画しない
@@ -374,7 +375,13 @@ export class BudgetManager {
         // クイック入力中・ドラッグ並び替え中はDOM再描画をスキップ
         // （フォーカス維持／ドラッグ中の行が消えるのを防ぐ）
         if (!this.quickInputMode && !this._reordering) {
-            this.updateDisplay();
+            if (this._isEditingCategoryInput()) {
+                // 家族の端末からの同期で入力中の文字が消えないよう、入力を離れるまで再描画を保留する
+                // （データ自体は更新済みなので、保留中も保存は正しい内容で行われる）
+                this._deferRenderUntilBlur();
+            } else {
+                this.updateDisplay();
+            }
         }
 
         if (this.isInitialLoad) {
@@ -648,6 +655,9 @@ export class BudgetManager {
                 subcategory.amount = parseFloat(input?.value) || 0;
             }
         }
+        // 再描画が保留されていても合計・サマリーの数字が古くならないよう部分更新する
+        this._updateCategorySummaryAmount(categoryId);
+        this._updateTotalDisplay();
         this.saveWithStatus();
         Utils.showToast('保存しました');
     }
@@ -1101,6 +1111,39 @@ export class BudgetManager {
     // ----------------------------------------
 
     /**
+     * カテゴリ一覧内の入力欄（金額・備考・小カテゴリー追加など）を編集中か
+     * @private
+     * @returns {boolean}
+     */
+    _isEditingCategoryInput() {
+        const active = document.activeElement;
+        if (!active || !['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName)) return false;
+        return !!document.getElementById('categoryList')?.contains(active);
+    }
+
+    /**
+     * 入力欄からフォーカスが外れた時点で再描画する（同期による再描画の保留）
+     * @private
+     */
+    _deferRenderUntilBlur() {
+        if (this._renderDeferred) return;
+        const list = document.getElementById('categoryList');
+        if (!list) { this.updateDisplay(); return; }
+        this._renderDeferred = true;
+
+        const onFocusOut = () => {
+            // 同じ一覧内の別の入力欄へ移った場合は引き続き保留する
+            setTimeout(() => {
+                if (this._isEditingCategoryInput()) return;
+                list.removeEventListener('focusout', onFocusOut);
+                this._renderDeferred = false;
+                this.updateDisplay();
+            }, 0);
+        };
+        list.addEventListener('focusout', onFocusOut);
+    }
+
+    /**
      * 画面表示を更新
      */
     updateDisplay() {
@@ -1147,6 +1190,43 @@ export class BudgetManager {
 
         // 合計表示
         this._updateTotalDisplay();
+        this._renderDeferred = false;
+    }
+
+    /**
+     * 家計簿画面の左右スワイプで月を移動する
+     * 入力欄・ドラッグハンドル・グラフ上から始まった操作や、縦方向のスクロールは対象外
+     */
+    initSwipeNavigation() {
+        const section = document.getElementById('budgetSection');
+        if (!section || this._swipeInitialized) return;
+        this._swipeInitialized = true;
+
+        let startX = 0;
+        let startY = 0;
+        let startTime = 0;
+        let tracking = false;
+
+        section.addEventListener('touchstart', (e) => {
+            tracking = false;
+            if (this._reordering) return;
+            if (e.target.closest?.('input, textarea, select, button, .drag-handle, .pie-svg, .trend-svg')) return;
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+            startTime = Date.now();
+            tracking = true;
+        }, { passive: true });
+
+        section.addEventListener('touchend', (e) => {
+            if (!tracking || this._reordering) return;
+            tracking = false;
+            const dx = e.changedTouches[0].clientX - startX;
+            const dy = e.changedTouches[0].clientY - startY;
+            const elapsed = Date.now() - startTime;
+            // 横に60px以上・縦より明確に横・素早い操作のときだけ月送りとみなす（縦スクロールと区別）
+            if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5 || elapsed > 600) return;
+            this.changeMonth(dx > 0 ? -1 : 1);
+        }, { passive: true });
     }
 
     /**
@@ -1651,7 +1731,9 @@ export class BudgetManager {
      * 同期ステータスを表示してから保存
      */
     saveWithStatus() {
-        this.showSyncStatus(SYNC_STATUS.SYNCING, '同期中...');
+        // オフライン永続化により、圏外でも保存は端末内に保持され、接続時に自動送信される
+        const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+        this.showSyncStatus(SYNC_STATUS.SYNCING, offline ? '⏸ オフライン（接続時に同期されます）' : '同期中...');
         this.saveToFirestore();
     }
 }

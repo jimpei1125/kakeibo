@@ -136,18 +136,28 @@ export class Dialog {
             buttonsEl.appendChild(el);
         });
 
+        // キャンセル相当のボタン（false/null）を探す。無ければ先頭ボタン
+        const cancel = () => {
+            const cancelBtn = config.buttons.find(b => b.value === false || b.value === null) || config.buttons[0];
+            finish(cancelBtn.value === '__INPUT__' ? null : cancelBtn.value);
+        };
+        // Enterで確定するボタン: 入力ダイアログは入力値、それ以外はprimary/dangerの主ボタン（無ければ末尾）
+        const confirm = () => {
+            if (config.input) { finish(input.value); return; }
+            const primary = config.buttons.find(b => b.variant === 'primary' || b.variant === 'danger')
+                || config.buttons[config.buttons.length - 1];
+            finish(primary.value);
+        };
+
         const onKeydown = (e) => {
-            if (e.key === 'Escape') {
-                const cancelBtn = config.buttons.find(b => b.value === false || b.value === null) || config.buttons[0];
-                finish(cancelBtn.value === '__INPUT__' ? null : cancelBtn.value);
-            } else if (e.key === 'Enter' && config.input) {
-                finish(input.value);
-            }
+            if (e.key === 'Escape') cancel();
+            else if (e.key === 'Enter') { e.preventDefault(); confirm(); }
         };
 
         const close = () => {
             backdrop.classList.remove('show');
             panel.classList.remove('show');
+            backdrop.onclick = null;
             document.removeEventListener('keydown', onKeydown);
         };
 
@@ -159,6 +169,7 @@ export class Dialog {
         };
 
         document.addEventListener('keydown', onKeydown);
+        backdrop.onclick = cancel; // 背景タップでキャンセル（表示中のみpointer-eventsが有効）
         backdrop.classList.add('show');
         panel.classList.add('show');
 

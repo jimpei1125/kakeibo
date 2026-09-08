@@ -37,7 +37,9 @@ export const onSnapshot = () => () => {};
 export const collection = () => ({});
 export const addDoc = async () => ({ id: 'x' });
 export const updateDoc = async () => {};
-export const deleteDoc = async () => {};
+/** deleteDoc の呼び出し記録（テストで削除の有無を検証する用） */
+export const deleteLog = [];
+export const deleteDoc = async (ref) => { deleteLog.push(ref?.path || String(ref)); };
 export const query = () => ({});
 export const where = () => ({});
 export const getDocs = async () => ({ forEach: () => {}, docs: [] });

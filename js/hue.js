@@ -19,6 +19,9 @@ const HUE_CONFIG = {
 /** 明るさの最大値（Hue API） */
 const MAX_BRIGHTNESS = 254;
 
+/** グループ・ライト一覧のキャッシュ有効時間 */
+const GROUP_CACHE_MS = 5 * 60 * 1000;
+
 // ============================================================
 // Philips Hueクラス
 // ============================================================
@@ -30,6 +33,8 @@ export class PhilipsHue {
         this.currentGroupId = null;
         this.isConnected = false;
         this.username = null;
+        /** @type {number} グループ一覧を最後に取得した時刻（epoch ms） */
+        this._groupsLoadedAt = 0;
     }
 
     // ==================== トークン管理 ====================
@@ -41,23 +46,33 @@ export class PhilipsHue {
 
     // ==================== 初期化 ====================
 
-    async init() {
+    /**
+     * @param {boolean} [force] - trueでキャッシュを無視して再取得（更新ボタン用）
+     */
+    async init(force = false) {
         const loadingEl = document.getElementById('hueLoading');
         const listEl = document.getElementById('hueLightList');
-        
+
         // 未認証の場合
         if (!this.accessToken) {
             if (loadingEl) loadingEl.style.display = 'none';
             if (listEl) listEl.innerHTML = this._renderAuthPrompt();
             return;
         }
-        
+
+        // 直近に取得済みならキャッシュから即描画（画面切替のたびにAPIを叩かない）
+        if (!force && this.isConnected && Date.now() - this._groupsLoadedAt < GROUP_CACHE_MS) {
+            if (loadingEl) loadingEl.style.display = 'none';
+            this.renderGroups();
+            return;
+        }
+
         // トークン更新が必要な場合
         if (!this.isTokenValid()) await this.refreshAccessToken();
-        
+
         // ユーザー名取得
         if (!this.username) await this.getUsername();
-        
+
         await this.loadGroups();
         await this.loadLights();
     }
@@ -179,6 +194,7 @@ export class PhilipsHue {
             if (data && !data.error) {
                 this.groups = data;
                 this.isConnected = true;
+                this._groupsLoadedAt = Date.now();
                 if (loadingEl) loadingEl.style.display = 'none';
                 this.renderGroups();
             } else {

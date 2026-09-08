@@ -11,6 +11,8 @@ const registerPath = path.join(here, 'register.mjs');
 const runs = [
     { file: 'budget.test.mjs', label: '家計簿（budget/copy-month/recurring/calculator/statement-import）' },
     { file: 'worker.test.mjs', label: 'gcal-sync Worker' },
+    { file: 'discord.test.mjs', label: 'Discord Webhook送信' },
+    { file: 'smarthome.test.mjs', label: 'スマートホーム（一覧キャッシュ）' },
     { file: 'calendar.test.mjs', label: 'カレンダー（JST）', env: { TZ: 'Asia/Tokyo' } },
     // 日付処理がタイムゾーンに依存しないことを、負オフセットのTZでも確認する
     { file: 'calendar.test.mjs', label: 'カレンダー（America/Los_Angeles）', env: { TZ: 'America/Los_Angeles' } },

@@ -376,5 +376,102 @@ console.log('\n【12】再描画時の画面状態復元（アコーディオン
     globalThis.document.activeElement = origActive;
 }
 
+resetStore();
+console.log('\n【13】バグ修正: 入力中の再描画保留・オフライン表示・キャッシュ由来スナップショット');
+{
+    const cache = new Map();
+    const listeners = {};
+    const makeTracked = (id) => ({
+        id, value: '', textContent: '', innerHTML: '', tagName: 'DIV', style: {}, dataset: {}, _classes: new Set(),
+        classList: { add(c){ cache.get(id)._classes.add(c); }, remove(c){ cache.get(id)._classes.delete(c); }, toggle(){}, contains(c){ return cache.get(id)._classes.has(c); } },
+        focus() {}, contains(el) { return el?._inList === id; },
+        addEventListener(type, fn) { (listeners[`${id}:${type}`] ||= []).push(fn); },
+        removeEventListener(type, fn) { listeners[`${id}:${type}`] = (listeners[`${id}:${type}`] || []).filter(f => f !== fn); },
+        querySelectorAll: () => [], querySelector: () => null, closest: () => null,
+    });
+    const getEl = (id) => { if (!cache.has(id)) cache.set(id, makeTracked(id)); return cache.get(id); };
+    const origGetById = globalThis.document.getElementById;
+    const origActive = globalThis.document.activeElement;
+    globalThis.document.getElementById = getEl;
+    globalThis.scrollTo = () => {};
+
+    const budget = makeBudget('2026-09', [
+        { id: 1, name: '食費', amount: 0, budget: 0, note: '', subcategories: [{ id: 11, name: 'スーパー', amount: 1000, note: '' }] },
+    ]);
+    budget.isInitialLoad = false;
+    let renders = 0;
+    budget.updateDisplay = () => { renders++; budget._renderDeferred = false; };
+    const snap = (docs, fromCache = false) => ({
+        empty: docs.length === 0, metadata: { fromCache },
+        forEach(fn) { docs.forEach(d => fn({ id: d.id, data: () => d.data })); },
+    });
+    const monthDocs = [{ id: '2026-09', data: { categories: [{ id: 1, name: '食費', amount: 0, note: '', subcategories: [{ id: 11, name: 'スーパー', amount: 1234, note: '' }] }] } }];
+
+    // (a) 入力中でなければ即再描画
+    globalThis.document.activeElement = { tagName: 'BODY' };
+    budget._handleMonthsSnapshot(snap(monthDocs));
+    check('入力中でなければ同期時に即再描画', renders === 1);
+
+    // (b) カテゴリ欄の入力中は再描画を保留し、フォーカスが外れたら再描画
+    globalThis.document.activeElement = { tagName: 'INPUT', id: 'subnote-edit-1-11', _inList: 'categoryList' };
+    budget._handleMonthsSnapshot(snap(monthDocs));
+    check('入力中は再描画を保留する', renders === 1);
+    check('データ自体は同期内容に更新される', budget.data['2026-09'].categories[0].subcategories[0].amount === 1234);
+    check('focusoutリスナーが登録される', (listeners['categoryList:focusout'] || []).length === 1);
+    budget._handleMonthsSnapshot(snap(monthDocs));
+    check('保留中の再同期でもリスナーは増えない', (listeners['categoryList:focusout'] || []).length === 1);
+    // 同じ一覧内の別の入力欄へ移動 → まだ保留
+    globalThis.document.activeElement = { tagName: 'INPUT', id: 'subamount-1-11', _inList: 'categoryList' };
+    listeners['categoryList:focusout'][0]();
+    await new Promise(r => setTimeout(r, 5));
+    check('一覧内の別の入力欄へ移った場合は引き続き保留', renders === 1);
+    // 一覧の外へフォーカスが移動 → 再描画
+    globalThis.document.activeElement = { tagName: 'BODY' };
+    listeners['categoryList:focusout'][0]();
+    await new Promise(r => setTimeout(r, 5));
+    check('フォーカスが外れた時点で再描画される', renders === 2);
+    check('再描画後はリスナーが解除される', (listeners['categoryList:focusout'] || []).length === 0);
+
+    // (c) 金額変更は再描画を待たずに合計・サマリーを部分更新する
+    let summaryUpdates = 0, totalUpdates = 0;
+    budget._updateCategorySummaryAmount = () => summaryUpdates++;
+    budget._updateTotalDisplay = () => totalUpdates++;
+    getEl('subamount-1-11').value = '5000';
+    budget.updateAmount(1, 11);
+    check('updateAmountでサマリーと合計が部分更新される', summaryUpdates === 1 && totalUpdates === 1);
+    check('金額がデータに反映される', budget.data['2026-09'].categories[0].subcategories[0].amount === 5000);
+
+    // (d) オフライン時の同期ステータス表示
+    const statuses = [];
+    budget.showSyncStatus = (_s, msg) => statuses.push(msg);
+    budget.saveToFirestore = async () => {};
+    // Node 22 では globalThis.navigator が getter 専用のため defineProperty で差し替える
+    const origNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+    const setNavigator = (value) => Object.defineProperty(globalThis, 'navigator', { value, configurable: true, writable: true });
+    setNavigator({ onLine: false });
+    budget.saveWithStatus();
+    check('オフライン時は「オフライン（接続時に同期）」を表示', statuses.at(-1).includes('オフライン'));
+    setNavigator({ onLine: true });
+    budget.saveWithStatus();
+    check('オンライン時は「同期中...」', statuses.at(-1) === '同期中...');
+
+    // (e) 永続キャッシュ由来の空スナップショットでは移行処理を走らせない
+    const fresh = makeBudget('2026-09', []);
+    fresh.updateDisplay = () => {};
+    fresh._finishInitialLoad = () => { fresh.isInitialLoad = false; };
+    let migrations = 0;
+    fresh._migrateLegacyData = async () => { migrations++; };
+    globalThis.document.activeElement = { tagName: 'BODY' };
+    fresh._handleMonthsSnapshot(snap([], true));
+    check('キャッシュ由来の空スナップショットでは移行しない', migrations === 0);
+    fresh.isInitialLoad = true; fresh._migrationChecked = false;
+    fresh._handleMonthsSnapshot(snap([], false));
+    check('サーバー由来の空スナップショットでは従来どおり移行を試みる', migrations === 1);
+
+    globalThis.document.getElementById = origGetById;
+    globalThis.document.activeElement = origActive;
+    if (origNavigator) Object.defineProperty(globalThis, 'navigator', origNavigator);
+}
+
 console.log(`\n結果: ${pass}件成功 / ${fail}件失敗`);
 process.exit(fail === 0 ? 0 : 1);

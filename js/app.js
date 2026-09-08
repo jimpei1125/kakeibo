@@ -12,6 +12,7 @@ import { CSVImporter } from './statement-import.js';
 import { CopyMonthManager } from './copy-month.js';
 import { RecurringManager } from './recurring.js';
 import { PayPayRequestManager } from './paypay.js';
+import { DiscordNotifier } from './discord.js';
 import { HolidayCalendar } from './calendar.js';
 import { ShoppingList } from './shopping.js';
 import { SmartHome } from './smarthome.js';
@@ -56,7 +57,8 @@ class KakeiboApp {
         this.copyMonth = new CopyMonthManager(this.budget);
         this.recurring = new RecurringManager(this.budget);
         this.budget.recurringManager = this.recurring;
-        this.paypay = new PayPayRequestManager(this.budget);
+        this.discord = new DiscordNotifier();
+        this.paypay = new PayPayRequestManager(this.budget, this.discord);
         this.holidayCalendar = new HolidayCalendar();
         this.shopping = new ShoppingList(this.budget);
         this.smartHome = new SmartHome();
@@ -145,10 +147,8 @@ class KakeiboApp {
     showBudget() {
         this._showSection(SECTIONS.BUDGET, MENU_ITEMS.BUDGET, true);
 
-        // 現在の日付に設定
-        const jstDate = Utils.getJSTDate();
-        this.budget.currentYear = jstDate.getFullYear();
-        this.budget.currentMonth = jstDate.getMonth() + 1;
+        // 表示中の月は維持する（初回は BudgetManager が今月を初期値にしている。
+        // 以前はここで毎回今月に戻していたため、他画面から戻ると見ていた月が失われていた）
         this.budget.updateDisplay();
 
         // ページトップに戻るため、ミニヘッダーは念のため非表示に
@@ -229,6 +229,12 @@ class KakeiboApp {
 
         // 月セレクタのスクロール追従ミニヘッダーを初期化
         this.budget.initMiniHeader();
+
+        // 家計簿の左右スワイプで月送り
+        this.budget.initSwipeNavigation();
+
+        // Discord Webhook設定（家族共有）を購読
+        this.discord.init();
 
         // 各モジュールの初期化
         this.holidayCalendar.init();

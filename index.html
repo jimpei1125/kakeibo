@@ -464,9 +464,22 @@
                 <div class="output-text whitespace-pre-wrap rounded-xl bg-zinc-950/60 p-4 text-sm leading-relaxed text-zinc-300 ring-1 ring-inset ring-white/5" id="outputText"></div>
                 <button class="copy-btn mt-3 w-full rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.budget.copyOutput()"><span data-icon="copy"></span> コピー</button>
                 <div class="copy-success mt-2 text-center text-sm font-semibold text-emerald-400" id="copySuccess" style="display: none;">コピーしました！</div>
-                <button class="discord-btn mt-3 w-full rounded-lg bg-[#5865F2] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#4752c4]" onclick="window.open('https://discord.com/channels/1360206899278118972/1366013675051159564', '_blank', 'noopener,noreferrer')">
+                <button class="discord-btn mt-3 w-full rounded-lg bg-[#5865F2] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#4752c4]" onclick="app.discord.sendOutput()">
                     <span data-icon="discord"></span> Discordに送る
                 </button>
+                <!-- Discord Webhook設定（家族共有。設定すると上のボタンで直接投稿される） -->
+                <div class="mt-2 flex items-center justify-between gap-2 text-xs text-zinc-500">
+                    <span id="discordWebhookStatus">Webhook: 未設定（コピーしてDiscordを開きます）</span>
+                    <button type="button" class="shrink-0 rounded-md bg-white/10 px-2 py-1 font-semibold text-zinc-300 transition hover:bg-white/15" onclick="app.discord.toggleSettings()">設定</button>
+                </div>
+                <div class="mt-2 rounded-xl bg-white/5 p-3 ring-1 ring-white/10" id="discordWebhookSetup" style="display: none;">
+                    <p class="mb-2 text-xs text-zinc-400">DiscordのチャンネルのWebhook URLを登録すると、ボタン1つで直接投稿できます（チャンネル設定 → 連携サービス → ウェブフック → 新しいウェブフック → URLをコピー）。家族全員で共有されます。</p>
+                    <div class="flex gap-2">
+                        <input type="url" id="discordWebhookInput" placeholder="https://discord.com/api/webhooks/..." autocomplete="off" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+                        <button class="shrink-0 rounded-lg bg-indigo-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.discord.saveWebhook()">保存</button>
+                        <button class="shrink-0 rounded-lg bg-rose-500/10 px-3 py-2 text-sm font-semibold text-rose-300 ring-1 ring-inset ring-rose-500/20 transition hover:bg-rose-500/20" onclick="app.discord.clearWebhook()">削除</button>
+                    </div>
+                </div>
                 <button class="paypay-btn mt-3 w-full rounded-lg bg-[#ff0033] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#d4002a]" onclick="app.paypay.showModal()">
                     <span data-icon="send"></span> PayPayで請求
                 </button>
@@ -609,7 +622,7 @@
             <div class="smarthome-devices" id="smartHomeDevices" style="display: none;">
                 <div class="devices-header mb-4 flex items-center justify-between gap-3">
                     <span class="devices-status text-sm text-zinc-400" id="devicesStatus">読み込み中...</span>
-                    <button class="refresh-btn shrink-0 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.smartHome.loadDevices()"><span data-icon="refresh"></span> 更新</button>
+                    <button class="refresh-btn shrink-0 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.smartHome.init(true); app.hue.init(true)"><span data-icon="refresh"></span> 更新</button>
                 </div>
 
                 <div class="device-section mb-5">

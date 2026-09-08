@@ -4,21 +4,10 @@
  */
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-import {
-    getFirestore,
-    doc,
-    getDoc,
-    setDoc as firestoreSetDoc,
-    onSnapshot,
-    collection,
-    addDoc,
-    updateDoc,
-    deleteDoc,
-    query,
-    where,
-    getDocs,
-    orderBy
-} from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+// 名前空間importにしているのは、オフライン永続化用の関数（initializeFirestore /
+// persistentLocalCache）がこのCDN版で提供されていない場合でも読み込みが失敗しないように
+// するため（名前付きimportは存在しない名前があると読み込み自体がエラーになる）。
+import * as firestore from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 import {
     getAuth,
     signInWithPopup,
@@ -42,8 +31,38 @@ const firebaseConfig = {
 // Firebase初期化
 const firebaseApp = initializeApp(firebaseConfig);
 
+const {
+    doc, getDoc, onSnapshot, collection, addDoc, updateDoc, deleteDoc, query, where, getDocs, orderBy,
+    setDoc: firestoreSetDoc,
+} = firestore;
+
+/**
+ * Firestoreインスタンスを生成する（オフライン永続化つき）
+ *
+ * 永続キャッシュを有効にすると、圏外でも最後に同期したデータで画面が開き、
+ * 圏外中の編集は端末内に保持されて接続時に自動送信される。
+ * 複数タブ対応のタブマネージャーを使い、同じアプリを2タブ開いても衝突しない。
+ * 対応関数が無い／初期化に失敗した場合は従来どおりの（永続化なし）インスタンスにフォールバックする。
+ * @param {Object} app - Firebaseアプリ
+ * @returns {Object} Firestoreインスタンス
+ */
+function createFirestore(app) {
+    const { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, getFirestore } = firestore;
+    if (typeof initializeFirestore === 'function' && typeof persistentLocalCache === 'function') {
+        try {
+            const cacheSettings = typeof persistentMultipleTabManager === 'function'
+                ? { tabManager: persistentMultipleTabManager() }
+                : {};
+            return initializeFirestore(app, { localCache: persistentLocalCache(cacheSettings) });
+        } catch (error) {
+            console.warn('オフライン永続化を有効にできませんでした（通常モードで続行）:', error);
+        }
+    }
+    return getFirestore(app);
+}
+
 /** Firestoreデータベースインスタンス */
-const db = getFirestore(firebaseApp);
+const db = createFirestore(firebaseApp);
 
 /**
  * setDoc のラッパー。値がundefinedのフィールドを取り除いてから書き込む。
