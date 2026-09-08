@@ -714,12 +714,12 @@ export class HolidayCalendar {
         const todayStr = Utils.formatDateString(new Date());
         const prevDays = new Date(this.currentYear, this.currentMonth - 1, 0).getDate();
 
-        const numberClass = 'calendar-date-number mb-0.5 text-[10px] font-bold leading-none text-white sm:text-[11px]';
+        const numberClass = 'calendar-date-number mb-0.5 text-[11px] font-bold leading-none text-white sm:text-[12px]';
         const otherMonthCell = (n) => `<div class="calendar-date-cell other-month min-h-[25px] rounded-md bg-white/5 p-0.5 opacity-30 sm:min-h-[30px]"><div class="${numberClass}">${n}</div></div>`;
 
         const gcalMap = this._buildGcalEventMap();
 
-        let html = WEEKDAYS.map(d => `<div class="calendar-weekday py-1.5 text-center text-[9px] font-bold text-zinc-500 sm:text-[10px]">${d}</div>`).join('');
+        let html = WEEKDAYS.map(d => `<div class="calendar-weekday py-1.5 text-center text-[10px] font-bold text-zinc-500 sm:text-[11px]">${d}</div>`).join('');
 
         for (let i = startDow - 1; i >= 0; i--) html += otherMonthCell(prevDays - i);
 
@@ -730,7 +730,7 @@ export class HolidayCalendar {
             const dayM = this.memos.filter(m => m.date === dateStr);
             const dayE = gcalMap[dateStr] || [];
 
-            let cellClass = 'calendar-date-cell flex min-h-[85px] cursor-pointer flex-col rounded-md p-0.5 transition sm:min-h-[95px]';
+            let cellClass = 'calendar-date-cell flex min-h-[96px] cursor-pointer flex-col rounded-md p-0.5 transition sm:min-h-[112px]';
             cellClass += isToday ? ' today bg-indigo-500/15 ring-2 ring-inset ring-indigo-500' : ' bg-white/5 hover:bg-white/10';
             if (dayM.length) cellClass += ' has-memo';
 
@@ -741,24 +741,24 @@ export class HolidayCalendar {
                 const tc = dayM.filter(m => m.type === 'task').length;
                 const sc = dayM.filter(m => m.type === 'schedule').length;
                 html += '<div class="calendar-memo-indicator mb-px flex flex-wrap gap-px">';
-                if (tc) html += `<span class="memo-badge task rounded-sm bg-black/40 px-0.5 text-[5px] leading-snug text-rose-300 sm:text-[6px]">${Icons.svg('pin')}${tc}</span>`;
-                if (sc) html += `<span class="memo-badge schedule rounded-sm bg-black/40 px-0.5 text-[5px] leading-snug text-sky-300 sm:text-[6px]">${Icons.svg('calendar')}${sc}</span>`;
+                if (tc) html += `<span class="memo-badge task rounded-sm bg-black/40 px-1 text-[7px] leading-snug text-rose-300 sm:text-[8px]">${Icons.svg('pin')}${tc}</span>`;
+                if (sc) html += `<span class="memo-badge schedule rounded-sm bg-black/40 px-1 text-[7px] leading-snug text-sky-300 sm:text-[8px]">${Icons.svg('calendar')}${sc}</span>`;
                 html += '</div>';
             }
 
             // Googleカレンダーの予定チップ（休日行と同じ極小スタイル・スカイ系で区別）
             dayE.slice(0, GCAL_MAX_EVENTS_PER_CELL).forEach(ev => {
-                html += `<div class="calendar-gcal-event flex items-center rounded-sm bg-sky-500/15 px-0.5 text-[6px] leading-tight text-sky-300 sm:text-[7px]"><span class="truncate">${Utils.escapeHtml(this._gcalEventLabel(ev))}</span></div>`;
+                html += `<div class="calendar-gcal-event flex items-center rounded-sm bg-sky-500/15 px-1 py-px text-[7px] leading-snug text-sky-300 sm:text-[8px]"><span class="truncate">${Utils.escapeHtml(this._gcalEventLabel(ev))}</span></div>`;
             });
             if (dayE.length > GCAL_MAX_EVENTS_PER_CELL) {
-                html += `<div class="calendar-more-events text-center text-[8px] text-sky-300/70">+${dayE.length - GCAL_MAX_EVENTS_PER_CELL}</div>`;
+                html += `<div class="calendar-more-events text-center text-[9px] text-sky-300/70">+${dayE.length - GCAL_MAX_EVENTS_PER_CELL}</div>`;
             }
 
             dayH.slice(0, 3).forEach(h => {
                 const u = this.users.find(x => x.id === h.userId);
-                if (u) html += `<div class="calendar-holiday-user flex items-center gap-0.5 rounded-sm bg-black/30 px-0.5 text-[6px] leading-tight sm:text-[7px]"><div class="calendar-holiday-dot h-1 w-1 shrink-0 rounded-full sm:h-[5px] sm:w-[5px]" style="background-color:${u.color}"></div><span class="calendar-holiday-name truncate">${Utils.escapeHtml(u.name)}</span></div>`;
+                if (u) html += `<div class="calendar-holiday-user flex items-center gap-1 rounded-sm bg-black/30 px-1 py-px text-[7px] leading-snug sm:text-[8px]"><div class="calendar-holiday-dot h-1.5 w-1.5 shrink-0 rounded-full" style="background-color:${u.color}"></div><span class="calendar-holiday-name truncate">${Utils.escapeHtml(u.name)}</span></div>`;
             });
-            if (dayH.length > 3) html += `<div class="calendar-more-users mt-px text-center text-[8px] text-zinc-400">+${dayH.length - 3}</div>`;
+            if (dayH.length > 3) html += `<div class="calendar-more-users mt-px text-center text-[9px] text-zinc-400">+${dayH.length - 3}</div>`;
             html += '</div></div>';
         }
 
@@ -973,21 +973,45 @@ export class HolidayCalendar {
         return memo.taskTime ? `${Icons.svg('bell')} ${memo.taskTime}` : '';
     }
 
+    /**
+     * メモを削除する。Googleカレンダーに登録済みの場合は先にそちらを削除し、
+     * 失敗したときはメモ側も削除せずに中止する（Googleカレンダーにだけ予定が残る孤児化を防ぐ）
+     * @param {string} memoId
+     * @returns {Promise<boolean>} 削除できたか
+     */
     async deleteMemo(memoId) {
+        const memo = this.memos.find(m => m.id === memoId);
         try {
-            const memo = this.memos.find(m => m.id === memoId);
-            if (memo?.gcalEventId && await this.deleteGoogleCalendarEvent(memo.gcalEventId)) Utils.showToast('Googleカレンダーからも削除しました');
+            if (memo?.gcalEventId) {
+                if (this.gcalConnected) {
+                    const removed = await this.deleteGoogleCalendarEvent(memo.gcalEventId);
+                    if (!removed) {
+                        Utils.showToast('Googleカレンダー側の削除に失敗しました。通信状態を確認して再試行してください', 'error');
+                        return false;
+                    }
+                } else {
+                    const proceed = await Dialog.confirm(
+                        'Googleカレンダーと未連携のため、Googleカレンダー側の予定は残ります。\nメモだけ削除しますか？',
+                        { okLabel: 'メモだけ削除', danger: true }
+                    );
+                    if (!proceed) return false;
+                }
+            }
             await deleteDoc(doc(db, 'calendarMemos', memoId));
-            if (!memo?.gcalEventId) Utils.showToast('メモを削除しました');
-        } catch (e) { console.error('メモ削除エラー:', e); Utils.showToast('削除に失敗しました'); }
+            Utils.showToast(memo?.gcalEventId && this.gcalConnected ? 'メモを削除しました（Googleカレンダーからも削除）' : 'メモを削除しました');
+            return true;
+        } catch (e) {
+            console.error('メモ削除エラー:', e);
+            Utils.showToast('削除に失敗しました', 'error');
+            return false;
+        }
     }
 
     async deleteMemoFromForm() {
         if (!this.editingMemoId) return;
         const confirmed = await Dialog.confirm('このメモを削除しますか？', { okLabel: '削除', danger: true });
         if (!confirmed) return;
-        await this.deleteMemo(this.editingMemoId);
-        this.closeMemoForm();
+        if (await this.deleteMemo(this.editingMemoId)) this.closeMemoForm();
     }
 
     // ==================== 日付詳細モーダル ====================

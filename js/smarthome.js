@@ -24,6 +24,9 @@ const DEVICE_ICONS = {
 /** エアコンのデフォルト設定 */
 const DEFAULT_AC_SETTINGS = { temperature: 26, mode: 2, fanSpeed: 1, power: 'on' };
 
+/** デバイス一覧のキャッシュ有効時間（画面切替のたびにAPIを叩かない） */
+const DEVICE_CACHE_MS = 5 * 60 * 1000;
+
 /** 温湿度（status APIから気温・湿度を追加取得する）対象のデバイスタイプ */
 const METER_DEVICE_TYPES = ['Meter', 'MeterPlus', 'Hub 2', 'WoIOSensor'];
 
@@ -42,17 +45,31 @@ export class SmartHome {
         this.currentAcDevice = null;
         this.acSettings = { ...DEFAULT_AC_SETTINGS };
         this.deviceIcons = DEVICE_ICONS;
+        /** @type {number} デバイス一覧を最後に取得した時刻（epoch ms） */
+        this._devicesLoadedAt = 0;
     }
 
     // ==================== 初期化 ====================
 
-    init() {
-        if (this.token && this.secret) {
-            this.showDevicesView();
-            this.loadDevices();
-        } else {
+    /**
+     * @param {boolean} [force] - trueでキャッシュを無視して再取得（更新ボタン用）
+     */
+    init(force = false) {
+        if (!this.token || !this.secret) {
             this.showSetupView();
+            return;
         }
+        this.showDevicesView();
+
+        const cached = this.devices.length + this.infraredDevices.length > 0;
+        if (!force && cached && Date.now() - this._devicesLoadedAt < DEVICE_CACHE_MS) {
+            // 直近に取得済みならキャッシュから即描画（画面切替のたびに待たせない）
+            this.renderDevices();
+            const statusEl = document.getElementById('devicesStatus');
+            if (statusEl) statusEl.textContent = `${this.devices.length + this.infraredDevices.length}台のデバイス`;
+            return;
+        }
+        this.loadDevices();
     }
 
     showSetupView() {
@@ -177,6 +194,7 @@ export class SmartHome {
             if (result.statusCode === 100) {
                 this.devices = result.body.deviceList || [];
                 this.infraredDevices = result.body.infraredRemoteList || [];
+                this._devicesLoadedAt = Date.now();
                 this.renderDevices();
                 statusEl.textContent = `${this.devices.length + this.infraredDevices.length}台のデバイス`;
                 this._loadMeterStatuses();
