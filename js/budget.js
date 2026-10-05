@@ -1363,6 +1363,7 @@ export class BudgetManager {
                     <div class="category-summary-left flex min-w-0 items-center gap-2.5">
                         <span class="accordion-icon text-xs text-zinc-500" id="icon-${category.id}">${Icons.svg('chevron-right')}</span>
                         <span class="category-summary-name truncate text-sm font-semibold text-zinc-100">${Utils.escapeHtml(category.name)}</span>
+                        ${category.subcategories.length ? `<span class="shrink-0 text-[11px] font-semibold text-zinc-500">${category.subcategories.length}件</span>` : ''}
                     </div>
                     <div class="category-summary-right flex shrink-0 items-center gap-2">
                         <span class="category-summary-amount whitespace-nowrap text-sm font-bold text-white">${Utils.formatCurrency(displayAmount)}円</span>

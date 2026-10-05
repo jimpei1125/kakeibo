@@ -973,7 +973,7 @@ export class HolidayCalendar {
                     ${m.gcalEventId ? `<span class="memo-gcal-icon ml-1 text-xs">${Icons.svg('calendar-days')}</span>` : ''}
                     <span class="memo-edit-hint ml-auto pl-2 text-xs opacity-0 transition group-hover:opacity-70">${Icons.svg('pencil')}</span>
                 </div>
-                <button class="memo-delete-btn shrink-0 p-1 text-sm opacity-60 transition hover:opacity-100" onclick="event.stopPropagation(); app.holidayCalendar.deleteMemo('${m.id}')">${Icons.svg('x')}</button>
+                <button class="memo-delete-btn shrink-0 p-1 text-sm opacity-60 transition hover:opacity-100" aria-label="メモを削除" onclick="event.stopPropagation(); app.holidayCalendar.deleteMemo('${m.id}')">${Icons.svg('x')}</button>
             </div>`;
         });
         c.innerHTML = html;
@@ -1077,7 +1077,7 @@ export class HolidayCalendar {
                     <span class="detail-memo-content break-words text-sm text-zinc-100">${Utils.escapeHtml(m.content)}${m.gcalEventId ? ` ${Icons.svg('calendar-days')}` : ''}</span>
                     <span class="memo-edit-hint ml-auto pl-2 text-xs opacity-0 transition group-hover:opacity-70">${Icons.svg('pencil')}</span>
                 </div>${time}
-                <button class="memo-delete-btn small absolute right-2 top-2 p-0.5 text-xs opacity-60 transition hover:opacity-100" onclick="event.stopPropagation(); app.holidayCalendar.deleteMemoFromDetail('${m.id}')">${Icons.svg('x')}</button>
+                <button class="memo-delete-btn small absolute right-2 top-2 p-0.5 text-xs opacity-60 transition hover:opacity-100" aria-label="メモを削除" onclick="event.stopPropagation(); app.holidayCalendar.deleteMemoFromDetail('${m.id}')">${Icons.svg('x')}</button>
             </div>`;
         });
         document.getElementById('dateDetailMemos').innerHTML = mHtml;
