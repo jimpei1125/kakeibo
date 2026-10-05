@@ -37,6 +37,10 @@ export function categoryDisplayAmount(category) {
         : (category.amount || 0);
 }
 
+/** 「他の月からコピー」ボタンの配色（月が空のときは目立たせる） */
+const COPY_BTN_EMPHASIS = ['bg-amber-400/10', 'text-amber-300', 'ring-1', 'ring-inset', 'ring-amber-400/20', 'hover:bg-amber-400/20'];
+const COPY_BTN_NEUTRAL = ['bg-white/10', 'text-zinc-300', 'ring-1', 'ring-inset', 'ring-white/10', 'hover:bg-white/15'];
+
 // ============================================================
 // 予算管理クラス
 // ============================================================
@@ -246,6 +250,20 @@ export class BudgetManager {
         const miniTotalEl = document.getElementById('miniHeaderTotal');
         if (miniTotalEl) miniTotalEl.textContent = `¥${Utils.formatCurrency(total)}`;
 
+        // 月カードのサマリー行（合計・精算・予算超過件数）
+        const summaryTotalEl = document.getElementById('monthSummaryTotal');
+        if (summaryTotalEl) summaryTotalEl.textContent = `¥${Utils.formatCurrency(total)}`;
+        const summarySettlementEl = document.getElementById('monthSummarySettlement');
+        if (summarySettlementEl) {
+            summarySettlementEl.textContent = settlement.direction === 'none' ? '精算なし' : `精算 ${this._formatSettlementLabel(settlement)}`;
+        }
+        const overEl = document.getElementById('monthSummaryOver');
+        if (overEl) {
+            const over = this.countOverBudget();
+            overEl.textContent = over > 0 ? `予算超過 ${over}件` : '';
+            overEl.classList.toggle('hidden', over === 0);
+        }
+
         // 円グラフ面を表示中ならグラフも更新
         if (this.totalFlipped) this.renderPie();
     }
@@ -295,7 +313,8 @@ export class BudgetManager {
         const statusEl = document.getElementById('syncStatus');
         if (!statusEl) return;
         
-        statusEl.className = `sync-status ${status}`;
+        statusEl.classList.remove(SYNC_STATUS.SYNCED, SYNC_STATUS.SYNCING, SYNC_STATUS.ERROR);
+        statusEl.classList.add(status);
         statusEl.textContent = message;
         statusEl.style.display = 'block';
     }
@@ -306,8 +325,9 @@ export class BudgetManager {
      */
     _hideSyncStatusAfterDelay() {
         setTimeout(() => {
+            // 成功表示だけを消す（エラーや同期中は、次の状態が来るまで残す）
             const statusEl = document.getElementById('syncStatus');
-            if (statusEl?.textContent === '✓ 同期完了') {
+            if (statusEl?.classList.contains(SYNC_STATUS.SYNCED)) {
                 statusEl.style.display = 'none';
             }
         }, SYNC_STATUS_HIDE_DELAY);
@@ -462,6 +482,35 @@ export class BudgetManager {
         // 月を切り替えたら合計カードは表（合計金額）に戻す
         this._resetTotalView();
         this._animateMonthChange();
+    }
+
+    /**
+     * 実際の今月（JST）を表示しているか
+     * @returns {boolean}
+     */
+    isViewingCurrentMonth() {
+        const now = Utils.getJSTDate();
+        return this.currentYear === now.getFullYear() && this.currentMonth === now.getMonth() + 1;
+    }
+
+    /**
+     * 表示を実際の今月（JST）へ戻す
+     * 他画面から戻っても見ていた月を維持する仕様にしたため、戻る手段として用意している。
+     */
+    jumpToCurrentMonth() {
+        if (this.isViewingCurrentMonth()) return;
+        const now = Utils.getJSTDate();
+        this.currentYear = now.getFullYear();
+        this.currentMonth = now.getMonth() + 1;
+        this._resetTotalView();
+        this._animateMonthChange();
+    }
+
+    /**
+     * 合計カードまでスクロールする（月カードのサマリー行から呼ばれる）
+     */
+    scrollToTotal() {
+        document.getElementById('totalFlip')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     /**
@@ -903,6 +952,16 @@ export class BudgetManager {
     }
 
     /**
+     * 予算を設定済みのカテゴリのうち、予算に達した（超過した）件数
+     * 予算バーが赤になる条件（ratio >= 1）と揃えている。
+     * @returns {number}
+     */
+    countOverBudget() {
+        return this.getCurrentMonthData().categories
+            .filter(c => c.budget > 0 && categoryDisplayAmount(c) >= c.budget).length;
+    }
+
+    /**
      * 立替精算を計算（夫払い・妻払いの内訳と精算額・方向）
      * payerフィールドが'wife'の項目のみ妻払い、それ以外（未設定含む）は夫払い扱い。
      * @returns {{husband: number, wife: number, total: number, settlementAmount: number, direction: 'wife-to-husband'|'husband-to-wife'|'none'}}
@@ -1174,6 +1233,20 @@ export class BudgetManager {
             listEl.innerHTML = monthData.categories.map(cat => this._renderCategory(cat)).join('');
         }
 
+        // 今月以外を見ているときだけ「今月に戻る」を出す
+        const jumpEl = document.getElementById('jumpToCurrentMonth');
+        if (jumpEl) jumpEl.style.display = this.isViewingCurrentMonth() ? 'none' : '';
+
+        // 記録のない月の案内と、コピー導線の強調（読み込み完了前は判定しない）
+        const isEmpty = !this.isInitialLoad && monthData.categories.length === 0;
+        const emptyEl = document.getElementById('categoryEmptyState');
+        if (emptyEl) emptyEl.style.display = isEmpty ? '' : 'none';
+        const copyBtn = document.getElementById('copyMonthBtn');
+        if (copyBtn) {
+            copyBtn.classList.remove(...COPY_BTN_EMPHASIS, ...COPY_BTN_NEUTRAL);
+            copyBtn.classList.add(...(isEmpty ? COPY_BTN_EMPHASIS : COPY_BTN_NEUTRAL));
+        }
+
         // 開いていたカテゴリを復元（カテゴリ削除で消えた場合はスキップされる）
         openIds.forEach(id => {
             document.getElementById(`details-${id}`)?.classList.add('open');
@@ -1275,12 +1348,12 @@ export class BudgetManager {
         // IDを安全な文字列に変換（小数点をハイフンに置換）
         const safeId = String(category.id).replaceAll('.', '-');
 
+        // クイック入力欄は名前行の下に独立した行として出す（横に並べると名前が潰れて読めなくなるため）
         const quickInput = this.quickInputMode ? `
-            <form class="quick-input-wrapper flex items-center gap-1.5" onsubmit="return app.budget.quickInputSubmit('${safeId}', null, event)">
-                <input type="number" class="quick-input-field w-24 rounded-lg bg-white/5 px-2.5 py-1.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" id="quick-${safeId}"
-                    placeholder="金額" inputmode="decimal" enterkeyhint="go"
-                    onclick="event.stopPropagation()">
-                <button type="submit" class="quick-add-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500 font-bold text-white transition hover:bg-indigo-400" onclick="event.stopPropagation()">+</button>
+            <form class="quick-input-wrapper mt-2 flex items-center gap-2 pl-6" onsubmit="return app.budget.quickInputSubmit('${safeId}', null, event)" onclick="event.stopPropagation()">
+                <input type="number" class="quick-input-field min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" id="quick-${safeId}"
+                    placeholder="${Utils.escapeHtml(category.name)} に金額を追加" inputmode="decimal" enterkeyhint="go">
+                <button type="submit" class="quick-add-btn flex h-9 w-12 shrink-0 items-center justify-center rounded-lg bg-indigo-500 font-bold text-white transition hover:bg-indigo-400" aria-label="追加">+</button>
             </form>
         ` : '';
 
@@ -1292,12 +1365,12 @@ export class BudgetManager {
                         <span class="category-summary-name truncate text-sm font-semibold text-zinc-100">${Utils.escapeHtml(category.name)}</span>
                     </div>
                     <div class="category-summary-right flex shrink-0 items-center gap-2">
-                        ${quickInput}
                         <span class="category-summary-amount whitespace-nowrap text-sm font-bold text-white">${Utils.formatCurrency(displayAmount)}円</span>
                         <span class="drag-handle flex h-8 w-8 shrink-0 cursor-grab items-center justify-center text-lg text-zinc-500 transition hover:text-zinc-300 active:cursor-grabbing"
                             onpointerdown="app.budget.startCategoryDrag(event, ${category.id})" onclick="event.stopPropagation()">${Icons.svg('grip')}</span>
                     </div>
                 </div>
+                ${quickInput}
                 ${this._renderBudgetBar(displayAmount, category.budget)}
             </div>
         `;
@@ -1429,11 +1502,12 @@ export class BudgetManager {
         return category.subcategories.map(sub => {
             const safeSubId = String(sub.id).replaceAll('.', '-');
 
+            // クイック入力欄は独立した行に出す（横に並べると小カテゴリー名が潰れて読めなくなるため）
             const quickInput = this.quickInputMode ? `
-                <form class="quick-input-wrapper-sub flex items-center gap-1.5" onsubmit="return app.budget.quickInputSubmit('${safeCatId}', '${safeSubId}', event)">
-                    <input type="number" class="quick-input-field quick-input-sub w-20 rounded-lg bg-white/5 px-2 py-1.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" id="quick-sub-${safeCatId}-${safeSubId}"
-                        placeholder="金額" inputmode="decimal" enterkeyhint="go">
-                    <button type="submit" class="quick-add-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500 font-bold text-white transition hover:bg-indigo-400">+</button>
+                <form class="quick-input-wrapper-sub mt-2 flex items-center gap-2" onsubmit="return app.budget.quickInputSubmit('${safeCatId}', '${safeSubId}', event)">
+                    <input type="number" class="quick-input-field quick-input-sub min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" id="quick-sub-${safeCatId}-${safeSubId}"
+                        placeholder="${Utils.escapeHtml(sub.name)} に金額を追加" inputmode="decimal" enterkeyhint="go">
+                    <button type="submit" class="quick-add-btn flex h-9 w-12 shrink-0 items-center justify-center rounded-lg bg-indigo-500 font-bold text-white transition hover:bg-indigo-400" aria-label="追加">+</button>
                 </form>
             ` : '';
 
@@ -1441,13 +1515,13 @@ export class BudgetManager {
                 <div class="subcategory-item rounded-lg bg-white/5 p-3 ring-1 ring-inset ring-white/5" data-sub-id="${sub.id}">
                     <div class="sub-row-primary flex items-center gap-2">
                         <span class="subcategory-name min-w-0 flex-1 truncate text-sm font-medium text-zinc-200">${Utils.escapeHtml(sub.name)}</span>
-                        ${quickInput}
                         <input type="number" id="subamount-${category.id}-${sub.id}" value="${sub.amount ?? 0}"
                             onchange="app.budget.updateAmount(${category.id}, ${sub.id})" class="w-24 shrink-0 rounded-lg bg-white/5 px-2.5 py-1.5 text-right text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
                         <span class="shrink-0 text-sm text-zinc-400">円</span>
                         <span class="drag-handle flex h-8 w-8 shrink-0 cursor-grab items-center justify-center text-base text-zinc-500 transition hover:text-zinc-300 active:cursor-grabbing"
                             onpointerdown="app.budget.startSubcategoryDrag(event, ${category.id}, ${sub.id})">${Icons.svg('grip')}</span>
                     </div>
+                    ${quickInput}
                     <div class="sub-row-secondary mt-2 flex items-center gap-2">
                         ${this._renderPayerChip(category.id, sub.id, sub.payer)}
                         <input type="text" class="note-input min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" id="subnote-edit-${category.id}-${sub.id}"
@@ -1470,12 +1544,12 @@ export class BudgetManager {
     _renderAddSubcategoryForm(categoryId) {
         return `
             <div class="add-subcategory mt-3 rounded-lg bg-white/5 p-3 ring-1 ring-inset ring-white/5">
-                <div class="input-group flex flex-col gap-2 sm:flex-row">
+                <form class="input-group flex flex-col gap-2 sm:flex-row" onsubmit="app.budget.addSubcategory(${categoryId}); return false;">
                     <input type="text" id="subname-${categoryId}" placeholder="小カテゴリー（例：電気）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
                     <input type="number" id="subamount-${categoryId}" placeholder="金額" class="min-w-0 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500 sm:w-24">
                     <input type="text" id="subnote-${categoryId}" placeholder="備考（任意）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
-                    <button onclick="app.budget.addSubcategory(${categoryId})" class="shrink-0 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400">追加</button>
-                </div>
+                    <button type="submit" class="shrink-0 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400">追加</button>
+                </form>
             </div>
         `;
     }

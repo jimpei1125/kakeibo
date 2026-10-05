@@ -22,7 +22,7 @@
     <button aria-label="メニューを開く" class="fixed right-5 top-5 z-[1100] flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900 text-xl text-zinc-200 shadow-lg ring-1 ring-white/10 transition hover:bg-zinc-800 hover:ring-white/20" onclick="app.toggleMenu()"><span data-icon="menu"></span></button>
 
     <!-- 家計簿ミニヘッダー（月セレクタが画面外にスクロールしたら表示） -->
-    <div class="mini-header fixed inset-x-0 top-0 z-[1050] items-center gap-2 border-b border-white/10 bg-zinc-950/90 py-2.5 pl-4 pr-16 backdrop-blur" id="miniHeader">
+    <div class="mini-header fixed inset-x-0 top-0 z-[1050] items-center gap-2 border-b border-white/10 bg-zinc-950/90 py-2.5 pl-4 pr-[4.75rem] backdrop-blur" id="miniHeader">
         <button class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-200 transition hover:bg-white/20" onclick="app.budget.changeMonth(-1)" aria-label="前の月"><span data-icon="chevron-left"></span></button>
         <div class="min-w-0 flex-1 truncate text-center text-sm font-bold text-white" id="miniHeaderMonth"></div>
         <span class="shrink-0 whitespace-nowrap text-sm font-bold text-white" id="miniHeaderTotal"></span>
@@ -318,13 +318,13 @@
             <h2 class="text-lg font-bold text-white"><span data-icon="plus"></span> カテゴリーを追加</h2>
             <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.budget.closeAddCategorySheet()"><span data-icon="x"></span></button>
         </div>
-        <div class="input-group flex flex-col gap-2.5">
+        <form class="input-group flex flex-col gap-2.5" onsubmit="app.budget.addCategory(); return false;">
             <input type="text" id="newCategoryName" placeholder="大カテゴリー名（例：光熱費）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
             <input type="number" id="newCategoryAmount" placeholder="金額" class="min-w-0 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
             <input type="number" id="newCategoryBudget" placeholder="予算（任意）" class="min-w-0 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
             <input type="text" id="newCategoryNote" placeholder="備考（任意）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
-            <button onclick="app.budget.addCategory()" class="w-full rounded-lg bg-indigo-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400">追加</button>
-        </div>
+            <button type="submit" class="w-full rounded-lg bg-indigo-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400">追加</button>
+        </form>
     </div>
 
     <!-- その他の機能シート（計算機・CSV出力・明細読み込み） -->
@@ -411,7 +411,8 @@
     <div class="container relative mx-auto max-w-3xl px-5 pb-5">
         <!-- 家計簿セクション -->
         <div class="content-section" id="budgetSection">
-            <div class="sync-status" id="syncStatus">接続中...</div>
+            <!-- 同期ステータス（フッター直上に固定表示。本文の高さに影響させない） -->
+            <div class="sync-status syncing" id="syncStatus">接続中...</div>
 
             <div class="month-selector mb-6 flex flex-col items-center gap-3 rounded-2xl bg-white/5 p-5 ring-1 ring-white/10" id="monthSelector">
                 <div class="month-nav flex items-center gap-4">
@@ -419,7 +420,26 @@
                     <div class="month-display min-w-[140px] text-center text-xl font-bold text-white" id="currentMonth"></div>
                     <button class="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-200 transition hover:bg-white/20" onclick="app.budget.changeMonth(1)" aria-label="次の月"><span data-icon="chevron-right"></span></button>
                 </div>
-                <button class="w-full rounded-lg bg-amber-400/10 px-4 py-2.5 text-sm font-semibold text-amber-300 ring-1 ring-inset ring-amber-400/20 transition hover:bg-amber-400/20" onclick="app.copyMonth.showModal()"><span data-icon="copy"></span> 他の月からコピー</button>
+                <!-- 今月以外を表示中だけ出る（updateDisplayが制御） -->
+                <button class="rounded-full bg-indigo-500/15 px-3 py-1 text-xs font-semibold text-indigo-300 ring-1 ring-inset ring-indigo-500/30 transition hover:bg-indigo-500/25" id="jumpToCurrentMonth" onclick="app.budget.jumpToCurrentMonth()" style="display: none;">今月に戻る</button>
+                <!-- 合計・精算のサマリー（タップで合計カードへ） -->
+                <button class="month-summary flex w-full items-center justify-between gap-3 rounded-xl bg-white/5 px-4 py-2.5 text-left ring-1 ring-inset ring-white/5 transition hover:bg-white/10" id="monthSummary" onclick="app.budget.scrollToTotal()" aria-label="合計カードへ移動">
+                    <span class="min-w-0 flex-1">
+                        <span class="block text-[11px] font-semibold text-zinc-500">合計</span>
+                        <span class="block text-lg font-bold leading-tight text-white" id="monthSummaryTotal">¥0</span>
+                    </span>
+                    <span class="flex shrink-0 flex-col items-end gap-1">
+                        <span class="hidden rounded-full bg-rose-500/15 px-2 py-0.5 text-[11px] font-bold text-rose-300 ring-1 ring-inset ring-rose-500/30" id="monthSummaryOver"></span>
+                        <span class="text-xs font-semibold text-indigo-300" id="monthSummarySettlement"></span>
+                    </span>
+                </button>
+                <button class="w-full rounded-lg px-4 py-2.5 text-sm font-semibold transition" id="copyMonthBtn" onclick="app.copyMonth.showModal()"><span data-icon="copy"></span> 他の月からコピー</button>
+            </div>
+
+            <!-- 記録が無い月の案内（updateDisplayが制御） -->
+            <div class="rounded-2xl bg-white/5 px-5 py-8 text-center ring-1 ring-white/10" id="categoryEmptyState" style="display: none;">
+                <p class="text-sm font-semibold text-zinc-200">この月はまだ記録がありません</p>
+                <p class="mt-1.5 text-xs leading-relaxed text-zinc-500">下の「追加」でカテゴリーを作るか、「他の月からコピー」で先月の項目を引き継げます。<br>固定費を登録してあれば、今月分は自動で記帳されます。</p>
             </div>
 
             <div class="category-list space-y-2.5" id="categoryList"></div>

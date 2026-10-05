@@ -473,5 +473,36 @@ console.log('\n【13】バグ修正: 入力中の再描画保留・オフライ�
     if (origNavigator) Object.defineProperty(globalThis, 'navigator', origNavigator);
 }
 
+console.log('\n【14】月カードのサマリー: 予算超過件数・今月判定・今月に戻る');
+{
+    const budget = makeBudget('2026-10', [
+        { id: 1, name: '家賃', amount: 66000, budget: 66000, note: '', subcategories: [] },         // ちょうど100% → 超過扱い
+        { id: 2, name: '食費', amount: 0, budget: 50000, note: '', subcategories: [
+            { id: 21, name: 'スーパー', amount: 30000, note: '' }, { id: 22, name: '外食', amount: 25000, note: '' },
+        ] },                                                                                         // 小カテゴリ合計55000 > 50000
+        { id: 3, name: '日用品', amount: 7000, budget: 10000, note: '', subcategories: [] },
+        { id: 4, name: '娯楽', amount: 9999, note: '', subcategories: [] },                           // 予算未設定は対象外
+        { id: 5, name: '雑費', amount: 100, budget: 0, note: '', subcategories: [] },                 // 予算0も対象外
+    ]);
+    check('予算に達したカテゴリのみ数える（100%ちょうど・小カテゴリ合計も含む）', budget.countOverBudget() === 2, String(budget.countOverBudget()));
+    budget.data['2026-10'].categories[0].amount = 65999;
+    check('予算未満になれば件数が減る', budget.countOverBudget() === 1);
+    check('空の月は0件', makeBudget('2026-11', []).countOverBudget() === 0);
+
+    const now = Utils.getJSTDate();
+    const thisKey = Utils.getMonthKey(now.getFullYear(), now.getMonth() + 1);
+    const prev = Utils.shiftMonth(now.getFullYear(), now.getMonth() + 1, -3);
+    const b2 = makeBudget(Utils.getMonthKey(prev.year, prev.month), []);
+    check('3か月前を表示中は今月ではない', b2.isViewingCurrentMonth() === false);
+    let animated = 0;
+    b2._animateMonthChange = () => { animated++; };
+    b2.totalFlipped = true;
+    b2.jumpToCurrentMonth();
+    check('jumpToCurrentMonth で今月に戻る', b2.getCurrentMonthKey() === thisKey && b2.isViewingCurrentMonth());
+    check('戻ると合計カードは表に戻り、月切替アニメーションが走る', b2.totalFlipped === false && animated === 1);
+    b2.jumpToCurrentMonth();
+    check('すでに今月なら何もしない', animated === 1);
+}
+
 console.log(`\n結果: ${pass}件成功 / ${fail}件失敗`);
 process.exit(fail === 0 ? 0 : 1);
