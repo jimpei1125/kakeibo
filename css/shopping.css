@@ -47,14 +47,4 @@
     overflow-y: auto;
 }
 
-/* ---------- 同期ステータス（買い物リスト用・固定表示） ---------- */
-#shoppingSyncStatus {
-    position: fixed;
-    top: 20px;
-    left: 20px;
-    margin: 0;
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 12px;
-    z-index: 1050;
-}
+/* 同期ステータスは共通の .sync-status（app.css）がフッター直上のピルとして描画する */

@@ -70,6 +70,13 @@ export class ShoppingList {
         el.textContent = message;
         const state = ['synced', 'syncing', 'error'].includes(status) ? status : 'synced';
         el.className = `sync-status ${state}`;
+        el.style.display = 'block';
+
+        // 成功表示は数秒で消す（エラー・処理中は次の状態が来るまで残す）
+        clearTimeout(this._syncStatusTimer);
+        if (state === 'synced') {
+            this._syncStatusTimer = setTimeout(() => { el.style.display = 'none'; }, 2000);
+        }
     }
 
     // ==================== データ読み込み ====================

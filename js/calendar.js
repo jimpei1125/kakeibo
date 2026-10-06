@@ -480,10 +480,19 @@ export class HolidayCalendar {
         }
 
         linkBtn.style.display = '';
-        statusText.textContent = this.gcalConnected ? 'Googleカレンダー: 連携中（家族で共有）✓' : 'Googleカレンダー: 未連携';
-        statusText.style.color = this.gcalConnected ? '#34d399' : '';
-        linkBtn.innerHTML = this.gcalConnected ? `${Icons.svg('x')} 解除` : `${Icons.svg('link')} 連携`;
-        linkBtn.classList.toggle('connected', this.gcalConnected);
+        if (this.gcalConnected) {
+            // 連携中は主役ではないので控えめに（解除は誤タップしにくい無彩色の小ボタン）
+            statusText.innerHTML = '<span class="inline-block h-2 w-2 rounded-full bg-emerald-400 align-middle"></span> <span class="align-middle">Googleカレンダー 連携中</span><span class="ml-1.5 align-middle text-[11px] text-zinc-500">家族で共有</span>';
+            linkBtn.innerHTML = '解除';
+        } else {
+            statusText.textContent = 'Googleカレンダー: 未連携';
+            linkBtn.innerHTML = `${Icons.svg('link')} 連携`;
+        }
+        statusText.style.color = '';
+        const primary = ['bg-indigo-500', 'text-white', 'hover:bg-indigo-400'];
+        const quiet = ['bg-white/10', 'text-zinc-400', 'ring-1', 'ring-inset', 'ring-white/10', 'hover:bg-white/15'];
+        linkBtn.classList.remove(...primary, ...quiet);
+        linkBtn.classList.add(...(this.gcalConnected ? quiet : primary));
     }
 
     _buildGcalEvent(memo) {
@@ -714,12 +723,17 @@ export class HolidayCalendar {
         const todayStr = Utils.formatDateString(new Date());
         const prevDays = new Date(this.currentYear, this.currentMonth - 1, 0).getDate();
 
-        const numberClass = 'calendar-date-number mb-0.5 text-[11px] font-bold leading-none text-white sm:text-[12px]';
-        const otherMonthCell = (n) => `<div class="calendar-date-cell other-month min-h-[25px] rounded-md bg-white/5 p-0.5 opacity-30 sm:min-h-[30px]"><div class="${numberClass}">${n}</div></div>`;
+        const numberBase = 'calendar-date-number mb-0.5 text-[11px] font-bold leading-none sm:text-[12px]';
+        const otherMonthCell = (n) => `<div class="calendar-date-cell other-month min-h-[25px] rounded-md bg-white/5 p-0.5 opacity-30 sm:min-h-[30px]"><div class="${numberBase} text-white">${n}</div></div>`;
 
         const gcalMap = this._buildGcalEventMap();
+        const jpHolidays = getJapaneseHolidays(this.currentYear);
 
-        let html = WEEKDAYS.map(d => `<div class="calendar-weekday py-1.5 text-center text-[10px] font-bold text-zinc-500 sm:text-[11px]">${d}</div>`).join('');
+        // 休日編集画面と同じ配色（日曜・祝日=赤、土曜=青）で、月を見渡したときに週末がすぐ分かるようにする
+        let html = WEEKDAYS.map((d, i) => {
+            const color = i === 0 ? 'text-rose-400' : i === 6 ? 'text-sky-400' : 'text-zinc-500';
+            return `<div class="calendar-weekday py-1.5 text-center text-[10px] font-bold ${color} sm:text-[11px]">${d}</div>`;
+        }).join('');
 
         for (let i = startDow - 1; i >= 0; i--) html += otherMonthCell(prevDays - i);
 
@@ -734,8 +748,13 @@ export class HolidayCalendar {
             cellClass += isToday ? ' today bg-indigo-500/15 ring-2 ring-inset ring-indigo-500' : ' bg-white/5 hover:bg-white/10';
             if (dayM.length) cellClass += ' has-memo';
 
-            html += `<div class="${cellClass}" data-date="${dateStr}" onclick="app.holidayCalendar.showDateDetail('${dateStr}')" ondragover="app.holidayCalendar.handleDragOver(event)" ondragleave="app.holidayCalendar.handleDragLeave(event)" ondrop="app.holidayCalendar.handleDrop(event, '${dateStr}')">`;
-            html += `<div class="${numberClass}">${day}</div><div class="calendar-holiday-users flex flex-col gap-px">`;
+            const dow = new Date(this.currentYear, this.currentMonth - 1, day).getDay();
+            const holidayName = jpHolidays[dateStr];
+            const numberColor = (dow === 0 || holidayName) ? 'text-rose-300' : dow === 6 ? 'text-sky-300' : 'text-white';
+            const titleAttr = holidayName ? ` title="${holidayName}"` : '';
+
+            html += `<div class="${cellClass}" data-date="${dateStr}"${titleAttr} onclick="app.holidayCalendar.showDateDetail('${dateStr}')" ondragover="app.holidayCalendar.handleDragOver(event)" ondragleave="app.holidayCalendar.handleDragLeave(event)" ondrop="app.holidayCalendar.handleDrop(event, '${dateStr}')">`;
+            html += `<div class="${numberBase} ${numberColor}">${day}</div><div class="calendar-holiday-users flex flex-col gap-px">`;
 
             if (dayM.length) {
                 const tc = dayM.filter(m => m.type === 'task').length;
@@ -954,7 +973,7 @@ export class HolidayCalendar {
                     ${m.gcalEventId ? `<span class="memo-gcal-icon ml-1 text-xs">${Icons.svg('calendar-days')}</span>` : ''}
                     <span class="memo-edit-hint ml-auto pl-2 text-xs opacity-0 transition group-hover:opacity-70">${Icons.svg('pencil')}</span>
                 </div>
-                <button class="memo-delete-btn shrink-0 p-1 text-sm opacity-60 transition hover:opacity-100" onclick="event.stopPropagation(); app.holidayCalendar.deleteMemo('${m.id}')">${Icons.svg('x')}</button>
+                <button class="memo-delete-btn shrink-0 p-1 text-sm opacity-60 transition hover:opacity-100" aria-label="メモを削除" onclick="event.stopPropagation(); app.holidayCalendar.deleteMemo('${m.id}')">${Icons.svg('x')}</button>
             </div>`;
         });
         c.innerHTML = html;
@@ -1058,7 +1077,7 @@ export class HolidayCalendar {
                     <span class="detail-memo-content break-words text-sm text-zinc-100">${Utils.escapeHtml(m.content)}${m.gcalEventId ? ` ${Icons.svg('calendar-days')}` : ''}</span>
                     <span class="memo-edit-hint ml-auto pl-2 text-xs opacity-0 transition group-hover:opacity-70">${Icons.svg('pencil')}</span>
                 </div>${time}
-                <button class="memo-delete-btn small absolute right-2 top-2 p-0.5 text-xs opacity-60 transition hover:opacity-100" onclick="event.stopPropagation(); app.holidayCalendar.deleteMemoFromDetail('${m.id}')">${Icons.svg('x')}</button>
+                <button class="memo-delete-btn small absolute right-2 top-2 p-0.5 text-xs opacity-60 transition hover:opacity-100" aria-label="メモを削除" onclick="event.stopPropagation(); app.holidayCalendar.deleteMemoFromDetail('${m.id}')">${Icons.svg('x')}</button>
             </div>`;
         });
         document.getElementById('dateDetailMemos').innerHTML = mHtml;
