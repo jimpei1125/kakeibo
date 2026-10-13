@@ -7,6 +7,7 @@
 import { db, doc, setDoc, onSnapshot } from './firebase-config.js';
 import { Utils } from './utils.js';
 import { Dialog } from './dialog.js';
+import { moveDirectAmountToDetail } from './budget.js';
 
 
 /** カテゴリ候補のデフォルト値（既存カテゴリ・学習済みルールに追加で表示） */
@@ -992,16 +993,9 @@ export class CSVImporter {
                 subcategories: []
             };
             monthData.categories.push(category);
-        } else if (category.subcategories.length === 0 && category.amount > 0) {
-            // 直接金額を持つカテゴリに小カテゴリーを追加すると合計から漏れるため、
-            // 既存金額を小カテゴリーに退避する
-            category.subcategories.push({
-                id: Utils.generateId(),
-                name: '既存分',
-                amount: category.amount,
-                note: ''
-            });
-            category.amount = 0;
+        } else {
+            // 直接金額を持つカテゴリに小カテゴリーを追加すると合計から漏れるため、既存金額を退避する
+            moveDirectAmountToDetail(category);
         }
 
         rows.forEach(t => {

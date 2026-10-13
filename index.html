@@ -325,15 +325,108 @@
             <input type="text" id="newCategoryNote" placeholder="備考（任意）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
             <button type="submit" class="w-full rounded-lg bg-indigo-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400">追加</button>
         </form>
+        <button type="button" class="mt-3 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-zinc-300 ring-1 ring-inset ring-white/10 transition hover:bg-white/5" onclick="app.budget.closeAddCategorySheet(); app.receipt.open();"><span data-icon="camera"></span> レシートを撮って追加</button>
     </div>
 
-    <!-- その他の機能シート（計算機・CSV出力・明細読み込み） -->
+    <!-- レシート読み取りシート（js/receipt.js。撮影 → 読み取り中 → 確認・修正 → 追加） -->
+    <div class="modal-panel bottom-sheet fixed inset-x-0 bottom-0 z-[1500] max-h-[90vh] w-full overflow-y-auto rounded-t-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="receiptSheet" style="padding-bottom: max(24px, env(safe-area-inset-bottom));">
+        <div class="modal-header mb-4 flex items-center justify-between">
+            <h2 class="text-lg font-bold text-white"><span data-icon="receipt"></span> レシート読み取り</h2>
+            <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.receipt.close()"><span data-icon="x"></span></button>
+        </div>
+
+        <!-- 1. 撮影 -->
+        <div id="receiptStepCapture">
+            <p class="mb-4 text-sm leading-relaxed text-zinc-300">レシートを撮ると、店名・日付・金額を読み取って <span class="font-semibold text-white" id="receiptTargetMonth">表示中の月</span> に追加します。</p>
+            <div class="grid grid-cols-2 gap-2.5">
+                <label class="flex cursor-pointer flex-col items-center gap-1.5 rounded-xl bg-indigo-500 px-4 py-5 text-sm font-semibold text-white transition hover:bg-indigo-400">
+                    <span class="text-2xl" data-icon="camera"></span> 撮影する
+                    <input type="file" accept="image/*" capture="environment" class="sr-only" onchange="app.receipt.handleFile(event)">
+                </label>
+                <label class="flex cursor-pointer flex-col items-center gap-1.5 rounded-xl bg-white/10 px-4 py-5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15">
+                    <span class="text-2xl" data-icon="image"></span> 写真から選ぶ
+                    <input type="file" accept="image/*" class="sr-only" onchange="app.receipt.handleFile(event)">
+                </label>
+            </div>
+            <ul class="mt-4 space-y-1.5 text-xs leading-relaxed text-zinc-500">
+                <li>レシート全体が入るように、明るい場所でまっすぐ撮ると正確に読めます。</li>
+                <li>カード払いの分は明細の取込で入ります。現金やPayPayなど、明細に載らない支払いに使ってください。</li>
+            </ul>
+        </div>
+
+        <!-- 2. 読み取り中 -->
+        <div id="receiptStepReading" style="display: none;">
+            <div class="flex flex-col items-center gap-4 py-4">
+                <img id="receiptPreviewReading" alt="" class="max-h-60 rounded-lg object-contain ring-1 ring-white/10">
+                <div class="flex items-center gap-2 text-sm font-semibold text-zinc-200"><span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white"></span> 読み取り中…</div>
+                <p class="text-xs text-zinc-500">数秒から20秒ほどかかります</p>
+            </div>
+        </div>
+
+        <!-- 3. 確認・修正 -->
+        <form id="receiptStepResult" class="space-y-3" style="display: none;" onsubmit="app.receipt.save(); return false;">
+            <div class="flex gap-3">
+                <img id="receiptPreviewResult" alt="読み取ったレシート" class="h-28 w-20 shrink-0 rounded-lg bg-white/5 object-cover ring-1 ring-white/10">
+                <div class="min-w-0 flex-1 space-y-1.5 text-xs">
+                    <p class="text-zinc-400">支払方法 <span class="ml-1 rounded-full bg-white/10 px-2 py-0.5 font-semibold text-zinc-200" id="receiptPayment">-</span></p>
+                    <p class="leading-relaxed text-amber-300" id="receiptAiNote" style="display: none;"></p>
+                    <p class="leading-relaxed text-zinc-500">内容を確かめて、違っていれば直してから追加してください。</p>
+                </div>
+            </div>
+            <div class="rounded-lg bg-amber-400/10 px-3 py-2.5 text-xs leading-relaxed text-amber-200 ring-1 ring-inset ring-amber-400/20" id="receiptCardWarning" style="display: none;">クレジットカード払いのレシートです。カード明細の取込でも入るため、ここで追加すると二重になります。</div>
+            <label class="block text-xs font-semibold text-zinc-400">店名
+                <input type="text" id="receiptStore" class="mt-1 w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm font-normal text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
+            </label>
+            <div class="grid grid-cols-2 gap-2.5">
+                <label class="block text-xs font-semibold text-zinc-400">日付
+                    <input type="date" id="receiptDate" class="mt-1 w-full [color-scheme:dark] rounded-lg bg-white/5 px-3 py-2.5 text-sm font-normal text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500" onchange="app.receipt.onDateChange()">
+                </label>
+                <label class="block text-xs font-semibold text-zinc-400">金額（円）
+                    <input type="number" id="receiptAmount" inputmode="numeric" class="mt-1 w-full rounded-lg bg-white/5 px-3 py-2.5 text-right text-sm font-normal text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
+                </label>
+            </div>
+            <label class="block text-xs font-semibold text-zinc-400">カテゴリー
+                <select id="receiptCategory" class="mt-1 w-full [color-scheme:dark] rounded-lg bg-zinc-800 px-3 py-2.5 text-sm font-normal text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500" onchange="app.receipt.onCategoryChange()"></select>
+            </label>
+            <input type="text" id="receiptNewCategory" placeholder="新しいカテゴリー名" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" style="display: none;">
+            <div>
+                <p class="text-xs font-semibold text-zinc-400">支払った人</p>
+                <div class="mt-1 grid grid-cols-2 gap-2">
+                    <button type="button" id="receiptPayer-husband" class="rounded-lg px-3 py-2.5 text-sm font-semibold ring-1 ring-inset transition bg-white/20 text-white ring-white/30" aria-pressed="true" onclick="app.receipt.setPayer('husband')">夫</button>
+                    <button type="button" id="receiptPayer-wife" class="rounded-lg px-3 py-2.5 text-sm font-semibold ring-1 ring-inset transition bg-white/5 text-zinc-400 ring-white/10" aria-pressed="false" onclick="app.receipt.setPayer('wife')">妻</button>
+                </div>
+            </div>
+            <label class="block text-xs font-semibold text-zinc-400">メモ
+                <input type="text" id="receiptMemo" class="mt-1 w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm font-normal text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
+            </label>
+            <details id="receiptItemsWrap" class="rounded-lg bg-white/5 px-3 py-2 text-xs text-zinc-400 ring-1 ring-inset ring-white/10" style="display: none;">
+                <summary class="cursor-pointer select-none py-1 font-semibold text-zinc-300" id="receiptItemsSummary">品目</summary>
+                <ul id="receiptItems" class="mt-1 divide-y divide-white/5"></ul>
+            </details>
+            <p class="text-xs leading-relaxed text-sky-300" id="receiptMonthHint" style="display: none;"></p>
+            <div class="grid grid-cols-[auto_1fr] gap-2.5 pt-1">
+                <button type="button" class="rounded-lg bg-white/10 px-4 py-3 text-sm font-semibold text-zinc-200 transition hover:bg-white/15" onclick="app.receipt.retake()">撮り直す</button>
+                <button type="submit" id="receiptSubmit" class="rounded-lg bg-indigo-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400">追加</button>
+            </div>
+        </form>
+
+        <!-- 4. エラー -->
+        <div id="receiptStepError" style="display: none;">
+            <div class="rounded-xl bg-rose-500/10 p-4 text-sm leading-relaxed text-rose-200 ring-1 ring-inset ring-rose-500/20" id="receiptErrorText"></div>
+            <button type="button" class="mt-3 w-full rounded-lg bg-indigo-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.receipt.retake()">もう一度撮る</button>
+        </div>
+    </div>
+
+    <!-- その他の機能シート（レシート読み取り・計算機・CSV出力・明細読み込み・固定費） -->
     <div class="modal-panel bottom-sheet fixed inset-x-0 bottom-0 z-[1500] max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="toolsSheet" style="padding-bottom: max(24px, env(safe-area-inset-bottom));">
         <div class="modal-header mb-5 flex items-center justify-between">
             <h2 class="text-lg font-bold text-white">その他の機能</h2>
             <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.closeToolsSheet()"><span data-icon="x"></span></button>
         </div>
         <div class="space-y-2">
+            <button class="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.closeToolsSheet(); app.receipt.open();">
+                <span class="text-lg" data-icon="receipt"></span> レシート読み取り
+            </button>
             <button class="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.closeToolsSheet(); app.calculator.show();">
                 <span class="text-lg" data-icon="calculator"></span> 計算機
             </button>

@@ -5,7 +5,8 @@ function makeEl(id) {
         style: {}, dataset: {},
         classList: { add(){}, remove(){}, toggle(){}, contains(){ return false; } },
         querySelectorAll: () => [], querySelector: () => null,
-        closest: () => null, appendChild(){}, addEventListener(){},
+        closest: () => null, appendChild(){}, addEventListener(){}, focus(){},
+        setAttribute(){}, removeAttribute(){},
     };
 }
 globalThis.domValues = {};
@@ -502,6 +503,150 @@ console.log('\n【14】月カードのサマリー: 予算超過件数・今月�
     check('戻ると合計カードは表に戻り、月切替アニメーションが走る', b2.totalFlipped === false && animated === 1);
     b2.jumpToCurrentMonth();
     check('すでに今月なら何もしない', animated === 1);
+}
+
+resetStore();
+console.log('\n【15】明細の追加で直接金額が消えない（既存分への退避・支払者の引き継ぎ）');
+{
+    const { moveDirectAmountToDetail, categoryDisplayAmount } = await import('../js/budget.js');
+    const { CSVImporter } = await import('../js/statement-import.js');
+
+    const cat = { id: 1, name: '娯楽', amount: 6200, payer: 'wife', note: '', subcategories: [] };
+    moveDirectAmountToDetail(cat);
+    check('直接金額は「既存分」の明細に移る', cat.amount === 0 && cat.subcategories.length === 1
+        && cat.subcategories[0].name === '既存分' && cat.subcategories[0].amount === 6200);
+    check('妻払いは既存分に引き継ぐ（精算額が変わらない）', cat.subcategories[0].payer === 'wife');
+    const before = JSON.stringify(cat);
+    moveDirectAmountToDetail(cat);
+    check('明細がすでにあれば何もしない', JSON.stringify(cat) === before);
+    const zero = { id: 2, name: '雑費', amount: 0, note: '', subcategories: [] };
+    moveDirectAmountToDetail(zero);
+    check('金額0なら何もしない', zero.subcategories.length === 0);
+
+    // 手動の小カテゴリー追加（不具合: 直接金額66,000円が合計から消えていた）
+    const budget = makeBudget('2026-10', [{ id: 10, name: '家賃', amount: 66000, note: '', subcategories: [] }]);
+    globalThis.domValues = { 'subname-10': { value: '管理費' }, 'subamount-10': { value: '5000' }, 'subnote-10': { value: '' } };
+    budget.addSubcategory(10);
+    globalThis.domValues = {};
+    const rent = budget.getCurrentMonthData().categories[0];
+    check('手動で小カテゴリーを足しても合計に元の金額が残る', categoryDisplayAmount(rent) === 71000);
+
+    // 明細読み込みでも妻払いを引き継ぐ
+    const b2 = makeBudget('2026-10', [{ id: 20, name: '娯楽', amount: 6200, payer: 'wife', note: '', subcategories: [] }]);
+    const settleBefore = b2.calculateSettlement().wife;
+    const imp = new CSVImporter(b2);
+    imp._importAsDetails(b2.getCurrentMonthData(), '娯楽', [{ store: '映画館', amount: 1800, date: '2026/09/20' }]);
+    check('明細読み込み: 既存分が妻払いのまま', b2.calculateSettlement().wife === settleBefore);
+
+    // addDetail: カテゴリーがなければ作る・あれば追記
+    const b3 = makeBudget('2026-10', [{ id: 30, name: '食費', amount: 3000, note: '', subcategories: [] }]);
+    b3.addDetail('食費', { name: 'イオン 幕張店', amount: 3280, note: '2026/10/12' });
+    const food = b3.getCurrentMonthData().categories.find(c => c.name === '食費');
+    check('addDetail: 直接金額を退避してから追記', food.subcategories.length === 2 && categoryDisplayAmount(food) === 6280);
+    b3.addDetail('医療費', { name: '薬局', amount: 980, note: '', payer: 'wife' });
+    const med = b3.getCurrentMonthData().categories.find(c => c.name === '医療費');
+    check('addDetail: 新しいカテゴリーを作る', !!med && med.subcategories[0].payer === 'wife' && med.subcategories[0].amount === 980);
+    await flush();
+    check('addDetail: 保存される', store['budgetMonths/2026-10']?.categories?.length === 2);
+}
+
+resetStore();
+console.log('\n【16】レシート読み取り（画像サイズ・カテゴリー対応・保存・Workerとの約束事）');
+{
+    const R = await import('../js/receipt.js');
+
+    // 画像サイズ: Claudeが縮小せずに読める範囲（長辺2576px・4784トークン）に収める
+    const big = R.fitReceiptImageSize(4032, 3024);
+    check('12MPの写真は上限内に縮小', Math.max(big.width, big.height) <= 2576 && R.visualTokens(big.width, big.height) <= 4784,
+        JSON.stringify(big));
+    check('縮小しすぎない（上限の95%以上を使う）', R.visualTokens(big.width, big.height) >= 4784 * 0.95);
+    const tall = R.fitReceiptImageSize(1000, 6000);
+    check('細長いレシートは長辺2576pxに揃える', tall.height === 2576 && tall.width === 429);
+    const small = R.fitReceiptImageSize(800, 1200);
+    check('小さい写真は拡大しない', small.width === 800 && small.height === 1200);
+    check('画像トークンの計算（⌈w/28⌉×⌈h/28⌉）', R.visualTokens(1000, 1000) === 1296);
+
+    // カテゴリー対応
+    const names = ['食費', '日用品', 'ドラッグストア'];
+    check('カテゴリー: 完全一致', R.matchCategory('食費', names) === '食費');
+    check('カテゴリー: 全角・空白の揺れを吸収', R.matchCategory(' ドラッグ ストア', names) === 'ドラッグストア');
+    check('カテゴリー: 候補にないものはnull', R.matchCategory('娯楽', names) === null && R.matchCategory(null, names) === null);
+    check('メモの日付は明細と同じ YYYY/MM/DD', R.dateToNote('2026-10-12') === '2026/10/12' && R.dateToNote(null) === '');
+
+    // 確認画面の入力 → 明細
+    check('金額が空・0・負・数字以外ならエラー',
+        ['', '0', '-100', 'abc'].every(a => !!R.buildReceiptDetail({ store: 'x', amount: a, payer: 'husband', memo: '' }).error));
+    const wifeDetail = R.buildReceiptDetail({ store: ' イオン ', amount: '3280.4', payer: 'wife', memo: ' 10/12 ' }).detail;
+    check('妻払いは payer: wife・金額は整数・前後の空白を除く',
+        wifeDetail.payer === 'wife' && wifeDetail.amount === 3280 && wifeDetail.name === 'イオン' && wifeDetail.note === '10/12');
+    const husbandDetail = R.buildReceiptDetail({ store: '', amount: 500, payer: 'husband', memo: '' }).detail;
+    check('夫払いは payer を持たない（既存データと同じ形）・店名が空なら「レシート」',
+        !('payer' in husbandDetail) && husbandDetail.name === 'レシート');
+
+    // 保存の流れ（確認画面の値から家計簿へ）
+    const budget = makeBudget('2026-10', [{ id: 1, name: '食費', amount: 0, note: '', subcategories: [] }]);
+    const reader = new R.ReceiptReader(budget);
+    reader.payer = 'wife';
+    globalThis.domValues = {
+        receiptCategory: { value: '食費' }, receiptStore: { value: 'イオン 幕張店' },
+        receiptAmount: { value: '3280' }, receiptMemo: { value: '2026/10/12' },
+    };
+    reader.save();
+    const food = budget.getCurrentMonthData().categories[0];
+    check('保存: 選んだカテゴリーに明細として追加', food.subcategories.length === 1
+        && food.subcategories[0].name === 'イオン 幕張店' && food.subcategories[0].payer === 'wife');
+    globalThis.domValues = {
+        receiptCategory: { value: '__new__' }, receiptNewCategory: { value: '  医療費 ' },
+        receiptStore: { value: '薬局' }, receiptAmount: { value: '980' }, receiptMemo: { value: '' },
+    };
+    reader.payer = 'husband';
+    reader.save();
+    check('保存: 新しいカテゴリーを作って追加', budget.getCurrentMonthData().categories.some(c => c.name === '医療費'));
+    const countBefore = budget.getCurrentMonthData().categories.length;
+    globalThis.domValues = { receiptCategory: { value: '' }, receiptAmount: { value: '500' } };
+    reader.save();
+    globalThis.domValues = { receiptCategory: { value: '食費' }, receiptAmount: { value: '' } };
+    reader.save();
+    globalThis.domValues = {};
+    check('保存: カテゴリー未選択・金額なしは追加しない',
+        budget.getCurrentMonthData().categories.length === countBefore && food.subcategories.length === 1);
+
+    // 日付を直したときのメモ: 日付だけのメモは追従、自分で書いたメモは残す
+    globalThis.domValues = { receiptDate: { value: '2026-10-05' }, receiptMemo: { value: '2026/10/04' } };
+    const memoEl = document.getElementById('receiptMemo');
+    const realGet = document.getElementById;
+    document.getElementById = (id) => (id === 'receiptMemo' ? memoEl : realGet(id));
+    reader.onDateChange();
+    check('日付を直すと日付だけのメモも追従', memoEl.value === '2026/10/05');
+    memoEl.value = '誕生日ケーキ';
+    reader.onDateChange();
+    check('自分で書いたメモは上書きしない', memoEl.value === '誕生日ケーキ');
+    document.getElementById = realGet;
+    globalThis.domValues = {};
+
+    // Workerとの約束事（本文はbase64の文字列、メタ情報はヘッダー）
+    const origFetch = globalThis.fetch;
+    let sentReq = null;
+    globalThis.fetch = async (url, options) => {
+        sentReq = { url, options };
+        return new Response(JSON.stringify({ receipt: { isReceipt: true, store: 'A', total: 1 } }), { status: 200 });
+    };
+    const got = await reader._read('QUJD', 'image/jpeg', 'my-key');
+    check('Worker: /receipt にPOSTし結果を返す', sentReq.url.endsWith('/receipt') && sentReq.options.method === 'POST' && got.store === 'A');
+    check('Worker: アプリキー・画像形式・カテゴリー候補をヘッダーで送る',
+        sentReq.options.headers['X-App-Key'] === 'my-key' && sentReq.options.headers['X-Image-Type'] === 'image/jpeg'
+        && JSON.parse(decodeURIComponent(sentReq.options.headers['X-Categories'])).includes('食費'));
+    check('Worker: 本文はbase64の文字列そのまま', sentReq.options.body === 'QUJD');
+
+    const errorOf = async (res) => {
+        globalThis.fetch = async () => (res instanceof Error ? Promise.reject(res) : res);
+        try { await reader._read('QUJD', 'image/jpeg', 'k'); return null; } catch (e) { return e.message; }
+    };
+    check('Worker: 401はアプリキーの入れ直しを案内', (await errorOf(new Response('{}', { status: 401 }))).includes('アプリキー'));
+    check('Worker: エラー文をそのまま見せる',
+        (await errorOf(new Response(JSON.stringify({ error: '今日の読み取り回数の上限（50回）に達しました' }), { status: 429 }))).includes('上限'));
+    check('Worker: 通信できないときの案内', (await errorOf(new TypeError('Failed to fetch'))).includes('通信できませんでした'));
+    globalThis.fetch = origFetch;
 }
 
 console.log(`\n結果: ${pass}件成功 / ${fail}件失敗`);

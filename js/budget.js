@@ -37,6 +37,24 @@ export function categoryDisplayAmount(category) {
         : (category.amount || 0);
 }
 
+/**
+ * 直接金額を持つカテゴリーに初めて明細（小カテゴリー）を足す前に、既存の金額を明細へ移す。
+ * 明細が1件でもあるとカテゴリーの金額は明細の合計で表示・集計されるため、
+ * 移さないと元の金額が合計から黙って消えてしまう。支払者（妻払い）も引き継ぐ。
+ * @param {Object} category
+ */
+export function moveDirectAmountToDetail(category) {
+    if (category.subcategories.length > 0 || !(category.amount > 0)) return;
+    category.subcategories.push({
+        id: Utils.generateId(),
+        name: '既存分',
+        amount: category.amount,
+        note: '',
+        ...(category.payer === 'wife' ? { payer: 'wife' } : {}),
+    });
+    category.amount = 0;
+}
+
 /** 「他の月からコピー」ボタンの配色（月が空のときは目立たせる） */
 const COPY_BTN_EMPHASIS = ['bg-amber-400/10', 'text-amber-300', 'ring-1', 'ring-inset', 'ring-amber-400/20', 'hover:bg-amber-400/20'];
 const COPY_BTN_NEUTRAL = ['bg-white/10', 'text-zinc-300', 'ring-1', 'ring-inset', 'ring-white/10', 'hover:bg-white/15'];
@@ -628,7 +646,8 @@ export class BudgetManager {
 
         const category = this._findCategory(categoryId);
         if (!category) return;
-        
+
+        moveDirectAmountToDetail(category);
         category.subcategories.push({
             id: Utils.generateId(),
             name,
@@ -646,6 +665,26 @@ export class BudgetManager {
         // 続けて次の明細を入力できるよう、名前欄へフォーカスを戻す
         // （保存による再描画後もupdateDisplayのフォーカス復元で維持される）
         document.getElementById(`subname-${categoryId}`)?.focus({ preventScroll: true });
+    }
+
+    /**
+     * 表示中の月のカテゴリーに明細（小カテゴリー）を1件追加して保存する。
+     * カテゴリーがなければ作る。レシート読み取りなど、画面の入力欄を経由しない追加に使う。
+     * @param {string} categoryName
+     * @param {{name: string, amount: number, note?: string, payer?: 'wife'}} detail
+     * @returns {Object} 追加先のカテゴリー
+     */
+    addDetail(categoryName, detail) {
+        const monthData = this.getCurrentMonthData();
+        let category = monthData.categories.find(c => c.name === categoryName);
+        if (!category) {
+            category = { id: Utils.generateId(), name: categoryName, amount: 0, note: '', subcategories: [] };
+            monthData.categories.push(category);
+        }
+        moveDirectAmountToDetail(category);
+        category.subcategories.push({ id: Utils.generateId(), note: '', ...detail });
+        this.saveWithStatus();
+        return category;
     }
 
     /**

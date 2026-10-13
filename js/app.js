@@ -9,6 +9,7 @@ import { BudgetManager } from './budget.js';
 import { Calculator } from './calculator.js';
 import { CSVExporter } from './csv-export.js';
 import { CSVImporter } from './statement-import.js';
+import { ReceiptReader } from './receipt.js';
 import { CopyMonthManager } from './copy-month.js';
 import { RecurringManager } from './recurring.js';
 import { PayPayRequestManager } from './paypay.js';
@@ -54,6 +55,7 @@ class KakeiboApp {
         this.calculator = new Calculator();
         this.csv = new CSVExporter(this.budget);
         this.csvImporter = new CSVImporter(this.budget);
+        this.receipt = new ReceiptReader(this.budget);
         this.copyMonth = new CopyMonthManager(this.budget);
         this.recurring = new RecurringManager(this.budget);
         this.budget.recurringManager = this.recurring;
