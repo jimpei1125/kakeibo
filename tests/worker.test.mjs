@@ -220,5 +220,135 @@ console.log('\n【6】バグ修正の検証（500ラップ・同期失敗時の�
     check('成功したらlast_syncが記録される', await env.GCAL_KV.get('last_sync') !== null);
 }
 
+console.log('\n【7】レシート読み取り（/receipt）');
+{
+    const IMG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
+    const receiptReq = (body = IMG, headers = {}) =>
+        req('/receipt', 'POST', { ...KEYED, 'Content-Type': 'text/plain', 'X-Image-Type': 'image/jpeg', ...headers }, body);
+    const claudeRes = (obj, extra = {}) => jsonRes({
+        model: 'claude-opus-5-5',
+        stop_reason: 'end_turn',
+        content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: JSON.stringify(obj) }],
+        usage: { input_tokens: 4000, output_tokens: 300 },
+        ...extra,
+    });
+    const SAMPLE = {
+        isReceipt: true, store: 'イオン 幕張店', date: '2026-10-12', total: 3280.4, paymentMethod: 'cash', category: '食費',
+        items: [{ name: '牛乳', amount: 238 }, { name: '', amount: 1 }, { name: '値引', amount: -50 }], note: null,
+    };
+    const countKeys = (env) => [...env.GCAL_KV.store.keys()].filter(k => k.startsWith('receipt_count_'));
+    const keyedEnv = (extra = {}) => ({ ...makeEnv(), ANTHROPIC_API_KEY: 'sk-test', ...extra });
+
+    // (a) 未設定・認可
+    check('ANTHROPIC_API_KEY未設定 → 503', (await worker.fetch(receiptReq(), makeEnv())).status === 503);
+    const env = keyedEnv();
+    const noKey = await worker.fetch(req('/receipt', 'POST', { 'X-Image-Type': 'image/jpeg' }, IMG), env);
+    check('アプリキーなし → 401', noKey.status === 401);
+
+    // (b) 入力検証（APIを呼ばず、回数にも数えない）
+    fetchLog.length = 0;
+    check('未対応の形式 → 400', (await worker.fetch(receiptReq(IMG, { 'X-Image-Type': 'image/heic' }), env)).status === 400);
+    check('空の本文 → 400', (await worker.fetch(receiptReq(''), env)).status === 400);
+    check('base64以外の文字（JSON注入）→ 400', (await worker.fetch(receiptReq('abc"},{"x":"y'), env)).status === 400);
+    check('10MB超 → 413', (await worker.fetch(receiptReq('A'.repeat(10 * 1024 * 1024 + 4)), env)).status === 413);
+    check('検証で弾いたときはAPIを呼ばず回数も増えない', fetchLog.length === 0 && countKeys(env).length === 0);
+
+    // (c) 正常系: 送る内容と返す内容
+    fetchHandlers = [['api.anthropic.com/v1/messages', () => claudeRes(SAMPLE)]];
+    const cats = encodeURIComponent(JSON.stringify(['食費', '日用品', '', 3]));
+    const ok = await worker.fetch(receiptReq(IMG, { 'X-Categories': cats }), env);
+    const okBody = await ok.json();
+    check('読み取り成功 → 200', ok.status === 200);
+    check('結果を正規化して返す（金額は整数・空の品目は除外・値引きはマイナス）',
+        okBody.receipt.store === 'イオン 幕張店' && okBody.receipt.total === 3280
+        && okBody.receipt.items.length === 2 && okBody.receipt.items[1].amount === -50
+        && okBody.receipt.paymentMethod === 'cash' && okBody.receipt.date === '2026-10-12');
+    const call = fetchLog.find(f => f.url.includes('api.anthropic.com'));
+    const sent = JSON.parse(call.options.body);
+    check('APIキー・バージョンをヘッダーで送る',
+        call.options.headers['x-api-key'] === 'sk-test' && call.options.headers['anthropic-version'] === '2023-06-01');
+    check('安全分類器の誤判定に備えたフォールバックを有効化',
+        call.options.headers['anthropic-beta'] === 'server-side-fallback-2026-07-01' && sent.fallbacks === 'default');
+    check('既定モデルは claude-opus-5-5', sent.model === 'claude-opus-5-5');
+    check('構造化出力（json_schema）と effort low',
+        sent.output_config.format.type === 'json_schema' && sent.output_config.effort === 'low'
+        && sent.output_config.format.schema.additionalProperties === false);
+    check('thinkingの無効化・予算指定は送らない（Opus 5.5では400になる）', !('thinking' in sent));
+    const imgBlock = sent.messages[0].content[0];
+    check('画像はbase64のまま、テキストより前に入る',
+        imgBlock.type === 'image' && imgBlock.source.type === 'base64'
+        && imgBlock.source.data === IMG && imgBlock.source.media_type === 'image/jpeg');
+    const userText = sent.messages[0].content[1].text;
+    check('カテゴリー候補（不正な要素は除外）と今日の日付を伝える',
+        userText.split('\n').includes('カテゴリー候補: 食費、日用品')
+        && /今日の日付: \d{4}-\d{2}-\d{2}/.test(userText));
+    check('読み取り回数が記録される', countKeys(env).length === 1 && env.GCAL_KV.store.get(countKeys(env)[0]) === '1');
+
+    // (d) モデルの差し替え・カテゴリーヘッダー破損
+    fetchLog.length = 0;
+    const envHaiku = keyedEnv({ RECEIPT_MODEL: 'claude-haiku-5-5' });
+    const r2 = await worker.fetch(receiptReq(IMG, { 'X-Categories': '%E0%A4%A' }), envHaiku);
+    const sent2 = JSON.parse(fetchLog.find(f => f.url.includes('api.anthropic.com')).options.body);
+    check('RECEIPT_MODEL でモデルを差し替えられる', sent2.model === 'claude-haiku-5-5');
+    check('壊れたカテゴリーヘッダーは無視して読み取りは続ける',
+        r2.status === 200 && sent2.messages[0].content[1].text.includes('カテゴリー候補: なし'));
+
+    // (e) 1日の上限
+    const envLimit = keyedEnv({ RECEIPT_DAILY_LIMIT: '2' });
+    await worker.fetch(receiptReq(), envLimit);
+    await worker.fetch(receiptReq(), envLimit);
+    fetchLog.length = 0;
+    const over = await worker.fetch(receiptReq(), envLimit);
+    check('上限を超えたら429でAPIを呼ばない', over.status === 429 && fetchLog.length === 0);
+    check('上限のメッセージに回数を含む', (await over.json()).error.includes('2回'));
+
+    // (f) エラーの扱い
+    const statusOf = async (handler) => {
+        fetchHandlers = [['api.anthropic.com/v1/messages', handler]];
+        const r = await worker.fetch(receiptReq(), keyedEnv());
+        return { status: r.status, body: await r.json() };
+    };
+    check('refusal → 422', (await statusOf(() => claudeRes({}, { stop_reason: 'refusal' }))).status === 422);
+    check('max_tokens → 422', (await statusOf(() => claudeRes(SAMPLE, { stop_reason: 'max_tokens' }))).status === 422);
+    const busy = await statusOf(() => jsonRes({ type: 'error', error: { type: 'overloaded_error', message: 'x' } }, 529));
+    check('APIが混雑（529）→ 502・混雑の案内', busy.status === 502 && busy.body.error.includes('混み合って'));
+    const badKey = await statusOf(() => jsonRes({ type: 'error', error: { type: 'authentication_error', message: 'x' } }, 401));
+    check('APIキー誤り（401）はアプリキー誤りと区別して502', badKey.status === 502 && badKey.body.error.includes('Claude APIのキー'));
+    const noCredit = await statusOf(() => jsonRes({ type: 'error', error: { type: 'invalid_request_error',
+        message: 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.' } }, 400));
+    check('クレジット切れ（400）はその旨を案内', noCredit.status === 502 && noCredit.body.error.includes('クレジット'));
+    const otherBad = await statusOf(() => jsonRes({ type: 'error', error: { type: 'invalid_request_error', message: 'image too large' } }, 400));
+    check('その他の400は状態コード付きの汎用メッセージ', otherBad.body.error.includes('（400）'));
+    // フォールバック指定が拒否されたら、指定なしで1回だけ再試行
+    fetchLog.length = 0;
+    let calls = 0;
+    const retried = await statusOf(() => (++calls === 1
+        ? jsonRes({ type: 'error', error: { type: 'invalid_request_error', message: 'fallbacks: not supported for this model' } }, 400)
+        : claudeRes(SAMPLE)));
+    const apiCalls = fetchLog.filter(f => f.url.includes('api.anthropic.com'));
+    const second = apiCalls[1] && JSON.parse(apiCalls[1].options.body);
+    check('fallbacks拒否 → 指定なしで再試行して成功', retried.status === 200 && apiCalls.length === 2
+        && !('fallbacks' in second) && !apiCalls[1].options.headers['anthropic-beta']);
+    const garbage = await statusOf(() => jsonRes({ stop_reason: 'end_turn', content: [{ type: 'text', text: 'not json' }] }));
+    check('JSONでない出力 → 502', garbage.status === 502);
+    const timeout = await statusOf(() => { throw new DOMException('timeout', 'TimeoutError'); });
+    check('通信失敗・タイムアウト → 504', timeout.status === 504);
+
+    // (g) 想定外の値の正規化
+    const odd = await statusOf(() => claudeRes({
+        isReceipt: false, store: '  ', date: '10/12', total: 'abc', paymentMethod: 'bitcoin', category: null, items: 'x', note: '',
+    }));
+    check('想定外の値は安全な既定値に寄せる',
+        odd.status === 200 && odd.body.receipt.isReceipt === false && odd.body.receipt.store === null
+        && odd.body.receipt.date === null && odd.body.receipt.total === null
+        && odd.body.receipt.paymentMethod === 'unknown' && Array.isArray(odd.body.receipt.items)
+        && odd.body.receipt.items.length === 0 && odd.body.receipt.note === null);
+
+    // (h) CORS: 画像用の独自ヘッダーを許可
+    const pre = await worker.fetch(new Request(`${BASE}/receipt`, { method: 'OPTIONS' }), keyedEnv());
+    const allow = pre.headers.get('Access-Control-Allow-Headers') || '';
+    check('プリフライトで X-Image-Type / X-Categories を許可', allow.includes('X-Image-Type') && allow.includes('X-Categories'));
+}
+
 console.log(`\n結果: ${pass}件成功 / ${fail}件失敗`);
 process.exit(fail === 0 ? 0 : 1);

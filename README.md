@@ -38,6 +38,9 @@ npm run watch:css
 - `js/app.js` … アプリ統合・画面遷移
 - `js/budget.js` … 家計簿・電卓・CSV入出力
 - `js/calendar.js` … 休日カレンダー・メモ・Googleカレンダー連携
+- `js/receipt.js` … レシート読み取り（Claude API。設定は `docs/receipt-reader.md`）
+- `js/endpoints.js` … gcal-sync Worker のURLとアプリキーの保存先
+- `worker/gcal-sync/` … Googleカレンダー同期とレシート読み取りを担う Cloudflare Worker
 - `js/shopping.js` … 買い物リスト
 - `js/smarthome.js` / `js/hue.js` … SwitchBot / Philips Hue 操作
 - `js/icons.js` … インラインSVGアイコン

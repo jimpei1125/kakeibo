@@ -4,11 +4,15 @@
  * - /events       : KVにキャッシュ済みの予定を返す（アプリのカレンダー表示用）
  * - /sync         : 手動同期（引っ張って更新から呼ぶ。60秒の連打ガードつき）
  * - /gcal/events* : メモ→Googleカレンダーの登録・更新・削除の代理実行
+ * - /receipt      : レシート画像をClaude APIで読み取る（家計簿のレシート読み取り）
  * - scheduled()   : Cron（毎時）で予定をKVへキャッシュ
  *
- * 必要なバインディング/シークレット（docs/gcal-sync-design.md §6参照）:
+ * 必要なバインディング/シークレット（docs/gcal-sync-design.md §6、docs/receipt-reader.md 参照）:
  *   KV:      GCAL_KV
  *   Secret:  GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / APP_KEY
+ *            ANTHROPIC_API_KEY（レシート読み取りを使う場合のみ）
+ *   変数(任意): RECEIPT_DAILY_LIMIT（1日の読み取り上限。既定50回）
+ *              RECEIPT_MODEL（読み取りに使うモデル。既定 claude-opus-5-5）
  */
 
 const GOOGLE_AUTH = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -24,7 +28,7 @@ const MANUAL_SYNC_INTERVAL_MS = 60 * 1000; // 手動同期の最短間隔
 const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type,X-App-Key',
+    'Access-Control-Allow-Headers': 'Content-Type,X-App-Key,X-Image-Type,X-Categories',
 };
 
 export default {
@@ -64,6 +68,7 @@ async function route(request, env) {
     if (path === '/events' && request.method === 'GET') return events(env);
     if (path === '/sync' && request.method === 'POST') return manualSync(env);
     if (path === '/oauth' && request.method === 'DELETE') return unlink(env);
+    if (path === '/receipt' && request.method === 'POST') return readReceipt(request, env);
     if (path === '/gcal/events' && request.method === 'POST') {
         return proxyGcal(env, 'POST', '', await request.text());
     }
@@ -273,4 +278,231 @@ async function proxyGcal(env, method, pathSuffix, body) {
     // 書き込み後はキャッシュも追従させる（次のCronを待たない）
     await syncEvents(env).catch(() => {});
     return json({ id: data.id });
+}
+
+// ---------- レシート読み取り（Claude API） ----------
+//
+// アプリから届いたレシート画像（base64）をClaude APIに渡し、店名・日付・合計などをJSONで返す。
+// APIキーはこのWorkerのシークレットにだけ置き、ブラウザには一切渡さない。
+// Workerはダッシュボードにこのファイルを貼り付けて配置している（ビルド工程なし＝npmパッケージを
+// 読み込めない）ため、Anthropic SDKではなくfetchでMessages APIを直接呼ぶ。
+
+const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
+const RECEIPT_DEFAULT_MODEL = 'claude-opus-5-5';
+const RECEIPT_DEFAULT_DAILY_LIMIT = 50;
+const RECEIPT_MAX_BASE64_CHARS = 10 * 1024 * 1024; // API側の上限（1画像あたりbase64で10MB）
+const RECEIPT_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const RECEIPT_TIMEOUT_MS = 90 * 1000;
+const BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/;
+const IMAGE_PLACEHOLDER = '__RECEIPT_IMAGE__';
+
+const PAYMENT_METHODS = ['cash', 'credit_card', 'debit_card', 'e_money', 'qr', 'other', 'unknown'];
+
+const nullable = (schema) => ({ anyOf: [schema, { type: 'null' }] });
+
+/** 構造化出力のスキーマ（固定にしておくと、API側のスキーマのコンパイル結果が再利用される） */
+const RECEIPT_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['isReceipt', 'store', 'date', 'total', 'paymentMethod', 'category', 'items', 'note'],
+    properties: {
+        isReceipt: { type: 'boolean' },
+        store: nullable({ type: 'string' }),
+        date: nullable({ type: 'string', format: 'date' }),
+        total: nullable({ type: 'integer' }),
+        paymentMethod: { type: 'string', enum: PAYMENT_METHODS },
+        category: nullable({ type: 'string' }),
+        items: {
+            type: 'array',
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['name', 'amount'],
+                properties: { name: { type: 'string' }, amount: { type: 'integer' } },
+            },
+        },
+        note: nullable({ type: 'string' }),
+    },
+};
+
+const RECEIPT_SYSTEM_PROMPT = `あなたは日本の家庭の家計簿アプリで、レシートの写真を読み取る係です。画像から次の項目を読み取り、指定されたJSON形式で返してください。
+
+- isReceipt: レシートや領収書の写真なら true。そうでなければ false にして、ほかの項目は null または空配列にします。
+- store: 店名。チェーン名と店舗名があれば「チェーン名 店舗名」（例: イオン 幕張店）。会社名・住所・電話番号は含めません。
+- date: 購入日を YYYY-MM-DD 形式で。和暦（令和など）は西暦に直します。年が省略されていれば、ユーザーが伝える今日の日付から最も近い過去の日付として補います。読めなければ null。
+- total: 実際に支払った金額（税込の合計）を円の整数で。値引きやポイント利用の後の金額を使い、「お預り」「お釣り」の金額は使いません。読めなければ null。
+- paymentMethod: 支払方法。現金は cash。クレジットカード、カードのタッチ決済、iD、QUICPay は credit_card。デビットカードは debit_card。交通系IC、nanaco、WAON、楽天Edy などの電子マネーは e_money。PayPay、楽天ペイ、d払い、au PAY などのコード決済は qr。それ以外は other、判断できなければ unknown。
+- items: 品目ごとの名前と金額（円の整数）。値引きはマイナスの金額で1行にします。小計・消費税・合計・お預り・お釣りの行は入れません。
+- category: ユーザーが伝えるカテゴリー候補から最も合うものを1つ、候補の表記のまま選びます。合うものがなければ null。
+- note: かすれて読めない部分がある、複数枚のレシートが写っている、など読み取りに不安がある点を短い日本語で。なければ null。`;
+
+/** 日本時間の日付（YYYY-MM-DD） */
+function jstDateString(now = Date.now()) {
+    return new Date(now + 9 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+/** X-Categories ヘッダー（encodeURIComponent したJSON配列）を読む。壊れていれば空配列 */
+function parseCategoriesHeader(value) {
+    if (!value) return [];
+    try {
+        const list = JSON.parse(decodeURIComponent(value));
+        if (!Array.isArray(list)) return [];
+        return list.filter(c => typeof c === 'string' && c.trim()).map(c => c.trim()).slice(0, 50);
+    } catch {
+        return [];
+    }
+}
+
+function receiptUserText(categories, today) {
+    const list = categories.length ? categories.join('、') : 'なし';
+    return `このレシートを読み取ってください。\nカテゴリー候補: ${list}\n今日の日付: ${today}`;
+}
+
+/**
+ * Messages APIへのリクエスト本文を作る。
+ * 画像のbase64は数MBになるため JSON.stringify に通さず、文字列として差し込む
+ * （無料プランのCPU時間の上限対策。文字種はBASE64_REで検証済みなのでエスケープは不要）。
+ */
+function buildReceiptRequestBody({ model, mediaType, image, categories, today, useFallback }) {
+    const body = JSON.stringify({
+        model,
+        max_tokens: 16000,
+        // 安全分類器が誤って断った場合に、APIが推奨モデルで自動的にやり直す
+        ...(useFallback ? { fallbacks: 'default' } : {}),
+        system: RECEIPT_SYSTEM_PROMPT,
+        output_config: {
+            effort: 'low', // 読み取りは単純な作業なので、待ち時間と料金を抑える
+            format: { type: 'json_schema', schema: RECEIPT_SCHEMA },
+        },
+        messages: [{
+            role: 'user',
+            content: [
+                { type: 'image', source: { type: 'base64', media_type: mediaType, data: IMAGE_PLACEHOLDER } },
+                { type: 'text', text: receiptUserText(categories, today) },
+            ],
+        }],
+    });
+    return body.replace(`"${IMAGE_PLACEHOLDER}"`, () => `"${image}"`);
+}
+
+/** モデルの出力を、アプリがそのまま使える形に整える（型の崩れや想定外の値を吸収） */
+function normalizeReceipt(raw) {
+    const r = raw && typeof raw === 'object' ? raw : {};
+    const str = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+    const int = (v) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v) : null);
+    const date = str(r.date);
+    return {
+        isReceipt: r.isReceipt !== false,
+        store: str(r.store),
+        date: date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null,
+        total: int(r.total),
+        paymentMethod: PAYMENT_METHODS.includes(r.paymentMethod) ? r.paymentMethod : 'unknown',
+        category: str(r.category),
+        items: Array.isArray(r.items)
+            ? r.items
+                .filter(i => i && str(i.name))
+                .slice(0, 100)
+                .map(i => ({ name: i.name.trim(), amount: int(i.amount) }))
+            : [],
+        note: str(r.note),
+    };
+}
+
+/** Messages APIを1回呼ぶ（useFallback: サーバー側フォールバックを使うか） */
+async function callReceiptApi(env, params, useFallback) {
+    const headers = {
+        'Content-Type': 'application/json',
+        'x-api-key': env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+    };
+    if (useFallback) headers['anthropic-beta'] = 'server-side-fallback-2026-07-01';
+    const res = await fetch(ANTHROPIC_API, {
+        method: 'POST',
+        headers,
+        body: buildReceiptRequestBody({ ...params, useFallback }),
+        signal: AbortSignal.timeout(RECEIPT_TIMEOUT_MS),
+    });
+    const data = await res.json().catch(() => ({}));
+    return { res, data };
+}
+
+async function readReceipt(request, env) {
+    if (!env.ANTHROPIC_API_KEY) {
+        return json({ error: 'レシート読み取りの設定がまだです（WorkerにANTHROPIC_API_KEYを登録してください）' }, 503);
+    }
+
+    const mediaType = request.headers.get('X-Image-Type') || '';
+    if (!RECEIPT_MEDIA_TYPES.includes(mediaType)) {
+        return json({ error: '対応していない画像形式です（JPEG/PNG/WebP/GIF）' }, 400);
+    }
+    const image = (await request.text()).trim();
+    if (!image) return json({ error: '画像が届いていません' }, 400);
+    if (image.length > RECEIPT_MAX_BASE64_CHARS) return json({ error: '画像が大きすぎます' }, 413);
+    if (!BASE64_RE.test(image)) return json({ error: '画像データの形式が正しくありません' }, 400);
+
+    // 1日あたりの上限（キーが漏れた場合などにAPIクレジットを使い切られないための歯止め）。
+    // 失敗しても料金がかかり得るため、API呼び出しの前に数える。
+    const limit = parseInt(env.RECEIPT_DAILY_LIMIT, 10) || RECEIPT_DEFAULT_DAILY_LIMIT;
+    const today = jstDateString();
+    const countKey = `receipt_count_${today}`;
+    const used = parseInt(await env.GCAL_KV.get(countKey) || '0', 10);
+    if (used >= limit) {
+        return json({ error: `今日の読み取り回数の上限（${limit}回）に達しました。明日またお試しください` }, 429);
+    }
+    await env.GCAL_KV.put(countKey, String(used + 1), { expirationTtl: 2 * 86400 });
+
+    const params = {
+        model: env.RECEIPT_MODEL || RECEIPT_DEFAULT_MODEL,
+        mediaType,
+        image,
+        categories: parseCategoriesHeader(request.headers.get('X-Categories')),
+        today,
+    };
+    let res;
+    let data;
+    try {
+        ({ res, data } = await callReceiptApi(env, params, true));
+        // フォールバック指定を受け付けないモデル・設定（RECEIPT_MODELの差し替え等）なら、指定なしで1回だけやり直す
+        if (res.status === 400 && /fallback/i.test(String(data?.error?.message || ''))) {
+            console.warn('fallbacksが受け付けられなかったため、指定なしで再試行します');
+            ({ res, data } = await callReceiptApi(env, params, false));
+        }
+    } catch (err) {
+        console.error('Claude API 通信エラー:', err);
+        return json({ error: '読み取りに時間がかかりすぎました。もう一度お試しください' }, 504);
+    }
+
+    if (!res.ok) {
+        console.error('Claude API エラー:', res.status, data?.error?.type, data?.error?.message);
+        // 401はアプリキーの誤り（アプリ側でキーを消す）と区別するため、必ず502で返す
+        const apiMessage = String(data?.error?.message || '');
+        let message = `読み取りに失敗しました（${res.status}）`;
+        if (res.status === 401 || res.status === 403) {
+            message = 'Claude APIのキーが正しくありません（Workerの設定を確認してください）';
+        } else if (res.status === 429 || res.status === 529) {
+            message = '混み合っています。少し待ってからお試しください';
+        } else if (res.status === 400 && /credit balance|usage limit|spend limit/i.test(apiMessage)) {
+            // クレジット切れ・Workspaceの利用上限（どちらも400で返る）
+            message = '今月のAPIクレジット（または利用上限）を使い切りました。Claude ConsoleのBillingを確認してください';
+        }
+        return json({ error: message }, 502);
+    }
+    if (data.stop_reason === 'refusal') return json({ error: 'この画像は読み取れませんでした' }, 422);
+    if (data.stop_reason === 'max_tokens') return json({ error: '読み取り結果が長すぎて途中で切れました' }, 422);
+
+    // 思考ブロック等を飛ばし、テキストブロック（構造化出力のJSON）だけを読む
+    const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+    let parsed;
+    try {
+        parsed = JSON.parse(text);
+    } catch {
+        console.error('レシート読み取り結果の解析失敗:', text.slice(0, 200));
+        return json({ error: '読み取り結果を解析できませんでした' }, 502);
+    }
+
+    return json({
+        receipt: normalizeReceipt(parsed),
+        model: data.model || null,
+        usage: { input_tokens: data.usage?.input_tokens ?? null, output_tokens: data.usage?.output_tokens ?? null },
+    });
 }

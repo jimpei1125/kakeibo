@@ -7,6 +7,7 @@ import { db, doc, setDoc, updateDoc, collection, addDoc, deleteDoc, query, where
 import { Utils } from './utils.js';
 import { Icons } from './icons.js';
 import { Dialog } from './dialog.js';
+import { GCAL_WORKER_URL, APP_KEY_STORAGE_KEY } from './endpoints.js';
 
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
 const CALENDAR_CELLS = 42;
@@ -22,13 +23,6 @@ const USER_COLORS = [
     { name: 'ピンク', value: '#FF69B4', emoji: '💗' },
     { name: '茶', value: '#8B4513', emoji: '🟤' }
 ];
-
-/**
- * Googleカレンダー同期Worker（gcal-sync）のURL
- * OAuth・トークン管理・予定キャッシュはすべてWorker側が担うため、
- * ブラウザでのGoogle認証は発生しない（worker/gcal-sync/ 参照）
- */
-const GCAL_WORKER_URL = 'https://gcal-sync.zinnpei11251818.workers.dev';
 
 /** カレンダーのマスに個別表示する予定の最大件数（超過分は +n 表示） */
 const GCAL_MAX_EVENTS_PER_CELL = 2;
@@ -158,7 +152,7 @@ export class HolidayCalendar {
         
         this.gcalConnected = false;
         /** @type {string} Worker連携用のアプリキー（合言葉） */
-        this.gcalAppKey = localStorage.getItem('gcal_app_key') || '';
+        this.gcalAppKey = localStorage.getItem(APP_KEY_STORAGE_KEY) || '';
         /** @type {Array<{id: string, title: string, start: string, end: string, allDay: boolean, location: string}>} 同期済みの予定 */
         this.gcalEvents = [];
         try {
@@ -335,7 +329,7 @@ export class HolidayCalendar {
                     // キーの打ち間違いを無言で放置しない（入力欄を再表示してやり直せるように）
                     Utils.showToast('アプリキーが正しくありません。入力し直してください', 'error');
                     this.gcalAppKey = '';
-                    localStorage.removeItem('gcal_app_key');
+                    localStorage.removeItem(APP_KEY_STORAGE_KEY);
                     this.updateGcalStatus();
                 } else {
                     // ネットワーク断など一時的な失敗はキーを保持したまま静かに流す
@@ -395,7 +389,7 @@ export class HolidayCalendar {
         if (!key) return Utils.showToast('アプリキーを入力してください');
 
         this.gcalAppKey = key;
-        localStorage.setItem('gcal_app_key', key);
+        localStorage.setItem(APP_KEY_STORAGE_KEY, key);
         Utils.showToast('アプリキーを保存しました');
         this.initGcalSync();
     }

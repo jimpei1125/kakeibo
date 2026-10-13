@@ -1,6 +1,6 @@
 // アプリシェルのみをキャッシュするService Worker
 // Firestore/Auth/外部API（SwitchBot・Hue・Discord等）へのリクエストは一切傍受しない
-const CACHE_NAME = 'kakeibo-shell-v11';
+const CACHE_NAME = 'kakeibo-shell-v12';
 
 const APP_SHELL = [
     './',
@@ -19,6 +19,8 @@ const APP_SHELL = [
     './js/calculator.js',
     './js/csv-export.js',
     './js/statement-import.js',
+    './js/receipt.js',
+    './js/endpoints.js',
     './js/copy-month.js',
     './js/chart.js',
     './js/paypay.js',
