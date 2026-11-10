@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600&display=swap');
 
 /* ============================================================
    共通スタイル
@@ -22,7 +22,9 @@
 }
 
 .toast.toast-error {
-    background: #f43f5e;
+    background: #2a1517;
+    color: #fecdd3;
+    box-shadow: inset 0 0 0 1px rgba(229, 72, 77, 0.45);
 }
 
 /* ---------- 家計簿ミニヘッダー（IntersectionObserverが.showを切り替え） ---------- */
@@ -139,43 +141,47 @@
     white-space: nowrap;
     text-overflow: ellipsis;
     border-radius: 9999px;
-    padding: 0.375rem 1rem;
+    padding: 0.375rem 0.875rem 0.375rem 0.75rem;
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 500;
     text-align: center;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.35);
+    color: #a1a1a6;
+    background: rgba(35, 35, 37, 0.92);
+    border: 1px solid rgba(237, 237, 237, 0.08);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
     backdrop-filter: blur(8px);
     pointer-events: none;
 }
 
-.sync-status.synced {
-    background: rgba(52, 211, 153, 0.1);
-    color: #34d399;
-    border: 1px solid rgba(52, 211, 153, 0.2);
+/* 状態は小さなドットの色だけで伝える（面や文字は無彩色のまま） */
+.sync-status::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-right: 8px;
+    border-radius: 9999px;
+    vertical-align: 1px;
+    background: currentColor;
 }
 
-.sync-status.syncing {
-    background: rgba(251, 191, 36, 0.1);
-    color: #fbbf24;
-    border: 1px solid rgba(251, 191, 36, 0.2);
-}
-
-.sync-status.error {
-    background: rgba(244, 63, 94, 0.1);
-    color: #fb7185;
-    border: 1px solid rgba(244, 63, 94, 0.2);
-}
+.sync-status.synced::before { background: #4cc38a; }
+.sync-status.syncing::before { background: #fbbf24; }
+.sync-status.error { color: #fecdd3; }
+.sync-status.error::before { background: #e5484d; }
 
 /* ---------- フッター（クイック入力トグルの active 状態） ---------- */
 .nav-btn.active {
-    background: #10b981;
-    color: #ffffff;
+    background: #fbbf24;
+    color: #141415;
+    box-shadow: none;
 }
 
 /* ---------- 合計カード裏面の内訳／推移タブ ---------- */
 .breakdown-tab-btn.active {
-    background: #6366f1;
-    color: #ffffff;
+    background: #232325;
+    color: #ededed;
+    box-shadow: inset 0 0 0 1px rgba(237, 237, 237, 0.1);
 }
 
 /* ---------- 合計カードのフリップ（内訳円グラフ） ---------- */
@@ -239,7 +245,7 @@
 
 @keyframes quick-flash {
     0% {
-        box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.6);
+        box-shadow: 0 0 0 2px rgba(237, 237, 237, 0.35);
     }
     100% {
         box-shadow: none;
@@ -290,5 +296,32 @@ body.reorder-active {
 
 /* ---------- 認証ステータス（firebase-config.js が .logged-in を切り替え） ---------- */
 .menu-auth-status.logged-in .menu-auth-name {
-    color: #34d399;
+    color: #ededed;
+}
+
+/* ---------- 合計カード: 1枚のレシート（家計簿画面の見せ場。docs/design.md 参照） ---------- */
+/* 紙の面だけ少し温かい色にし、上下の縁をミシン目のように欠く。影は紙を浮かせる程度の無彩色 */
+.receipt-wrap {
+    filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.35));
+    transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.receipt-wrap:active {
+    transform: scale(0.98);
+}
+
+.receipt-paper {
+    background: linear-gradient(180deg, #f5f1e7 0%, #efe9dc 100%);
+    -webkit-mask:
+        radial-gradient(circle at 50% 0, transparent 5px, #000 5.5px) top / 14px 51% repeat-x,
+        radial-gradient(circle at 50% 100%, transparent 5px, #000 5.5px) bottom / 14px 51% repeat-x;
+    mask:
+        radial-gradient(circle at 50% 0, transparent 5px, #000 5.5px) top / 14px 51% repeat-x,
+        radial-gradient(circle at 50% 100%, transparent 5px, #000 5.5px) bottom / 14px 51% repeat-x;
+}
+
+/* レシートの点線（このアプリのシグネチャー） */
+.receipt-rule {
+    height: 0;
+    border-top: 1px dashed rgba(31, 27, 22, 0.28);
 }

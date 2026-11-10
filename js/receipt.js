@@ -429,7 +429,7 @@ export class ReceiptReader {
         list.innerHTML = items.map(item => `
             <li class="flex items-baseline justify-between gap-3 py-1">
                 <span class="min-w-0 truncate">${Utils.escapeHtml(item.name)}</span>
-                <span class="shrink-0 tabular-nums ${item.amount < 0 ? 'text-rose-300' : 'text-zinc-300'}">${item.amount == null ? '-' : `${Utils.formatCurrency(item.amount)}円`}</span>
+                <span class="shrink-0 font-mono tabular-nums ${item.amount < 0 ? 'text-rose-300' : 'text-zinc-300'}">${item.amount == null ? '-' : `${Utils.formatCurrency(item.amount)}円`}</span>
             </li>
         `).join('');
     }
@@ -445,7 +445,7 @@ export class ReceiptReader {
             const btn = document.getElementById(`receiptPayer-${p}`);
             if (!btn) return;
             const selected = this.payer === p;
-            btn.className = `rounded-lg px-3 py-2.5 text-sm font-semibold ring-1 ring-inset transition ${selected ? styles[p] : styles.off}`;
+            btn.className = `rounded-lg px-3 py-2.5 text-sm font-medium ring-1 ring-inset transition ${selected ? styles[p] : styles.off}`;
             btn.setAttribute('aria-pressed', String(selected));
         });
     }
