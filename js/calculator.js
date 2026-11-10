@@ -125,7 +125,7 @@ export class Calculator {
         if (!result || result === '0' || result === 'エラー') return;
         
         this._copyToClipboard(result)
-            .then(() => Utils.showToast('コピーしました！'))
+            .then(() => Utils.showToast('コピーしました'))
             .catch(() => Utils.showToast('コピーに失敗しました'));
     }
 

@@ -89,7 +89,7 @@ export class RecurringManager {
 
         container.innerHTML = candidates.map(cat => `
             <button type="button" onclick="app.recurring.addFromCategory(${cat.id})"
-                class="rounded-full bg-indigo-500/15 px-3 py-1.5 text-xs font-semibold text-indigo-300 ring-1 ring-inset ring-indigo-500/30 transition hover:bg-indigo-500/25">
+                class="rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-zinc-200 ring-1 ring-inset ring-white/10 transition hover:bg-white/15">
                 ＋ ${Utils.escapeHtml(cat.name)}
             </button>
         `).join('');
@@ -230,18 +230,18 @@ export class RecurringManager {
                 <div class="flex items-center gap-2">
                     <input type="text" value="${Utils.escapeHtml(item.name)}" placeholder="名前"
                         onchange="app.recurring.updateField(${item.id}, 'name', this.value)"
-                        class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
+                        class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-zinc-400">
                     <input type="number" value="${item.amount ?? 0}"
                         onchange="app.recurring.updateField(${item.id}, 'amount', this.value)"
-                        class="w-24 shrink-0 rounded-lg bg-white/5 px-2.5 py-2 text-right text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
+                        class="w-24 shrink-0 rounded-lg bg-white/5 px-2.5 py-2 text-right text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-zinc-400">
                     <span class="shrink-0 text-sm text-zinc-400">円</span>
                 </div>
                 <div class="mt-2 flex items-center gap-2">
-                    <button type="button" class="payer-chip shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${chipClasses}" onclick="app.recurring.togglePayer(${item.id})">${isWife ? '妻' : '夫'}</button>
+                    <button type="button" class="payer-chip shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition ${chipClasses}" onclick="app.recurring.togglePayer(${item.id})">${isWife ? '妻' : '夫'}</button>
                     <input type="text" value="${Utils.escapeHtml(item.note || '')}" placeholder="備考（任意）"
                         onchange="app.recurring.updateField(${item.id}, 'note', this.value)"
-                        class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
-                    <button class="delete-btn shrink-0 rounded-md bg-rose-500/10 px-2.5 py-1.5 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20" onclick="app.recurring.remove(${item.id})">削除</button>
+                        class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400">
+                    <button class="delete-btn shrink-0 rounded-md bg-rose-500/10 px-2.5 py-1.5 text-xs font-medium text-rose-300 transition hover:bg-rose-500/20" onclick="app.recurring.remove(${item.id})">削除</button>
                 </div>
             </div>
         `;

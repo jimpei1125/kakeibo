@@ -685,10 +685,10 @@ export class CSVImporter {
 
         container.innerHTML = this._chips.map((chip, index) => {
             const style = chip.existing
-                ? 'bg-indigo-500/20 text-indigo-300 ring-1 ring-inset ring-indigo-400/30 hover:bg-indigo-500/30'
+                ? 'bg-white/10 text-zinc-200 ring-1 ring-inset ring-white/20 hover:bg-white/15'
                 : 'bg-white/10 text-zinc-300 ring-1 ring-inset ring-white/10 hover:bg-white/15';
             return `<button type="button" onclick="app.csvImporter.assignChip(${index})"
-                class="rounded-full px-3 py-1.5 text-xs font-semibold transition ${style}">${Utils.escapeHtml(chip.name)}</button>`;
+                class="rounded-full px-3 py-1.5 text-xs font-medium transition ${style}">${Utils.escapeHtml(chip.name)}</button>`;
         }).join('');
     }
 
@@ -704,14 +704,14 @@ export class CSVImporter {
         const allChecked = checkedCount === this.transactions.length && this.transactions.length > 0;
 
         toolbar.innerHTML = `
-            <label class="flex cursor-pointer items-center gap-2.5 text-xs font-semibold text-zinc-300">
+            <label class="flex cursor-pointer items-center gap-2.5 text-xs font-medium text-zinc-300">
                 <input type="checkbox" ${allChecked ? 'checked' : ''}
                     onchange="app.csvImporter.toggleAll(this.checked)"
-                    class="h-4 w-4 rounded border-white/20 bg-white/5 text-indigo-500 focus:ring-indigo-500">
+                    class="h-4 w-4 rounded border-white/20 bg-white/5 accent-amber-400 focus:ring-zinc-400">
                 全選択（選択中 ${checkedCount}件）
             </label>
             <button type="button" onclick="app.csvImporter.selectUnassigned()"
-                class="rounded-md bg-white/10 px-2.5 py-1.5 text-xs font-semibold text-zinc-300 transition hover:bg-white/15">
+                class="rounded-md bg-white/10 px-2.5 py-1.5 text-xs font-medium text-zinc-300 transition hover:bg-white/15">
                 未分類を選択
             </button>
         `;
@@ -729,23 +729,23 @@ export class CSVImporter {
             const shortDate = t.date.replace(/^\d{4}[\/\-]/, '');
             const amountClass = t.amount < 0 ? 'text-rose-400' : 'text-white';
             const badge = t.category
-                ? `<span class="inline-flex max-w-full items-center gap-1 rounded-full bg-indigo-500/20 px-2 py-0.5 text-xs font-semibold text-indigo-300">
+                ? `<span class="inline-flex max-w-full items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-xs font-medium text-zinc-200">
                         <span class="truncate">${Utils.escapeHtml(t.category)}</span>
                         <button type="button" onclick="event.preventDefault(); event.stopPropagation(); app.csvImporter.clearCategory(${t.id})"
-                            class="shrink-0 text-indigo-300/70 hover:text-indigo-200">✕</button>
+                            class="shrink-0 text-zinc-200/70 hover:text-zinc-200">✕</button>
                    </span>`
                 : '<span class="rounded-full bg-white/10 px-2 py-0.5 text-xs text-zinc-500">未分類</span>';
 
             return `
-                <label class="flex cursor-pointer items-center gap-3 px-3 py-2.5 transition hover:bg-white/5 ${t.checked ? 'bg-indigo-500/10' : ''}" id="csv-row-${t.id}">
+                <label class="flex cursor-pointer items-center gap-3 px-3 py-2.5 transition hover:bg-white/5 ${t.checked ? 'bg-white/10' : ''}" id="csv-row-${t.id}">
                     <input type="checkbox" ${t.checked ? 'checked' : ''}
                         onchange="app.csvImporter.toggleRow(${t.id}, this.checked)"
-                        class="h-4 w-4 shrink-0 rounded border-white/20 bg-white/5 text-indigo-500 focus:ring-indigo-500">
+                        class="h-4 w-4 shrink-0 rounded border-white/20 bg-white/5 accent-amber-400 focus:ring-zinc-400">
                     <div class="min-w-0 flex-1">
                         <div class="truncate text-sm text-zinc-100">${Utils.escapeHtml(t.store)}</div>
                         <div class="text-xs text-zinc-500">${Utils.escapeHtml(shortDate)}</div>
                     </div>
-                    <div class="whitespace-nowrap text-sm font-bold ${amountClass}">¥${Utils.formatCurrency(t.amount)}</div>
+                    <div class="whitespace-nowrap text-sm font-medium ${amountClass} font-mono tabular-nums">¥${Utils.formatCurrency(t.amount)}</div>
                     <div class="w-28 shrink-0 text-right">${badge}</div>
                 </label>
             `;
@@ -773,19 +773,19 @@ export class CSVImporter {
         });
 
         const chips = Object.entries(groups).map(([name, g]) =>
-            `<span class="rounded-lg bg-emerald-500/10 px-2.5 py-1.5 text-xs font-semibold text-emerald-300 ring-1 ring-inset ring-emerald-500/20">
+            `<span class="rounded-lg bg-white/[0.06] px-2.5 py-1.5 text-xs font-medium text-zinc-200 ring-1 ring-inset ring-white/10">
                 ${Utils.escapeHtml(name)} ¥${Utils.formatCurrency(g.sum)}（${g.count}件）
             </span>`
         ).join('');
 
         const unassignedChip = unassigned.length > 0
-            ? `<span class="rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-xs font-semibold text-amber-300 ring-1 ring-inset ring-amber-500/20">
+            ? `<span class="rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-xs font-medium text-amber-300 ring-1 ring-inset ring-amber-500/20">
                     未分類 ¥${Utils.formatCurrency(unassigned.reduce((s, t) => s + t.amount, 0))}（${unassigned.length}件）
                </span>`
             : '';
 
         preview.innerHTML = `
-            <div class="mb-2 text-xs font-semibold text-zinc-400">全${this.transactions.length}件 / 合計 ¥${Utils.formatCurrency(total)}</div>
+            <div class="mb-2 text-xs font-medium text-zinc-400">全${this.transactions.length}件 / 合計 ¥${Utils.formatCurrency(total)}</div>
             <div class="flex flex-wrap gap-2">${chips}${unassignedChip}</div>
         `;
     }
@@ -817,7 +817,7 @@ export class CSVImporter {
 
         // 行のハイライトとツールバーだけ更新（リスト全体は再描画しない＝スクロール位置維持）
         const row = document.getElementById(`csv-row-${id}`);
-        if (row) row.classList.toggle('bg-indigo-500/10', checked);
+        if (row) row.classList.toggle('bg-white/10', checked);
         this._renderToolbar();
     }
 
@@ -973,7 +973,7 @@ export class CSVImporter {
         this.budgetManager.saveWithStatus();
         this.budgetManager.updateDisplay();
 
-        Utils.showToast(`${assigned.length}件を${parseInt(month)}月に取り込みました！`);
+        Utils.showToast(`${assigned.length}件を${parseInt(month)}月に取り込みました`);
         this.closeModal();
     }
 

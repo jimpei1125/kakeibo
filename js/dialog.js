@@ -11,7 +11,7 @@
 const Z_INDEX = 1800;
 
 const VARIANT_CLASS = {
-    primary: 'bg-indigo-500 hover:bg-indigo-400 text-white',
+    primary: 'bg-zinc-100 hover:bg-white text-zinc-900',
     danger: 'bg-rose-500 hover:bg-rose-400 text-white',
     neutral: 'bg-white/10 hover:bg-white/15 text-zinc-100',
 };
@@ -84,7 +84,7 @@ export class Dialog {
             <div class="dialog-panel fixed left-1/2 top-1/2 w-[88%] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-zinc-900 p-5 opacity-0 shadow-2xl ring-1 ring-white/10 transition-opacity" style="z-index:${Z_INDEX + 1};">
                 <p class="dialog-message whitespace-pre-wrap text-sm leading-relaxed text-zinc-100"></p>
                 <div class="dialog-input-wrap mt-3" style="display:none;">
-                    <input type="text" class="dialog-input w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input type="text" class="dialog-input w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-zinc-400">
                 </div>
                 <div class="dialog-buttons mt-4 flex gap-2.5"></div>
             </div>
@@ -130,7 +130,7 @@ export class Dialog {
         config.buttons.forEach(btn => {
             const el = document.createElement('button');
             el.type = 'button';
-            el.className = `flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition ${VARIANT_CLASS[btn.variant] || VARIANT_CLASS.neutral}`;
+            el.className = `flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition ${VARIANT_CLASS[btn.variant] || VARIANT_CLASS.neutral}`;
             el.textContent = btn.label;
             el.onclick = () => finish(btn.value === '__INPUT__' ? input.value : btn.value);
             buttonsEl.appendChild(el);

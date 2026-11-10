@@ -98,20 +98,20 @@ export function buildPie(breakdown, total) {
     for (const s of slices) {
         if (isFull) {
             tops += `<ellipse cx="${CX}" cy="${CY}" rx="${RX}" ry="${RY}" fill="${s.color}" `
-                + `stroke="#0d0d0d" stroke-width="1.5"/>`;
+                + `stroke="#19191b" stroke-width="1.5"/>`;
         } else {
             const [x1, y1] = pt(s.a0);
             const [x2, y2] = pt(s.a1);
             const large = (s.a1 - s.a0) > Math.PI ? 1 : 0;
             tops += `<path d="M${CX},${CY} L${f2(x1)},${f2(y1)} A${RX},${RY} 0 ${large} 1 ${f2(x2)},${f2(y2)} Z" `
-                + `fill="${s.color}" stroke="#0d0d0d" stroke-width="1.5"/>`;
+                + `fill="${s.color}" stroke="#19191b" stroke-width="1.5"/>`;
         }
         // 5%以上のスライスに%ラベル（上面中央寄り、白文字＋暗い縁取り）
         if (s.frac >= 0.05) {
             const lx = CX + RX * 0.62 * Math.cos(s.mid);
             const ly = CY + RY * 0.62 * Math.sin(s.mid);
             labels += `<text x="${f2(lx)}" y="${f2(ly)}" text-anchor="middle" dominant-baseline="central" `
-                + `font-size="12" font-weight="700" fill="#ffffff" `
+                + `font-size="12" font-weight="500" fill="#ffffff" font-family="'IBM Plex Mono', ui-monospace, monospace" `
                 + `style="paint-order:stroke;stroke:rgba(0,0,0,0.55);stroke-width:3px;">`
                 + `${Math.round(s.frac * 100)}%</text>`;
         }
@@ -124,10 +124,10 @@ export function buildPie(breakdown, total) {
     const legend = breakdown.map(item => {
         const pct = Math.round((item.amount / total) * 100);
         return `<div class="pie-legend-item flex items-center gap-2 py-0.5 text-left">
-            <span class="pie-legend-chip h-3 w-3 shrink-0 rounded-sm" style="background:${item.color}"></span>
+            <span class="pie-legend-chip h-2 w-2 shrink-0 rounded-full" style="background:${item.color}"></span>
             <span class="min-w-0 flex-1 truncate text-xs text-zinc-300">${Utils.escapeHtml(item.name)}</span>
-            <span class="shrink-0 text-xs font-semibold text-zinc-100">¥${Utils.formatCurrency(item.amount)}</span>
-            <span class="w-9 shrink-0 text-right text-xs text-zinc-500">${pct}%</span>
+            <span class="shrink-0 font-mono text-xs font-medium text-zinc-100 tabular-nums">¥${Utils.formatCurrency(item.amount)}</span>
+            <span class="w-9 shrink-0 text-right font-mono text-xs text-zinc-500 tabular-nums">${pct}%</span>
         </div>`;
     }).join('');
 
@@ -181,17 +181,17 @@ export function buildTrendChart(trendData) {
 
         const highlightStroke = isCurrent
             ? `<rect x="${f2(x - 1.5)}" y="${f2(barTop - 1.5)}" width="${f2(barWidth + 3)}" height="${f2(barHeight + 3)}" `
-                + `fill="none" stroke="#ffffff" stroke-width="2" rx="3"/>`
+                + `fill="none" stroke="#fbbf24" stroke-width="2" rx="3"/>`
             : '';
 
         const totalLabel = month.total > 0
             ? `<text x="${f2(x + barWidth / 2)}" y="${f2(Math.max(barTop - 8, 10))}" text-anchor="middle" `
-                + `font-size="10" font-weight="700" fill="${isCurrent ? '#ffffff' : '#d4d4d8'}">`
+                + `font-size="10" font-weight="500" font-family="'IBM Plex Mono', ui-monospace, monospace" fill="${isCurrent ? '#fcd34d' : '#a1a1a6'}">`
                 + `¥${Utils.formatCurrency(month.total)}</text>`
             : '';
 
         const monthLabel = `<text x="${f2(x + barWidth / 2)}" y="${f2(TREND_HEIGHT - 6)}" text-anchor="middle" `
-            + `font-size="11" font-weight="${isCurrent ? '700' : '400'}" fill="${isCurrent ? '#ffffff' : '#a1a1aa'}">`
+            + `font-size="11" font-weight="${isCurrent ? '500' : '400'}" fill="${isCurrent ? '#fcd34d' : '#85858b'}">`
             + `${Utils.escapeHtml(month.label)}</text>`;
 
         bars += segments + highlightStroke + totalLabel + monthLabel;
@@ -202,7 +202,7 @@ export function buildTrendChart(trendData) {
 
     const legend = categories.map(cat => `
         <div class="trend-legend-item flex items-center gap-1.5">
-            <span class="trend-legend-chip h-3 w-3 shrink-0 rounded-sm" style="background:${cat.color}"></span>
+            <span class="trend-legend-chip h-2 w-2 shrink-0 rounded-full" style="background:${cat.color}"></span>
             <span class="text-xs text-zinc-300">${Utils.escapeHtml(cat.name)}</span>
         </div>
     `).join('');

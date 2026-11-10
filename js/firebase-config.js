@@ -147,7 +147,7 @@ class AuthManager {
             }
             if (authIcon) {
                 authIcon.innerHTML = Icons.svg('check-circle');
-                authIcon.classList.add('text-emerald-400');
+                authIcon.classList.add('text-zinc-300');
             }
             if (authBtn) {
                 authBtn.innerHTML = `${Icons.svg('log-out')} ログアウト`;
@@ -166,7 +166,7 @@ class AuthManager {
             }
             if (authIcon) {
                 authIcon.innerHTML = Icons.svg('user');
-                authIcon.classList.remove('text-emerald-400');
+                authIcon.classList.remove('text-zinc-300');
             }
             if (authBtn) {
                 authBtn.innerHTML = `${Icons.svg('log-in')} ログイン`;

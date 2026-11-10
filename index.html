@@ -5,27 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>家族アプリ</title>
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#09090b">
+    <meta name="theme-color" content="#141415">
     <link rel="icon" href="icons/icon-192.png">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap">
     <link rel="stylesheet" href="css/tailwind.css">
     <link rel="stylesheet" href="css/app.css">
     <link rel="stylesheet" href="css/calendar.css">
     <link rel="stylesheet" href="css/shopping.css">
     <link rel="stylesheet" href="css/smarthome.css">
 </head>
-<body class="min-h-screen bg-zinc-950 pb-28 pt-5 font-sans text-zinc-200 antialiased">
-    <!-- 背景の装飾グラデーション -->
-    <div class="pointer-events-none fixed inset-x-0 top-0 z-0 h-96 bg-gradient-to-b from-indigo-500/10 via-transparent to-transparent"></div>
+<body class="min-h-screen bg-graphite-page pb-28 pt-5 font-sans text-zinc-200 antialiased">
 
     <!-- 右上メニューボタン -->
     <button aria-label="メニューを開く" class="fixed right-5 top-5 z-[1100] flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900 text-xl text-zinc-200 shadow-lg ring-1 ring-white/10 transition hover:bg-zinc-800 hover:ring-white/20" onclick="app.toggleMenu()"><span data-icon="menu"></span></button>
 
     <!-- 家計簿ミニヘッダー（月セレクタが画面外にスクロールしたら表示） -->
-    <div class="mini-header fixed inset-x-0 top-0 z-[1050] items-center gap-2 border-b border-white/10 bg-zinc-950/90 py-2.5 pl-4 pr-[4.75rem] backdrop-blur" id="miniHeader">
+    <div class="mini-header fixed inset-x-0 top-0 z-[1050] items-center gap-2 border-b border-white/[0.08] bg-graphite-page/90 py-2.5 pl-4 pr-[4.75rem] backdrop-blur" id="miniHeader">
         <button class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-200 transition hover:bg-white/20" onclick="app.budget.changeMonth(-1)" aria-label="前の月"><span data-icon="chevron-left"></span></button>
-        <div class="min-w-0 flex-1 truncate text-center text-sm font-bold text-white" id="miniHeaderMonth"></div>
-        <span class="shrink-0 whitespace-nowrap text-sm font-bold text-white" id="miniHeaderTotal"></span>
+        <div class="min-w-0 flex-1 truncate text-center text-sm font-medium text-zinc-100" id="miniHeaderMonth"></div>
+        <span class="shrink-0 whitespace-nowrap font-mono text-sm font-medium text-zinc-100 tabular-nums" id="miniHeaderTotal"></span>
         <button class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-200 transition hover:bg-white/20" onclick="app.budget.changeMonth(1)" aria-label="次の月"><span data-icon="chevron-right"></span></button>
     </div>
 
@@ -37,34 +38,34 @@
         <div class="menu-auth-status mb-3 mt-16 border-b border-white/10 pb-5" id="authStatus">
             <div class="menu-auth-user mb-3 flex items-center gap-2.5">
                 <span class="menu-auth-icon text-2xl text-zinc-400" id="authIcon" data-icon="user"></span>
-                <span class="menu-auth-name max-w-[180px] truncate text-sm font-semibold text-zinc-400" id="authUserName">未ログイン</span>
+                <span class="menu-auth-name max-w-[180px] truncate text-sm font-medium text-zinc-400" id="authUserName">未ログイン</span>
             </div>
             <button class="menu-auth-uid mb-3 hidden w-full truncate rounded-lg bg-white/5 px-3 py-2 text-left text-[11px] text-zinc-500 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" id="authUserId" title="タップしてUIDをコピー（Firestoreルール設定用）"></button>
-            <button class="menu-auth-btn w-full rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400" id="authBtn" onclick="app.showLoginModal()"><span data-icon="log-in"></span> ログイン</button>
+            <button class="menu-auth-btn w-full rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-900 transition hover:bg-white" id="authBtn" onclick="app.showLoginModal()"><span data-icon="log-in"></span> ログイン</button>
         </div>
 
         <div class="menu-items space-y-2">
-            <div class="menu-item cursor-pointer rounded-lg bg-white/5 px-5 py-3.5 text-sm font-semibold text-zinc-200 ring-1 ring-white/5 transition hover:bg-white/10 hover:ring-white/10" id="menuCalendar" onclick="app.showCalendar(); app.closeMenu();"><span data-icon="calendar"></span> カレンダー</div>
-            <div class="menu-item cursor-pointer rounded-lg bg-white/5 px-5 py-3.5 text-sm font-semibold text-zinc-200 ring-1 ring-white/5 transition hover:bg-white/10 hover:ring-white/10" id="menuBudget" onclick="app.showBudget(); app.closeMenu();" style="display: none;"><span data-icon="bar-chart"></span> 家計簿</div>
-            <div class="menu-item cursor-pointer rounded-lg bg-white/5 px-5 py-3.5 text-sm font-semibold text-zinc-200 ring-1 ring-white/5 transition hover:bg-white/10 hover:ring-white/10" id="menuShopping" onclick="app.showShopping(); app.closeMenu();"><span data-icon="shopping-cart"></span> 買い物リスト</div>
-            <div class="menu-item cursor-pointer rounded-lg bg-white/5 px-5 py-3.5 text-sm font-semibold text-zinc-200 ring-1 ring-white/5 transition hover:bg-white/10 hover:ring-white/10" id="menuSmartHome" onclick="app.showSmartHome(); app.closeMenu();"><span data-icon="home"></span> スマートホーム</div>
+            <div class="menu-item cursor-pointer rounded-lg bg-white/5 px-5 py-3.5 text-sm font-medium text-zinc-200 ring-1 ring-white/5 transition hover:bg-white/10 hover:ring-white/10" id="menuCalendar" onclick="app.showCalendar(); app.closeMenu();"><span data-icon="calendar"></span> カレンダー</div>
+            <div class="menu-item cursor-pointer rounded-lg bg-white/5 px-5 py-3.5 text-sm font-medium text-zinc-200 ring-1 ring-white/5 transition hover:bg-white/10 hover:ring-white/10" id="menuBudget" onclick="app.showBudget(); app.closeMenu();" style="display: none;"><span data-icon="bar-chart"></span> 家計簿</div>
+            <div class="menu-item cursor-pointer rounded-lg bg-white/5 px-5 py-3.5 text-sm font-medium text-zinc-200 ring-1 ring-white/5 transition hover:bg-white/10 hover:ring-white/10" id="menuShopping" onclick="app.showShopping(); app.closeMenu();"><span data-icon="shopping-cart"></span> 買い物リスト</div>
+            <div class="menu-item cursor-pointer rounded-lg bg-white/5 px-5 py-3.5 text-sm font-medium text-zinc-200 ring-1 ring-white/5 transition hover:bg-white/10 hover:ring-white/10" id="menuSmartHome" onclick="app.showSmartHome(); app.closeMenu();"><span data-icon="home"></span> スマートホーム</div>
         </div>
     </div>
     <div class="menu-overlay fixed inset-0 z-[1150] bg-black/50" id="menuOverlay" onclick="app.closeMenu()"></div>
 
     <!-- トーストメッセージ -->
-    <div class="toast fixed left-1/2 z-[2000] max-w-[90vw] -translate-x-1/2 whitespace-pre-line rounded-lg bg-emerald-500 px-6 py-3 text-center text-sm font-semibold text-white shadow-lg" id="toast"></div>
+    <div class="toast fixed left-1/2 z-[2000] max-w-[90vw] -translate-x-1/2 whitespace-pre-line rounded-lg bg-graphite-raised px-5 py-3 text-center text-sm text-zinc-100 shadow-lg ring-1 ring-white/10" id="toast"></div>
 
     <!-- ログインモーダル -->
     <div class="login-modal fixed inset-0 z-[2000] items-center justify-center bg-black/70 p-5 backdrop-blur-sm" id="loginModal" style="display: none;">
         <div class="login-modal-content w-full max-w-sm rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10">
             <div class="modal-header mb-5 flex items-center justify-between">
-                <h2 class="text-lg font-bold text-white"><span data-icon="lock"></span> ログイン</h2>
+                <h2 class="text-lg font-medium text-white"><span data-icon="lock"></span> ログイン</h2>
                 <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.closeLoginModal()"><span data-icon="x"></span></button>
             </div>
             <div class="login-options flex flex-col gap-3">
                 <p class="text-center text-sm text-zinc-400">ログインすると、データが安全に保護され、複数デバイスで同期できます。</p>
-                <button class="flex items-center justify-center gap-3 rounded-xl bg-white px-5 py-3.5 text-sm font-bold text-zinc-800 transition hover:bg-zinc-100" onclick="app.signInWithGoogle()">
+                <button class="flex items-center justify-center gap-3 rounded-xl bg-white px-5 py-3.5 text-sm font-medium text-zinc-800 transition hover:bg-zinc-100" onclick="app.signInWithGoogle()">
                     <svg viewBox="0 0 24 24" width="20" height="20">
                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                         <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -81,48 +82,48 @@
     <!-- 計算機モーダル -->
     <div class="modal-panel calculator-modal fixed left-1/2 top-1/2 z-[1500] w-[90%] max-w-[350px] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-zinc-900 p-5 shadow-2xl ring-1 ring-white/10" id="calculatorModal">
         <div class="calc-header mb-4 flex items-center justify-between">
-            <h2 class="text-lg font-bold text-white"><span data-icon="calculator"></span> 計算機</h2>
+            <h2 class="text-lg font-medium text-white"><span data-icon="calculator"></span> 計算機</h2>
             <button aria-label="閉じる" class="calc-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.calculator.close()"><span data-icon="x"></span></button>
         </div>
-        <div class="calc-display mb-4 min-h-[60px] cursor-pointer rounded-xl bg-white/5 p-5 text-right text-3xl font-black text-white ring-1 ring-inset ring-white/10 transition hover:bg-white/10" id="calcDisplay" onclick="app.calculator.copyResult()">0</div>
+        <div class="calc-display mb-4 min-h-[60px] cursor-pointer rounded-xl bg-graphite-deep p-5 text-right font-mono text-3xl text-zinc-100 tabular-nums ring-1 ring-inset ring-white/[0.06] transition-colors hover:bg-graphite-raised" id="calcDisplay" onclick="app.calculator.copyResult()">0</div>
         <div class="calc-buttons grid grid-cols-4 gap-2.5">
-            <button class="rounded-xl bg-rose-500 py-4 text-lg font-bold text-white transition hover:bg-rose-400" onclick="app.calculator.clear()">C</button>
-            <button class="rounded-xl bg-white/10 py-4 text-lg font-bold text-white transition hover:bg-white/20" onclick="app.calculator.append('(')">(</button>
-            <button class="rounded-xl bg-white/10 py-4 text-lg font-bold text-white transition hover:bg-white/20" onclick="app.calculator.append(')')">)</button>
-            <button class="rounded-xl bg-indigo-500 py-4 text-lg font-bold text-white transition hover:bg-indigo-400" onclick="app.calculator.append('÷')">÷</button>
+            <button class="rounded-xl bg-white/[0.06] py-4 font-mono text-lg text-rose-300 ring-1 ring-inset ring-white/[0.06] transition-colors hover:bg-rose-500/10 active:scale-[0.97]" onclick="app.calculator.clear()">C</button>
+            <button class="rounded-xl bg-white/[0.06] py-4 font-mono text-lg text-zinc-100 ring-1 ring-inset ring-white/[0.06] transition-colors hover:bg-white/10 active:scale-[0.97]" onclick="app.calculator.append('(')">(</button>
+            <button class="rounded-xl bg-white/[0.06] py-4 font-mono text-lg text-zinc-100 ring-1 ring-inset ring-white/[0.06] transition-colors hover:bg-white/10 active:scale-[0.97]" onclick="app.calculator.append(')')">)</button>
+            <button class="rounded-xl bg-white/10 py-4 font-mono text-lg text-zinc-200 ring-1 ring-inset ring-white/10 transition-colors hover:bg-white/15 active:scale-[0.97]" onclick="app.calculator.append('÷')">÷</button>
 
-            <button class="rounded-xl bg-white/10 py-4 text-lg font-bold text-white transition hover:bg-white/20" onclick="app.calculator.append('7')">7</button>
-            <button class="rounded-xl bg-white/10 py-4 text-lg font-bold text-white transition hover:bg-white/20" onclick="app.calculator.append('8')">8</button>
-            <button class="rounded-xl bg-white/10 py-4 text-lg font-bold text-white transition hover:bg-white/20" onclick="app.calculator.append('9')">9</button>
-            <button class="rounded-xl bg-indigo-500 py-4 text-lg font-bold text-white transition hover:bg-indigo-400" onclick="app.calculator.append('×')">×</button>
+            <button class="rounded-xl bg-white/[0.06] py-4 font-mono text-lg text-zinc-100 ring-1 ring-inset ring-white/[0.06] transition-colors hover:bg-white/10 active:scale-[0.97]" onclick="app.calculator.append('7')">7</button>
+            <button class="rounded-xl bg-white/[0.06] py-4 font-mono text-lg text-zinc-100 ring-1 ring-inset ring-white/[0.06] transition-colors hover:bg-white/10 active:scale-[0.97]" onclick="app.calculator.append('8')">8</button>
+            <button class="rounded-xl bg-white/[0.06] py-4 font-mono text-lg text-zinc-100 ring-1 ring-inset ring-white/[0.06] transition-colors hover:bg-white/10 active:scale-[0.97]" onclick="app.calculator.append('9')">9</button>
+            <button class="rounded-xl bg-white/10 py-4 font-mono text-lg text-zinc-200 ring-1 ring-inset ring-white/10 transition-colors hover:bg-white/15 active:scale-[0.97]" onclick="app.calculator.append('×')">×</button>
 
-            <button class="rounded-xl bg-white/10 py-4 text-lg font-bold text-white transition hover:bg-white/20" onclick="app.calculator.append('4')">4</button>
-            <button class="rounded-xl bg-white/10 py-4 text-lg font-bold text-white transition hover:bg-white/20" onclick="app.calculator.append('5')">5</button>
-            <button class="rounded-xl bg-white/10 py-4 text-lg font-bold text-white transition hover:bg-white/20" onclick="app.calculator.append('6')">6</button>
-            <button class="rounded-xl bg-indigo-500 py-4 text-lg font-bold text-white transition hover:bg-indigo-400" onclick="app.calculator.append('-')">-</button>
+            <button class="rounded-xl bg-white/[0.06] py-4 font-mono text-lg text-zinc-100 ring-1 ring-inset ring-white/[0.06] transition-colors hover:bg-white/10 active:scale-[0.97]" onclick="app.calculator.append('4')">4</button>
+            <button class="rounded-xl bg-white/[0.06] py-4 font-mono text-lg text-zinc-100 ring-1 ring-inset ring-white/[0.06] transition-colors hover:bg-white/10 active:scale-[0.97]" onclick="app.calculator.append('5')">5</button>
+            <button class="rounded-xl bg-white/[0.06] py-4 font-mono text-lg text-zinc-100 ring-1 ring-inset ring-white/[0.06] transition-colors hover:bg-white/10 active:scale-[0.97]" onclick="app.calculator.append('6')">6</button>
+            <button class="rounded-xl bg-white/10 py-4 font-mono text-lg text-zinc-200 ring-1 ring-inset ring-white/10 transition-colors hover:bg-white/15 active:scale-[0.97]" onclick="app.calculator.append('-')">-</button>
 
-            <button class="rounded-xl bg-white/10 py-4 text-lg font-bold text-white transition hover:bg-white/20" onclick="app.calculator.append('1')">1</button>
-            <button class="rounded-xl bg-white/10 py-4 text-lg font-bold text-white transition hover:bg-white/20" onclick="app.calculator.append('2')">2</button>
-            <button class="rounded-xl bg-white/10 py-4 text-lg font-bold text-white transition hover:bg-white/20" onclick="app.calculator.append('3')">3</button>
-            <button class="rounded-xl bg-indigo-500 py-4 text-lg font-bold text-white transition hover:bg-indigo-400" onclick="app.calculator.append('+')">+</button>
+            <button class="rounded-xl bg-white/[0.06] py-4 font-mono text-lg text-zinc-100 ring-1 ring-inset ring-white/[0.06] transition-colors hover:bg-white/10 active:scale-[0.97]" onclick="app.calculator.append('1')">1</button>
+            <button class="rounded-xl bg-white/[0.06] py-4 font-mono text-lg text-zinc-100 ring-1 ring-inset ring-white/[0.06] transition-colors hover:bg-white/10 active:scale-[0.97]" onclick="app.calculator.append('2')">2</button>
+            <button class="rounded-xl bg-white/[0.06] py-4 font-mono text-lg text-zinc-100 ring-1 ring-inset ring-white/[0.06] transition-colors hover:bg-white/10 active:scale-[0.97]" onclick="app.calculator.append('3')">3</button>
+            <button class="rounded-xl bg-white/10 py-4 font-mono text-lg text-zinc-200 ring-1 ring-inset ring-white/10 transition-colors hover:bg-white/15 active:scale-[0.97]" onclick="app.calculator.append('+')">+</button>
 
-            <button class="rounded-xl bg-white/10 py-4 text-lg font-bold text-white transition hover:bg-white/20" onclick="app.calculator.append('0')">0</button>
-            <button class="rounded-xl bg-white/10 py-4 text-lg font-bold text-white transition hover:bg-white/20" onclick="app.calculator.append('.')">.</button>
-            <button class="col-span-2 rounded-xl bg-emerald-500 py-4 text-lg font-bold text-white transition hover:bg-emerald-400" onclick="app.calculator.calculate()">=</button>
+            <button class="rounded-xl bg-white/[0.06] py-4 font-mono text-lg text-zinc-100 ring-1 ring-inset ring-white/[0.06] transition-colors hover:bg-white/10 active:scale-[0.97]" onclick="app.calculator.append('0')">0</button>
+            <button class="rounded-xl bg-white/[0.06] py-4 font-mono text-lg text-zinc-100 ring-1 ring-inset ring-white/[0.06] transition-colors hover:bg-white/10 active:scale-[0.97]" onclick="app.calculator.append('.')">.</button>
+            <button class="col-span-2 rounded-xl bg-amber-400 py-4 font-mono text-lg font-medium text-zinc-900 transition-colors hover:bg-amber-300 active:scale-[0.97]" onclick="app.calculator.calculate()">=</button>
         </div>
     </div>
 
     <!-- CSV出力モーダル -->
     <div class="modal-panel csv-modal fixed left-1/2 top-1/2 z-[1500] max-h-[80vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="csvModal">
         <div class="modal-header mb-5 flex items-center justify-between">
-            <h2 class="text-lg font-bold text-white"><span data-icon="download"></span> CSV出力</h2>
+            <h2 class="text-lg font-medium text-white"><span data-icon="download"></span> CSV出力</h2>
             <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.csv.closeModal()"><span data-icon="x"></span></button>
         </div>
 
         <div class="mb-4 space-y-4 rounded-xl bg-white/5 p-5 ring-1 ring-white/5">
             <div>
-                <label class="mb-2 block text-sm font-semibold text-zinc-300">出力範囲</label>
-                <select id="csvRangeType" onchange="app.csv.toggleDateRange()" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500 [&>option]:bg-zinc-900">
+                <label class="mb-2 block text-sm font-medium text-zinc-300">出力範囲</label>
+                <select id="csvRangeType" onchange="app.csv.toggleDateRange()" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-zinc-400 [&>option]:bg-zinc-900">
                     <option value="current">今月のみ</option>
                     <option value="range">期間を指定</option>
                     <option value="all">全期間</option>
@@ -132,28 +133,28 @@
             <div id="dateRangeInputs" style="display: none;">
                 <div class="flex flex-col gap-3">
                     <div>
-                        <label class="mb-2 block text-sm font-semibold text-zinc-300">開始年月</label>
-                        <input type="month" id="csvStartDate" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
+                        <label class="mb-2 block text-sm font-medium text-zinc-300">開始年月</label>
+                        <input type="month" id="csvStartDate" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-zinc-400">
                     </div>
                     <div>
-                        <label class="mb-2 block text-sm font-semibold text-zinc-300">終了年月</label>
-                        <input type="month" id="csvEndDate" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
+                        <label class="mb-2 block text-sm font-medium text-zinc-300">終了年月</label>
+                        <input type="month" id="csvEndDate" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-zinc-400">
                     </div>
                 </div>
             </div>
 
-            <label class="flex items-center gap-2.5 text-sm font-semibold text-zinc-300">
-                <input type="checkbox" id="csvIncludeNotes" checked class="h-4 w-4 rounded border-white/20 bg-white/5 text-indigo-500 focus:ring-indigo-500">
+            <label class="flex items-center gap-2.5 text-sm font-medium text-zinc-300">
+                <input type="checkbox" id="csvIncludeNotes" checked class="h-4 w-4 rounded border-white/20 bg-white/5 accent-amber-400 focus:ring-zinc-400">
                 備考を含める
             </label>
 
-            <label class="flex items-center gap-2.5 text-sm font-semibold text-zinc-300">
-                <input type="checkbox" id="csvIncludeHalf" checked class="h-4 w-4 rounded border-white/20 bg-white/5 text-indigo-500 focus:ring-indigo-500">
+            <label class="flex items-center gap-2.5 text-sm font-medium text-zinc-300">
+                <input type="checkbox" id="csvIncludeHalf" checked class="h-4 w-4 rounded border-white/20 bg-white/5 accent-amber-400 focus:ring-zinc-400">
                 折半金額を含める
             </label>
         </div>
 
-        <button onclick="app.csv.export()" class="w-full rounded-lg bg-indigo-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition hover:bg-indigo-400">
+        <button onclick="app.csv.export()" class="w-full rounded-lg bg-zinc-100 px-4 py-3 text-sm font-medium text-zinc-900 transition hover:bg-white">
             <span data-icon="download"></span> CSVダウンロード
         </button>
     </div>
@@ -161,7 +162,7 @@
     <!-- CSVインポートモーダル -->
     <div class="modal-panel csv-modal csv-import-modal fixed left-1/2 top-1/2 z-[1500] max-h-[88vh] w-[94%] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-zinc-900 shadow-2xl ring-1 ring-white/10" id="csvImportModal">
         <div class="modal-header flex items-center justify-between p-6 pb-4">
-            <h2 class="text-lg font-bold text-white"><span data-icon="upload"></span> 明細読み込み</h2>
+            <h2 class="text-lg font-medium text-white"><span data-icon="upload"></span> 明細読み込み</h2>
             <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.csvImporter.closeModal()"><span data-icon="x"></span></button>
         </div>
 
@@ -170,10 +171,10 @@
             <div class="rounded-xl bg-white/5 p-4 ring-1 ring-white/5">
                 <input type="file" id="csvFileInput" accept=".csv,.pdf,text/csv,application/csv,text/comma-separated-values,application/pdf" onchange="app.csvImporter.handleFileSelect(event)" class="hidden">
                 <button onclick="document.getElementById('csvFileInput').click()" type="button"
-                    class="w-full rounded-lg bg-white/10 px-4 py-3 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15">
+                    class="w-full rounded-lg bg-white/10 px-4 py-3 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15">
                     <span data-icon="folder"></span> ファイルを選択（CSV / PDF）
                 </button>
-                <div id="csvFileName" class="mt-2.5 text-sm text-emerald-400" style="display: none;"></div>
+                <div id="csvFileName" class="mt-2.5 text-sm text-zinc-300" style="display: none;"></div>
                 <p class="mt-2 text-xs text-zinc-500">※ クレジットカードの利用明細（PayPayカード等のCSV、Amazon Mastercard等のPDF）を選択してください</p>
             </div>
 
@@ -181,22 +182,22 @@
             <div id="csvImportSetup" class="space-y-4" style="display: none;">
                 <!-- 取込先の月 -->
                 <div class="rounded-xl bg-white/5 p-4 ring-1 ring-white/5">
-                    <label class="mb-2 block text-sm font-semibold text-zinc-300"><span data-icon="calendar"></span> データを挿入する月</label>
+                    <label class="mb-2 block text-sm font-medium text-zinc-300"><span data-icon="calendar"></span> データを挿入する月</label>
                     <input type="month" id="csvImportMonth" onchange="app.csvImporter.onMonthChange()"
-                        class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
+                        class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-zinc-400">
                     <p id="csvImportMonthHint" class="mt-2 text-xs text-zinc-500"></p>
                 </div>
 
                 <!-- カテゴリ割り当て -->
                 <div class="rounded-xl bg-white/5 p-4 ring-1 ring-white/5">
-                    <label class="mb-2 block text-sm font-semibold text-zinc-300"><span data-icon="tag"></span> 明細にチェックを入れて、カテゴリをタップで割り当て</label>
+                    <label class="mb-2 block text-sm font-medium text-zinc-300"><span data-icon="tag"></span> 明細にチェックを入れて、カテゴリをタップで割り当て</label>
                     <div id="csvCategoryChips" class="mb-3 flex flex-wrap gap-2"></div>
                     <div class="flex gap-2">
                         <input type="text" id="csvNewCategoryInput" placeholder="新しいカテゴリ名"
                             onkeydown="if(event.key==='Enter'){event.preventDefault();app.csvImporter.assignNewCategory();}"
-                            class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+                            class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400">
                         <button type="button" onclick="app.csvImporter.assignNewCategory()"
-                            class="shrink-0 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400">＋割り当て</button>
+                            class="shrink-0 rounded-lg bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-white">＋割り当て</button>
                     </div>
                 </div>
 
@@ -211,16 +212,16 @@
 
                 <!-- 登録方法 -->
                 <div class="rounded-xl bg-white/5 p-4 ring-1 ring-white/5">
-                    <label class="mb-2 block text-sm font-semibold text-zinc-300">登録方法</label>
+                    <label class="mb-2 block text-sm font-medium text-zinc-300">登録方法</label>
                     <div class="space-y-2">
                         <label class="flex cursor-pointer items-center gap-2.5 text-sm text-zinc-300">
                             <input type="radio" name="csvImportMode" value="detail" checked
-                                class="h-4 w-4 border-white/20 bg-white/5 text-indigo-500 focus:ring-indigo-500">
+                                class="h-4 w-4 border-white/20 bg-white/5 accent-amber-400 focus:ring-zinc-400">
                             明細ごとに小カテゴリーとして登録（店名・日付を残す）
                         </label>
                         <label class="flex cursor-pointer items-center gap-2.5 text-sm text-zinc-300">
                             <input type="radio" name="csvImportMode" value="sum"
-                                class="h-4 w-4 border-white/20 bg-white/5 text-indigo-500 focus:ring-indigo-500">
+                                class="h-4 w-4 border-white/20 bg-white/5 accent-amber-400 focus:ring-zinc-400">
                             カテゴリごとに合計金額のみ登録
                         </label>
                     </div>
@@ -230,7 +231,7 @@
 
         <div class="border-t border-white/10 p-6 pt-4">
             <button id="csvImportBtn" onclick="app.csvImporter.importData()" disabled
-                class="w-full rounded-lg bg-indigo-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-40">
+                class="w-full rounded-lg bg-zinc-100 px-4 py-3 text-sm font-medium text-zinc-900 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40">
                 <span data-icon="upload"></span> インポート
             </button>
         </div>
@@ -239,23 +240,23 @@
     <!-- 他の月からコピーモーダル -->
     <div class="modal-panel csv-modal csv-import-modal fixed left-1/2 top-1/2 z-[1500] max-h-[88vh] w-[94%] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-zinc-900 shadow-2xl ring-1 ring-white/10" id="copyMonthModal">
         <div class="modal-header flex items-center justify-between p-6 pb-4">
-            <h2 class="text-lg font-bold text-white"><span data-icon="copy"></span> 他の月からコピー</h2>
+            <h2 class="text-lg font-medium text-white"><span data-icon="copy"></span> 他の月からコピー</h2>
             <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.copyMonth.closeModal()"><span data-icon="x"></span></button>
         </div>
 
         <div class="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-4">
             <!-- コピー元の月 -->
             <div class="rounded-xl bg-white/5 p-4 ring-1 ring-white/5">
-                <label class="mb-2 block text-sm font-semibold text-zinc-300"><span data-icon="calendar"></span> コピー元の月</label>
+                <label class="mb-2 block text-sm font-medium text-zinc-300"><span data-icon="calendar"></span> コピー元の月</label>
                 <input type="month" id="copyMonthSource" onchange="app.copyMonth.onSourceChange()"
-                    class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
+                    class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-zinc-400">
             </div>
 
             <!-- 金額オプション -->
             <div class="rounded-xl bg-white/5 p-4 ring-1 ring-white/5">
-                <label class="flex cursor-pointer items-center gap-2.5 text-sm font-semibold text-zinc-300">
+                <label class="flex cursor-pointer items-center gap-2.5 text-sm font-medium text-zinc-300">
                     <input type="checkbox" id="copyMonthKeepAmount" checked onchange="app.copyMonth.onOptionsChange()"
-                        class="h-4 w-4 rounded border-white/20 bg-white/5 text-indigo-500 focus:ring-indigo-500">
+                        class="h-4 w-4 rounded border-white/20 bg-white/5 accent-amber-400 focus:ring-zinc-400">
                     金額も引き継ぐ
                 </label>
                 <p class="mt-1.5 text-xs text-zinc-500">オフにすると項目だけコピーし、金額は0円で追加します</p>
@@ -271,7 +272,7 @@
 
         <div class="border-t border-white/10 p-6 pt-4">
             <button id="copyMonthExecuteBtn" onclick="app.copyMonth.execute()" disabled
-                class="w-full rounded-lg bg-indigo-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-40">
+                class="w-full rounded-lg bg-zinc-100 px-4 py-3 text-sm font-medium text-zinc-900 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40">
                 <span data-icon="plus"></span> <span id="copyMonthExecuteLabel">選択した項目を今月に追加</span>
             </button>
         </div>
@@ -280,7 +281,7 @@
     <!-- 固定費の管理モーダル -->
     <div class="modal-panel csv-modal csv-import-modal fixed left-1/2 top-1/2 z-[1500] max-h-[88vh] w-[94%] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-zinc-900 shadow-2xl ring-1 ring-white/10" id="recurringModal">
         <div class="modal-header flex items-center justify-between p-6 pb-4">
-            <h2 class="text-lg font-bold text-white"><span data-icon="repeat"></span> 固定費の管理</h2>
+            <h2 class="text-lg font-medium text-white"><span data-icon="repeat"></span> 固定費の管理</h2>
             <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.recurring.closeModal()"><span data-icon="x"></span></button>
         </div>
 
@@ -289,7 +290,7 @@
 
             <!-- 今月のカテゴリから登録 -->
             <div class="rounded-xl bg-white/5 p-4 ring-1 ring-white/5">
-                <label class="mb-2 block text-sm font-semibold text-zinc-300"><span data-icon="tag"></span> 今月のカテゴリから登録</label>
+                <label class="mb-2 block text-sm font-medium text-zinc-300"><span data-icon="tag"></span> 今月のカテゴリから登録</label>
                 <div id="recurringFromCategoryList" class="flex flex-wrap gap-2"></div>
             </div>
 
@@ -301,12 +302,12 @@
 
             <!-- 新規追加フォーム -->
             <div class="rounded-xl bg-white/5 p-4 ring-1 ring-white/5">
-                <label class="mb-2 block text-sm font-semibold text-zinc-300"><span data-icon="plus"></span> 固定費を追加</label>
+                <label class="mb-2 block text-sm font-medium text-zinc-300"><span data-icon="plus"></span> 固定費を追加</label>
                 <div class="flex flex-col gap-2.5">
-                    <input type="text" id="recurringNewName" placeholder="名前（例：家賃）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
-                    <input type="number" id="recurringNewAmount" placeholder="金額" class="min-w-0 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
-                    <input type="text" id="recurringNewNote" placeholder="備考（任意）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
-                    <button onclick="app.recurring.add()" class="w-full rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400">追加</button>
+                    <input type="text" id="recurringNewName" placeholder="名前（例：家賃）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400">
+                    <input type="number" id="recurringNewAmount" placeholder="金額" class="min-w-0 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400">
+                    <input type="text" id="recurringNewNote" placeholder="備考（任意）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400">
+                    <button onclick="app.recurring.add()" class="w-full rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-900 transition hover:bg-white">追加</button>
                 </div>
             </div>
         </div>
@@ -315,35 +316,35 @@
     <!-- カテゴリー追加シート（画面下からスライド表示） -->
     <div class="modal-panel bottom-sheet fixed inset-x-0 bottom-0 z-[1500] max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="addCategorySheet" style="padding-bottom: max(24px, env(safe-area-inset-bottom));">
         <div class="modal-header mb-5 flex items-center justify-between">
-            <h2 class="text-lg font-bold text-white"><span data-icon="plus"></span> カテゴリーを追加</h2>
+            <h2 class="text-lg font-medium text-white"><span data-icon="plus"></span> カテゴリーを追加</h2>
             <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.budget.closeAddCategorySheet()"><span data-icon="x"></span></button>
         </div>
         <form class="input-group flex flex-col gap-2.5" onsubmit="app.budget.addCategory(); return false;">
-            <input type="text" id="newCategoryName" placeholder="大カテゴリー名（例：光熱費）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
-            <input type="number" id="newCategoryAmount" placeholder="金額" class="min-w-0 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
-            <input type="number" id="newCategoryBudget" placeholder="予算（任意）" class="min-w-0 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
-            <input type="text" id="newCategoryNote" placeholder="備考（任意）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
-            <button type="submit" class="w-full rounded-lg bg-indigo-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400">追加</button>
+            <input type="text" id="newCategoryName" placeholder="大カテゴリー名（例：光熱費）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400">
+            <input type="number" id="newCategoryAmount" placeholder="金額" class="min-w-0 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400">
+            <input type="number" id="newCategoryBudget" placeholder="予算（任意）" class="min-w-0 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400">
+            <input type="text" id="newCategoryNote" placeholder="備考（任意）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400">
+            <button type="submit" class="w-full rounded-lg bg-zinc-100 px-5 py-3 text-sm font-medium text-zinc-900 transition hover:bg-white">追加</button>
         </form>
-        <button type="button" class="mt-3 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-zinc-300 ring-1 ring-inset ring-white/10 transition hover:bg-white/5" onclick="app.budget.closeAddCategorySheet(); app.receipt.open();"><span data-icon="camera"></span> レシートを撮って追加</button>
+        <button type="button" class="mt-3 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-zinc-300 ring-1 ring-inset ring-white/10 transition hover:bg-white/5" onclick="app.budget.closeAddCategorySheet(); app.receipt.open();"><span data-icon="camera"></span> レシートを撮って追加</button>
     </div>
 
     <!-- レシート読み取りシート（js/receipt.js。撮影 → 読み取り中 → 確認・修正 → 追加） -->
     <div class="modal-panel bottom-sheet fixed inset-x-0 bottom-0 z-[1500] max-h-[90vh] w-full overflow-y-auto rounded-t-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="receiptSheet" style="padding-bottom: max(24px, env(safe-area-inset-bottom));">
         <div class="modal-header mb-4 flex items-center justify-between">
-            <h2 class="text-lg font-bold text-white"><span data-icon="receipt"></span> レシート読み取り</h2>
+            <h2 class="text-lg font-medium text-white"><span data-icon="receipt"></span> レシート読み取り</h2>
             <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.receipt.close()"><span data-icon="x"></span></button>
         </div>
 
         <!-- 1. 撮影 -->
         <div id="receiptStepCapture">
-            <p class="mb-4 text-sm leading-relaxed text-zinc-300">レシートを撮ると、店名・日付・金額を読み取って <span class="font-semibold text-white" id="receiptTargetMonth">表示中の月</span> に追加します。</p>
+            <p class="mb-4 text-sm leading-relaxed text-zinc-300">レシートを撮ると、店名・日付・金額を読み取って <span class="font-medium text-white" id="receiptTargetMonth">表示中の月</span> に追加します。</p>
             <div class="grid grid-cols-2 gap-2.5">
-                <label class="flex cursor-pointer flex-col items-center gap-1.5 rounded-xl bg-indigo-500 px-4 py-5 text-sm font-semibold text-white transition hover:bg-indigo-400">
+                <label class="flex cursor-pointer flex-col items-center gap-1.5 rounded-xl bg-zinc-100 px-4 py-5 text-sm font-medium text-zinc-900 transition hover:bg-white">
                     <span class="text-2xl" data-icon="camera"></span> 撮影する
                     <input type="file" accept="image/*" capture="environment" class="sr-only" onchange="app.receipt.handleFile(event)">
                 </label>
-                <label class="flex cursor-pointer flex-col items-center gap-1.5 rounded-xl bg-white/10 px-4 py-5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15">
+                <label class="flex cursor-pointer flex-col items-center gap-1.5 rounded-xl bg-white/10 px-4 py-5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15">
                     <span class="text-2xl" data-icon="image"></span> 写真から選ぶ
                     <input type="file" accept="image/*" class="sr-only" onchange="app.receipt.handleFile(event)">
                 </label>
@@ -358,7 +359,7 @@
         <div id="receiptStepReading" style="display: none;">
             <div class="flex flex-col items-center gap-4 py-4">
                 <img id="receiptPreviewReading" alt="" class="max-h-60 rounded-lg object-contain ring-1 ring-white/10">
-                <div class="flex items-center gap-2 text-sm font-semibold text-zinc-200"><span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white"></span> 読み取り中…</div>
+                <div class="flex items-center gap-2 text-sm font-medium text-zinc-200"><span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white"></span> 読み取り中…</div>
                 <p class="text-xs text-zinc-500">数秒から20秒ほどかかります</p>
             </div>
         </div>
@@ -368,75 +369,75 @@
             <div class="flex gap-3">
                 <img id="receiptPreviewResult" alt="読み取ったレシート" class="h-28 w-20 shrink-0 rounded-lg bg-white/5 object-cover ring-1 ring-white/10">
                 <div class="min-w-0 flex-1 space-y-1.5 text-xs">
-                    <p class="text-zinc-400">支払方法 <span class="ml-1 rounded-full bg-white/10 px-2 py-0.5 font-semibold text-zinc-200" id="receiptPayment">-</span></p>
+                    <p class="text-zinc-400">支払方法 <span class="ml-1 rounded-full bg-white/10 px-2 py-0.5 font-medium text-zinc-200" id="receiptPayment">-</span></p>
                     <p class="leading-relaxed text-amber-300" id="receiptAiNote" style="display: none;"></p>
                     <p class="leading-relaxed text-zinc-500">内容を確かめて、違っていれば直してから追加してください。</p>
                 </div>
             </div>
             <div class="rounded-lg bg-amber-400/10 px-3 py-2.5 text-xs leading-relaxed text-amber-200 ring-1 ring-inset ring-amber-400/20" id="receiptCardWarning" style="display: none;">クレジットカード払いのレシートです。カード明細の取込でも入るため、ここで追加すると二重になります。</div>
-            <label class="block text-xs font-semibold text-zinc-400">店名
-                <input type="text" id="receiptStore" class="mt-1 w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm font-normal text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
+            <label class="block text-xs font-medium text-zinc-400">店名
+                <input type="text" id="receiptStore" class="mt-1 w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm font-normal text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-zinc-400">
             </label>
             <div class="grid grid-cols-2 gap-2.5">
-                <label class="block text-xs font-semibold text-zinc-400">日付
-                    <input type="date" id="receiptDate" class="mt-1 w-full [color-scheme:dark] rounded-lg bg-white/5 px-3 py-2.5 text-sm font-normal text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500" onchange="app.receipt.onDateChange()">
+                <label class="block text-xs font-medium text-zinc-400">日付
+                    <input type="date" id="receiptDate" class="mt-1 w-full [color-scheme:dark] rounded-lg bg-white/5 px-3 py-2.5 text-sm font-normal text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-zinc-400" onchange="app.receipt.onDateChange()">
                 </label>
-                <label class="block text-xs font-semibold text-zinc-400">金額（円）
-                    <input type="number" id="receiptAmount" inputmode="numeric" class="mt-1 w-full rounded-lg bg-white/5 px-3 py-2.5 text-right text-sm font-normal text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
+                <label class="block text-xs font-medium text-zinc-400">金額（円）
+                    <input type="number" id="receiptAmount" inputmode="numeric" class="mt-1 w-full rounded-lg bg-white/5 px-3 py-2.5 text-right text-sm font-normal text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-zinc-400">
                 </label>
             </div>
-            <label class="block text-xs font-semibold text-zinc-400">カテゴリー
-                <select id="receiptCategory" class="mt-1 w-full [color-scheme:dark] rounded-lg bg-zinc-800 px-3 py-2.5 text-sm font-normal text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500" onchange="app.receipt.onCategoryChange()"></select>
+            <label class="block text-xs font-medium text-zinc-400">カテゴリー
+                <select id="receiptCategory" class="mt-1 w-full [color-scheme:dark] rounded-lg bg-zinc-800 px-3 py-2.5 text-sm font-normal text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-zinc-400" onchange="app.receipt.onCategoryChange()"></select>
             </label>
-            <input type="text" id="receiptNewCategory" placeholder="新しいカテゴリー名" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" style="display: none;">
+            <input type="text" id="receiptNewCategory" placeholder="新しいカテゴリー名" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400" style="display: none;">
             <div>
-                <p class="text-xs font-semibold text-zinc-400">支払った人</p>
+                <p class="text-xs font-medium text-zinc-400">支払った人</p>
                 <div class="mt-1 grid grid-cols-2 gap-2">
-                    <button type="button" id="receiptPayer-husband" class="rounded-lg px-3 py-2.5 text-sm font-semibold ring-1 ring-inset transition bg-white/20 text-white ring-white/30" aria-pressed="true" onclick="app.receipt.setPayer('husband')">夫</button>
-                    <button type="button" id="receiptPayer-wife" class="rounded-lg px-3 py-2.5 text-sm font-semibold ring-1 ring-inset transition bg-white/5 text-zinc-400 ring-white/10" aria-pressed="false" onclick="app.receipt.setPayer('wife')">妻</button>
+                    <button type="button" id="receiptPayer-husband" class="rounded-lg px-3 py-2.5 text-sm font-medium ring-1 ring-inset transition bg-white/20 text-white ring-white/30" aria-pressed="true" onclick="app.receipt.setPayer('husband')">夫</button>
+                    <button type="button" id="receiptPayer-wife" class="rounded-lg px-3 py-2.5 text-sm font-medium ring-1 ring-inset transition bg-white/5 text-zinc-400 ring-white/10" aria-pressed="false" onclick="app.receipt.setPayer('wife')">妻</button>
                 </div>
             </div>
-            <label class="block text-xs font-semibold text-zinc-400">メモ
-                <input type="text" id="receiptMemo" class="mt-1 w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm font-normal text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
+            <label class="block text-xs font-medium text-zinc-400">メモ
+                <input type="text" id="receiptMemo" class="mt-1 w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm font-normal text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-zinc-400">
             </label>
             <details id="receiptItemsWrap" class="rounded-lg bg-white/5 px-3 py-2 text-xs text-zinc-400 ring-1 ring-inset ring-white/10" style="display: none;">
-                <summary class="cursor-pointer select-none py-1 font-semibold text-zinc-300" id="receiptItemsSummary">品目</summary>
+                <summary class="cursor-pointer select-none py-1 font-medium text-zinc-300" id="receiptItemsSummary">品目</summary>
                 <ul id="receiptItems" class="mt-1 divide-y divide-white/5"></ul>
             </details>
             <p class="text-xs leading-relaxed text-sky-300" id="receiptMonthHint" style="display: none;"></p>
             <div class="grid grid-cols-[auto_1fr] gap-2.5 pt-1">
-                <button type="button" class="rounded-lg bg-white/10 px-4 py-3 text-sm font-semibold text-zinc-200 transition hover:bg-white/15" onclick="app.receipt.retake()">撮り直す</button>
-                <button type="submit" id="receiptSubmit" class="rounded-lg bg-indigo-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400">追加</button>
+                <button type="button" class="rounded-lg bg-white/10 px-4 py-3 text-sm font-medium text-zinc-200 transition hover:bg-white/15" onclick="app.receipt.retake()">撮り直す</button>
+                <button type="submit" id="receiptSubmit" class="rounded-lg bg-zinc-100 px-4 py-3 text-sm font-medium text-zinc-900 transition hover:bg-white">追加</button>
             </div>
         </form>
 
         <!-- 4. エラー -->
         <div id="receiptStepError" style="display: none;">
             <div class="rounded-xl bg-rose-500/10 p-4 text-sm leading-relaxed text-rose-200 ring-1 ring-inset ring-rose-500/20" id="receiptErrorText"></div>
-            <button type="button" class="mt-3 w-full rounded-lg bg-indigo-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.receipt.retake()">もう一度撮る</button>
+            <button type="button" class="mt-3 w-full rounded-lg bg-zinc-100 px-4 py-3 text-sm font-medium text-zinc-900 transition hover:bg-white" onclick="app.receipt.retake()">もう一度撮る</button>
         </div>
     </div>
 
     <!-- その他の機能シート（レシート読み取り・計算機・CSV出力・明細読み込み・固定費） -->
     <div class="modal-panel bottom-sheet fixed inset-x-0 bottom-0 z-[1500] max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="toolsSheet" style="padding-bottom: max(24px, env(safe-area-inset-bottom));">
         <div class="modal-header mb-5 flex items-center justify-between">
-            <h2 class="text-lg font-bold text-white">その他の機能</h2>
+            <h2 class="text-lg font-medium text-white">その他の機能</h2>
             <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.closeToolsSheet()"><span data-icon="x"></span></button>
         </div>
         <div class="space-y-2">
-            <button class="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.closeToolsSheet(); app.receipt.open();">
+            <button class="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.closeToolsSheet(); app.receipt.open();">
                 <span class="text-lg" data-icon="receipt"></span> レシート読み取り
             </button>
-            <button class="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.closeToolsSheet(); app.calculator.show();">
+            <button class="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.closeToolsSheet(); app.calculator.show();">
                 <span class="text-lg" data-icon="calculator"></span> 計算機
             </button>
-            <button class="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.closeToolsSheet(); app.csv.showModal();">
+            <button class="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.closeToolsSheet(); app.csv.showModal();">
                 <span class="text-lg" data-icon="download"></span> CSV出力
             </button>
-            <button class="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.closeToolsSheet(); app.csvImporter.showModal();">
+            <button class="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.closeToolsSheet(); app.csvImporter.showModal();">
                 <span class="text-lg" data-icon="upload"></span> 明細読み込み（CSVなど）
             </button>
-            <button class="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.closeToolsSheet(); app.recurring.showModal();">
+            <button class="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-3.5 text-left text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.closeToolsSheet(); app.recurring.showModal();">
                 <span class="text-lg" data-icon="repeat"></span> 固定費の管理
             </button>
         </div>
@@ -445,14 +446,14 @@
     <!-- PayPay請求モーダル -->
     <div class="modal-panel fixed left-1/2 top-1/2 z-[1500] max-h-[85vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="paypayRequestModal">
         <div class="modal-header mb-5 flex items-center justify-between">
-            <h2 class="text-lg font-bold text-white"><span data-icon="send"></span> PayPayで請求</h2>
+            <h2 class="text-lg font-medium text-white"><span data-icon="send"></span> PayPayで請求</h2>
             <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.paypay.closeModal()"><span data-icon="x"></span></button>
         </div>
 
         <div class="space-y-4">
             <!-- リンク未設定時のガイド -->
             <div id="paypayGuide" class="rounded-xl bg-amber-400/10 p-4 text-sm leading-relaxed text-amber-200 ring-1 ring-inset ring-amber-400/20" style="display: none;">
-                <p class="font-semibold">先にPayPayの受け取りリンクを登録してください</p>
+                <p class="font-medium">先にPayPayの受け取りリンクを登録してください</p>
                 <ol class="mt-2 list-inside list-decimal space-y-1 text-[13px] text-amber-200/90">
                     <li>PayPayアプリを開き「送る・受け取る」をタップ</li>
                     <li>「受け取る」タブで受け取りリンクを作成（本人確認が必要です）</li>
@@ -462,19 +463,19 @@
 
             <!-- 請求文プレビュー -->
             <div id="paypayMessageSection">
-                <label class="mb-2 block text-sm font-semibold text-zinc-300">請求文（送信前に編集できます）</label>
+                <label class="mb-2 block text-sm font-medium text-zinc-300">請求文（送信前に編集できます）</label>
                 <textarea id="paypayMessage" rows="4"
-                    class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm leading-relaxed text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500"></textarea>
+                    class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm leading-relaxed text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400"></textarea>
             </div>
 
             <!-- 受け取りリンク設定 -->
             <div class="rounded-xl bg-white/5 p-4 ring-1 ring-white/5">
-                <label class="mb-2 block text-sm font-semibold text-zinc-300"><span data-icon="link"></span> 受け取りリンク</label>
+                <label class="mb-2 block text-sm font-medium text-zinc-300"><span data-icon="link"></span> 受け取りリンク</label>
                 <div class="flex gap-2">
                     <input type="url" id="paypayLinkInput" placeholder="https://qr.paypay.ne.jp/..."
-                        class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+                        class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400">
                     <button type="button" onclick="app.paypay.saveLink()"
-                        class="shrink-0 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400">保存</button>
+                        class="shrink-0 rounded-lg bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-white">保存</button>
                 </div>
                 <p id="paypayLinkWarning" class="mt-2 hidden text-xs text-amber-300">
                     <span data-icon="alert-circle"></span> PayPayの受け取りリンクの形式と異なるようです。リンクを確認してください（このまま使うこともできます）
@@ -485,15 +486,15 @@
             <!-- 送信アクション -->
             <div class="flex gap-2.5">
                 <button id="paypayCopyBtn" onclick="app.paypay.copyMessage()" disabled
-                    class="flex-1 rounded-lg bg-white/10 px-3 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40">
+                    class="flex-1 rounded-lg bg-white/10 px-3 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40">
                     <span data-icon="copy"></span> コピー
                 </button>
                 <button id="paypayShareBtn" onclick="app.paypay.shareMessage()" disabled
-                    class="flex-1 rounded-lg bg-white/10 px-3 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40">
+                    class="flex-1 rounded-lg bg-white/10 px-3 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40">
                     <span data-icon="share"></span> 共有
                 </button>
                 <button id="paypayDiscordBtn" onclick="app.paypay.sendToDiscord()" disabled
-                    class="flex-1 rounded-lg bg-[#5865F2] px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-[#4752c4] disabled:cursor-not-allowed disabled:opacity-40">
+                    class="flex-1 rounded-lg bg-zinc-100 px-3 py-2.5 text-sm font-medium text-zinc-900 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-40">
                     <span data-icon="discord"></span> Discordへ
                 </button>
             </div>
@@ -507,31 +508,31 @@
             <!-- 同期ステータス（フッター直上に固定表示。本文の高さに影響させない） -->
             <div class="sync-status syncing" id="syncStatus">接続中...</div>
 
-            <div class="month-selector mb-6 flex flex-col items-center gap-3 rounded-2xl bg-white/5 p-5 ring-1 ring-white/10" id="monthSelector">
+            <div class="month-selector mb-6 flex flex-col items-center gap-3 rounded-2xl bg-graphite-card p-5 ring-1 ring-white/[0.08]" id="monthSelector">
                 <div class="month-nav flex items-center gap-4">
                     <button class="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-200 transition hover:bg-white/20" onclick="app.budget.changeMonth(-1)" aria-label="前の月"><span data-icon="chevron-left"></span></button>
-                    <div class="month-display min-w-[140px] text-center text-xl font-bold text-white" id="currentMonth"></div>
+                    <div class="month-display min-w-[140px] text-center text-xl font-medium text-zinc-100" id="currentMonth"></div>
                     <button class="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-200 transition hover:bg-white/20" onclick="app.budget.changeMonth(1)" aria-label="次の月"><span data-icon="chevron-right"></span></button>
                 </div>
                 <!-- 今月以外を表示中だけ出る（updateDisplayが制御） -->
-                <button class="rounded-full bg-indigo-500/15 px-3 py-1 text-xs font-semibold text-indigo-300 ring-1 ring-inset ring-indigo-500/30 transition hover:bg-indigo-500/25" id="jumpToCurrentMonth" onclick="app.budget.jumpToCurrentMonth()" style="display: none;">今月に戻る</button>
+                <button class="rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-zinc-200 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" id="jumpToCurrentMonth" onclick="app.budget.jumpToCurrentMonth()" style="display: none;">今月に戻る</button>
                 <!-- 合計・精算のサマリー（タップで合計カードへ） -->
-                <button class="month-summary flex w-full items-center justify-between gap-3 rounded-xl bg-white/5 px-4 py-2.5 text-left ring-1 ring-inset ring-white/5 transition hover:bg-white/10" id="monthSummary" onclick="app.budget.scrollToTotal()" aria-label="合計カードへ移動">
+                <button class="month-summary flex w-full items-center justify-between gap-3 rounded-xl bg-graphite-raised px-4 py-3 text-left ring-1 ring-inset ring-white/[0.06] transition-colors hover:bg-white/10" id="monthSummary" onclick="app.budget.scrollToTotal()" aria-label="合計カードへ移動">
                     <span class="min-w-0 flex-1">
-                        <span class="block text-[11px] font-semibold text-zinc-500">合計</span>
-                        <span class="block text-lg font-bold leading-tight text-white" id="monthSummaryTotal">¥0</span>
+                        <span class="block text-xs text-zinc-500">合計</span>
+                        <span class="mt-0.5 block font-mono text-xl font-medium leading-tight text-zinc-100 tabular-nums" id="monthSummaryTotal">¥0</span>
                     </span>
-                    <span class="flex shrink-0 flex-col items-end gap-1">
-                        <span class="hidden rounded-full bg-rose-500/15 px-2 py-0.5 text-[11px] font-bold text-rose-300 ring-1 ring-inset ring-rose-500/30" id="monthSummaryOver"></span>
-                        <span class="text-xs font-semibold text-indigo-300" id="monthSummarySettlement"></span>
+                    <span class="flex shrink-0 flex-col items-end gap-1 text-xs">
+                        <span class="hidden text-rose-300" id="monthSummaryOver"></span>
+                        <span class="font-mono font-medium text-amber-300 tabular-nums" id="monthSummarySettlement"></span>
                     </span>
                 </button>
-                <button class="w-full rounded-lg px-4 py-2.5 text-sm font-semibold transition" id="copyMonthBtn" onclick="app.copyMonth.showModal()"><span data-icon="copy"></span> 他の月からコピー</button>
+                <button class="w-full rounded-lg px-4 py-2.5 text-sm font-medium transition" id="copyMonthBtn" onclick="app.copyMonth.showModal()"><span data-icon="copy"></span> 他の月からコピー</button>
             </div>
 
             <!-- 記録が無い月の案内（updateDisplayが制御） -->
-            <div class="rounded-2xl bg-white/5 px-5 py-8 text-center ring-1 ring-white/10" id="categoryEmptyState" style="display: none;">
-                <p class="text-sm font-semibold text-zinc-200">この月はまだ記録がありません</p>
+            <div class="rounded-2xl bg-graphite-card px-5 py-8 text-center ring-1 ring-white/[0.08]" id="categoryEmptyState" style="display: none;">
+                <p class="text-sm font-medium text-zinc-200">この月はまだ記録がありません</p>
                 <p class="mt-1.5 text-xs leading-relaxed text-zinc-500">下の「追加」でカテゴリーを作るか、「他の月からコピー」で先月の項目を引き継げます。<br>固定費を登録してあれば、今月分は自動で記帳されます。</p>
             </div>
 
@@ -540,18 +541,35 @@
             <div class="total-flip mt-6 cursor-pointer" id="totalFlip" onclick="app.budget.toggleTotalView()">
                 <div class="total-flip-inner">
                     <!-- 表: 合計金額 -->
-                    <div class="total-flip-front rounded-2xl bg-gradient-to-br from-indigo-500/15 to-white/5 p-6 text-center ring-1 ring-indigo-500/20 transition hover:ring-indigo-500/40" id="totalFlipFront">
-                        <h2 class="text-sm font-semibold text-zinc-400">合計金額</h2>
-                        <div class="total-amount mt-1 text-4xl font-black tracking-tight text-white" id="totalAmount">¥0</div>
-                        <div class="settlement-breakdown mt-2 text-sm font-semibold text-zinc-300" id="settlementBreakdown">夫払い ¥0 / 妻払い ¥0</div>
-                        <div class="settlement-amount mt-1 text-base font-bold text-indigo-300" id="settlementAmount">精算: ¥0</div>
-                        <div class="copy-hint mt-2 flex items-center justify-center gap-1.5 text-xs text-zinc-500"><span data-icon="pie-chart"></span> タップで内訳グラフを表示</div>
+                    <div class="total-flip-front receipt-wrap mx-auto max-w-sm" id="totalFlipFront">
+                        <div class="receipt-paper px-6 pb-8 pt-8 text-paper-ink">
+                            <div class="flex items-baseline justify-between font-mono text-xs text-paper-muted">
+                                <span>精算レシート</span>
+                                <span class="tabular-nums" id="receiptMonthLabel"></span>
+                            </div>
+                            <div class="receipt-rule my-4"></div>
+                            <dl class="space-y-2 text-sm">
+                                <div class="flex items-baseline justify-between gap-4"><dt>夫払い</dt><dd class="font-mono tabular-nums" id="receiptHusband">¥0</dd></div>
+                                <div class="flex items-baseline justify-between gap-4"><dt>妻払い</dt><dd class="font-mono tabular-nums" id="receiptWife">¥0</dd></div>
+                            </dl>
+                            <div class="receipt-rule my-4"></div>
+                            <div class="flex items-baseline justify-between gap-4">
+                                <h2 class="text-sm">合計</h2>
+                                <div class="total-amount font-mono text-3xl font-medium tabular-nums" id="totalAmount">¥0</div>
+                            </div>
+                            <div class="receipt-rule my-4"></div>
+                            <div class="flex items-baseline justify-between gap-4">
+                                <span class="text-sm">精算</span>
+                                <span class="settlement-amount font-mono text-base font-medium text-paper-accent tabular-nums" id="settlementAmount">なし</span>
+                            </div>
+                            <div class="copy-hint mt-6 flex items-center justify-center gap-1.5 text-xs text-paper-muted"><span data-icon="pie-chart"></span> タップで内訳グラフ</div>
+                        </div>
                     </div>
                     <!-- 裏: カテゴリ別内訳の円グラフ／月次推移グラフ -->
-                    <div class="total-flip-back rounded-2xl bg-gradient-to-br from-indigo-500/15 to-white/5 p-6 text-center ring-1 ring-indigo-500/20" id="totalFlipBack">
+                    <div class="total-flip-back rounded-2xl bg-graphite-card p-6 text-center ring-1 ring-white/[0.08]" id="totalFlipBack">
                         <div class="breakdown-tabs mx-auto mb-1 flex max-w-[220px] gap-1.5 rounded-lg bg-white/5 p-1" onclick="event.stopPropagation()">
-                            <button class="breakdown-tab-btn active flex-1 rounded-md px-3 py-1.5 text-xs font-semibold text-zinc-300 transition" id="breakdownTabPie" onclick="app.budget.setBreakdownTab('pie')">内訳</button>
-                            <button class="breakdown-tab-btn flex-1 rounded-md px-3 py-1.5 text-xs font-semibold text-zinc-300 transition" id="breakdownTabTrend" onclick="app.budget.setBreakdownTab('trend')">推移</button>
+                            <button class="breakdown-tab-btn active flex-1 rounded-md px-3 py-1.5 text-xs font-medium text-zinc-300 transition" id="breakdownTabPie" onclick="app.budget.setBreakdownTab('pie')">内訳</button>
+                            <button class="breakdown-tab-btn flex-1 rounded-md px-3 py-1.5 text-xs font-medium text-zinc-300 transition" id="breakdownTabTrend" onclick="app.budget.setBreakdownTab('trend')">推移</button>
                         </div>
                         <div id="breakdownPieView">
                             <div class="pie-chart mx-auto mt-2 max-w-[280px]" id="pieChart"></div>
@@ -566,36 +584,36 @@
                 </div>
             </div>
 
-            <div class="output-section mt-6 rounded-2xl bg-white/5 p-5 ring-1 ring-white/10">
+            <div class="output-section mt-8 rounded-2xl bg-graphite-card p-5 ring-1 ring-white/[0.08]">
                 <div class="mb-4 flex items-center justify-between gap-3">
-                    <h2 class="text-base font-bold text-white">テキスト出力</h2>
+                    <h2 class="text-base font-medium text-zinc-100">テキスト出力</h2>
                     <div class="inline-flex shrink-0 rounded-lg bg-white/5 p-0.5 ring-1 ring-inset ring-white/10">
-                        <button type="button" id="outputModeSummary" class="output-mode-btn rounded-md px-2.5 py-1 text-xs font-semibold transition bg-white/15 text-white" onclick="app.budget.setOutputMode('summary')">概要</button>
-                        <button type="button" id="outputModeDetail" class="output-mode-btn rounded-md px-2.5 py-1 text-xs font-semibold transition text-zinc-400" onclick="app.budget.setOutputMode('detail')">詳細</button>
+                        <button type="button" id="outputModeSummary" class="output-mode-btn rounded-md px-2.5 py-1 text-xs font-medium transition bg-white/15 text-white" onclick="app.budget.setOutputMode('summary')">概要</button>
+                        <button type="button" id="outputModeDetail" class="output-mode-btn rounded-md px-2.5 py-1 text-xs font-medium transition text-zinc-400" onclick="app.budget.setOutputMode('detail')">詳細</button>
                     </div>
                 </div>
-                <div class="output-text whitespace-pre-wrap rounded-xl bg-zinc-950/60 p-4 text-sm leading-relaxed text-zinc-300 ring-1 ring-inset ring-white/5" id="outputText"></div>
-                <button class="copy-btn mt-3 w-full rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.budget.copyOutput()"><span data-icon="copy"></span> コピー</button>
-                <div class="copy-success mt-2 text-center text-sm font-semibold text-emerald-400" id="copySuccess" style="display: none;">コピーしました！</div>
-                <button class="discord-btn mt-3 w-full rounded-lg bg-[#5865F2] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#4752c4]" onclick="app.discord.sendOutput()">
+                <div class="output-text whitespace-pre-wrap rounded-xl bg-graphite-deep p-4 text-sm leading-relaxed text-zinc-300 ring-1 ring-inset ring-white/[0.06]" id="outputText"></div>
+                <button class="discord-btn mt-4 w-full rounded-lg bg-zinc-100 px-4 py-3 text-sm font-medium text-zinc-900 transition-colors hover:bg-white" onclick="app.discord.sendOutput()">
                     <span data-icon="discord"></span> Discordに送る
                 </button>
                 <!-- Discord Webhook設定（家族共有。設定すると上のボタンで直接投稿される） -->
                 <div class="mt-2 flex items-center justify-between gap-2 text-xs text-zinc-500">
                     <span id="discordWebhookStatus">Webhook: 未設定（コピーしてDiscordを開きます）</span>
-                    <button type="button" class="shrink-0 rounded-md bg-white/10 px-2 py-1 font-semibold text-zinc-300 transition hover:bg-white/15" onclick="app.discord.toggleSettings()">設定</button>
+                    <button type="button" class="shrink-0 rounded-md bg-white/10 px-2 py-1 font-medium text-zinc-300 transition hover:bg-white/15" onclick="app.discord.toggleSettings()">設定</button>
                 </div>
                 <div class="mt-2 rounded-xl bg-white/5 p-3 ring-1 ring-white/10" id="discordWebhookSetup" style="display: none;">
                     <p class="mb-2 text-xs text-zinc-400">DiscordのチャンネルのWebhook URLを登録すると、ボタン1つで直接投稿できます（チャンネル設定 → 連携サービス → ウェブフック → 新しいウェブフック → URLをコピー）。家族全員で共有されます。</p>
                     <div class="flex gap-2">
-                        <input type="url" id="discordWebhookInput" placeholder="https://discord.com/api/webhooks/..." autocomplete="off" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
-                        <button class="shrink-0 rounded-lg bg-indigo-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.discord.saveWebhook()">保存</button>
-                        <button class="shrink-0 rounded-lg bg-rose-500/10 px-3 py-2 text-sm font-semibold text-rose-300 ring-1 ring-inset ring-rose-500/20 transition hover:bg-rose-500/20" onclick="app.discord.clearWebhook()">削除</button>
+                        <input type="url" id="discordWebhookInput" placeholder="https://discord.com/api/webhooks/..." autocomplete="off" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400">
+                        <button class="shrink-0 rounded-lg bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-900 transition hover:bg-white" onclick="app.discord.saveWebhook()">保存</button>
+                        <button class="shrink-0 rounded-lg bg-rose-500/10 px-3 py-2 text-sm font-medium text-rose-300 ring-1 ring-inset ring-rose-500/20 transition hover:bg-rose-500/20" onclick="app.discord.clearWebhook()">削除</button>
                     </div>
                 </div>
-                <button class="paypay-btn mt-3 w-full rounded-lg bg-[#ff0033] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#d4002a]" onclick="app.paypay.showModal()">
-                    <span data-icon="send"></span> PayPayで請求
-                </button>
+                <div class="mt-3 grid grid-cols-2 gap-2">
+                    <button class="copy-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition-colors hover:bg-white/15" onclick="app.budget.copyOutput()"><span data-icon="copy"></span> コピー</button>
+                    <button class="paypay-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition-colors hover:bg-white/15" onclick="app.paypay.showModal()"><span data-icon="send"></span> PayPayで請求</button>
+                </div>
+                <div class="copy-success mt-2 text-center text-xs text-zinc-400" id="copySuccess" style="display: none;">コピーしました</div>
             </div>
         </div>
 
@@ -1056,19 +1074,19 @@
     </div>
 
     <!-- フッター -->
-    <div class="footer fixed inset-x-0 bottom-0 z-[1000] border-t border-white/10 bg-zinc-950/85 px-3 pt-2 backdrop-blur sm:px-4 sm:pt-2.5" style="padding-bottom: max(8px, env(safe-area-inset-bottom));">
-        <div class="footer-nav mx-auto grid max-w-lg grid-cols-3 gap-1.5 sm:gap-2">
-            <button class="nav-btn flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg bg-indigo-500 px-1 py-2 text-[11px] font-bold leading-tight text-white transition hover:bg-indigo-400 sm:flex-row sm:gap-1.5 sm:px-3 sm:py-2.5 sm:text-sm" onclick="app.budget.showAddCategorySheet()">
-                <span class="nav-icon text-lg leading-none sm:text-base" data-icon="plus"></span>
-                <span class="nav-label max-w-full truncate tracking-tight">追加</span>
+    <div class="footer fixed inset-x-0 bottom-0 z-[1000] border-t border-white/[0.08] bg-graphite-deep/90 px-3 pt-2 backdrop-blur sm:px-4 sm:pt-2.5" style="padding-bottom: max(8px, env(safe-area-inset-bottom));">
+        <div class="footer-nav mx-auto grid max-w-lg grid-cols-3 gap-2">
+            <button class="nav-btn flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-[11px] font-medium leading-tight transition-colors sm:flex-row sm:gap-2 sm:px-3 sm:py-2.5 sm:text-sm bg-zinc-100 text-zinc-900 hover:bg-white" onclick="app.budget.showAddCategorySheet()">
+                <span class="nav-icon text-base leading-none" data-icon="plus"></span>
+                <span class="nav-label max-w-full truncate">追加</span>
             </button>
-            <button class="nav-btn flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg bg-white/10 px-1 py-2 text-[10px] font-semibold leading-tight text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15 sm:flex-row sm:gap-1.5 sm:px-3 sm:py-2.5 sm:text-[13px]" id="footerQuickInput" onclick="app.budget.toggleQuickInputMode()">
-                <span class="nav-icon text-base leading-none sm:text-sm" data-icon="zap"></span>
-                <span class="nav-label max-w-full truncate tracking-tight">クイック入力</span>
+            <button class="nav-btn flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-[11px] font-medium leading-tight transition-colors sm:flex-row sm:gap-2 sm:px-3 sm:py-2.5 sm:text-sm bg-white/10 text-zinc-100 ring-1 ring-inset ring-white/10 hover:bg-white/15" id="footerQuickInput" onclick="app.budget.toggleQuickInputMode()">
+                <span class="nav-icon text-base leading-none" data-icon="zap"></span>
+                <span class="nav-label max-w-full truncate">クイック入力</span>
             </button>
-            <button class="nav-btn flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg bg-white/10 px-1 py-2 text-[10px] font-semibold leading-tight text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15 sm:flex-row sm:gap-1.5 sm:px-3 sm:py-2.5 sm:text-[13px]" onclick="app.showToolsSheet()">
-                <span class="nav-icon text-base leading-none sm:text-sm" data-icon="more-horizontal"></span>
-                <span class="nav-label max-w-full truncate tracking-tight">その他</span>
+            <button class="nav-btn flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-[11px] font-medium leading-tight transition-colors sm:flex-row sm:gap-2 sm:px-3 sm:py-2.5 sm:text-sm bg-white/10 text-zinc-100 ring-1 ring-inset ring-white/10 hover:bg-white/15" onclick="app.showToolsSheet()">
+                <span class="nav-icon text-base leading-none" data-icon="more-horizontal"></span>
+                <span class="nav-label max-w-full truncate">その他</span>
             </button>
         </div>
     </div>

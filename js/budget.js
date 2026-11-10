@@ -127,18 +127,18 @@ export class BudgetManager {
             footerBtn.classList.toggle('active', this.quickInputMode);
             // アイコンは維持し、ラベルのみ差し替え
             const label = footerBtn.querySelector('.nav-label');
-            if (label) label.textContent = this.quickInputMode ? 'ON' : 'クイック入力';
+            if (label) label.textContent = this.quickInputMode ? 'クイック入力中' : 'クイック入力';
         }
         
         if (this.quickInputMode) {
-            Utils.showToast('クイック入力モード ON');
+            Utils.showToast('クイック入力をオンにしました');
             // 最初の入力欄にフォーカス
             setTimeout(() => {
                 const firstInput = document.querySelector('.quick-input-field');
                 if (firstInput) firstInput.focus();
             }, 100);
         } else {
-            Utils.showToast('クイック入力モード OFF');
+            Utils.showToast('クイック入力をオフにしました');
         }
     }
 
@@ -251,17 +251,23 @@ export class BudgetManager {
         const total = this.calculateTotal();
         const settlement = this.calculateSettlement();
 
-        const totalEl = document.getElementById('totalAmount');
-        const breakdownEl = document.getElementById('settlementBreakdown');
-        const settlementEl = document.getElementById('settlementAmount');
-        const outputEl = document.getElementById('outputText');
+        const setText = (id, text) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = text;
+        };
 
-        if (totalEl) totalEl.textContent = `¥${Utils.formatCurrency(total)}`;
-        if (breakdownEl) {
-            breakdownEl.textContent = `夫払い ¥${Utils.formatCurrency(settlement.husband)} / 妻払い ¥${Utils.formatCurrency(settlement.wife)}`;
-        }
-        if (settlementEl) settlementEl.textContent = `精算: ${this._formatSettlementLabel(settlement)}`;
-        if (outputEl) outputEl.textContent = this.generateOutput();
+        // 合計カード（精算レシート）
+        setText('receiptMonthLabel', `${this.currentYear}.${String(this.currentMonth).padStart(2, '0')}`);
+        setText('receiptHusband', `¥${Utils.formatCurrency(settlement.husband)}`);
+        setText('receiptWife', `¥${Utils.formatCurrency(settlement.wife)}`);
+        setText('totalAmount', `¥${Utils.formatCurrency(total)}`);
+        setText('settlementAmount', this._formatSettlementLabel(settlement));
+        // 差し色は「精算がある月の精算額」だけに使う（精算なしの月は控えめな文字色）
+        const hasSettlement = settlement.direction !== 'none';
+        const receiptSettlement = document.getElementById('settlementAmount');
+        receiptSettlement?.classList.toggle('text-paper-accent', hasSettlement);
+        receiptSettlement?.classList.toggle('text-paper-muted', !hasSettlement);
+        setText('outputText', this.generateOutput());
         this._updateOutputModeToggle();
 
         // ミニヘッダーの合計額も追従
@@ -274,6 +280,8 @@ export class BudgetManager {
         const summarySettlementEl = document.getElementById('monthSummarySettlement');
         if (summarySettlementEl) {
             summarySettlementEl.textContent = settlement.direction === 'none' ? '精算なし' : `精算 ${this._formatSettlementLabel(settlement)}`;
+            summarySettlementEl.classList.toggle('text-amber-300', settlement.direction !== 'none');
+            summarySettlementEl.classList.toggle('text-zinc-500', settlement.direction === 'none');
         }
         const overEl = document.getElementById('monthSummaryOver');
         if (overEl) {
@@ -367,11 +375,11 @@ export class BudgetManager {
         const monthData = this.data[monthKey] || { categories: [] };
         try {
             await setDoc(doc(db, 'budgetMonths', monthKey), monthData);
-            this.showSyncStatus(SYNC_STATUS.SYNCED, '✓ 同期完了');
+            this.showSyncStatus(SYNC_STATUS.SYNCED, '同期完了');
             this._hideSyncStatusAfterDelay();
         } catch (error) {
             console.error('Firestore保存エラー:', error);
-            this.showSyncStatus(SYNC_STATUS.ERROR, `✗ 同期エラー: ${error.message}`);
+            this.showSyncStatus(SYNC_STATUS.ERROR, `同期エラー: ${error.message}`);
         }
     }
 
@@ -384,7 +392,7 @@ export class BudgetManager {
             (snap) => this._handleMonthsSnapshot(snap),
             (error) => {
                 console.error('Firestore読み込みエラー:', error);
-                this.showSyncStatus(SYNC_STATUS.ERROR, `✗ 接続エラー: ${error.message}`);
+                this.showSyncStatus(SYNC_STATUS.ERROR, `接続エラー: ${error.message}`);
             }
         );
     }
@@ -425,7 +433,7 @@ export class BudgetManager {
         if (this.isInitialLoad) {
             // isInitialLoad解除を先に行う（updateDisplay内の固定費自動記帳判定が
             // 「初回読み込み未完了」を理由にスキップされないようにするため）
-            this._finishInitialLoad('✓ データ読み込み完了');
+            this._finishInitialLoad('データ読み込み完了');
             this.updateDisplay(); // 初回は必ず描画
         }
     }
@@ -442,7 +450,7 @@ export class BudgetManager {
 
             // 既に移行済みマークがあれば何もしない（削除済みデータの復活を防ぐ）
             if (legacy.exists() && legacy.data().migrated) {
-                this._finishInitialLoad('✓ 接続完了');
+                this._finishInitialLoad('接続完了');
                 return;
             }
 
@@ -461,12 +469,12 @@ export class BudgetManager {
                 if (legacy.exists()) {
                     await setDoc(legacyRef, { migrated: true }, { merge: true });
                 }
-                this._finishInitialLoad('✓ 接続完了（データなし）');
+                this._finishInitialLoad('接続完了（データなし）');
             }
         } catch (error) {
             console.error('データ移行エラー:', error);
             // 移行に失敗しても空データで初期表示は完了させる
-            this._finishInitialLoad('✓ 接続完了');
+            this._finishInitialLoad('接続完了');
         }
     }
 
@@ -814,13 +822,7 @@ export class BudgetManager {
         const chipId = subcategoryId === null ? `payer-${categoryId}` : `payer-${categoryId}-${subcategoryId}`;
         const chip = document.getElementById(chipId);
         if (chip) {
-            chip.textContent = isWife ? '妻' : '夫';
-            chip.classList.toggle('bg-pink-500/15', isWife);
-            chip.classList.toggle('text-pink-300', isWife);
-            chip.classList.toggle('ring-pink-500/30', isWife);
-            chip.classList.toggle('bg-white/10', !isWife);
-            chip.classList.toggle('text-zinc-300', !isWife);
-            chip.classList.toggle('ring-white/10', !isWife);
+            chip.innerHTML = this._payerChipInner(isWife);
         }
 
         this._updateTotalDisplay();
@@ -1198,10 +1200,10 @@ export class BudgetManager {
         const summaryBtn = document.getElementById('outputModeSummary');
         const detailBtn = document.getElementById('outputModeDetail');
         if (!summaryBtn || !detailBtn) return;
-        const active = 'bg-white/15 text-white';
+        const active = 'bg-graphite-raised text-zinc-100 ring-1 ring-inset ring-white/10';
         const inactive = 'text-zinc-400';
-        summaryBtn.className = `output-mode-btn rounded-md px-2.5 py-1 text-xs font-semibold transition ${this.outputDetailMode ? inactive : active}`;
-        detailBtn.className = `output-mode-btn rounded-md px-2.5 py-1 text-xs font-semibold transition ${this.outputDetailMode ? active : inactive}`;
+        summaryBtn.className = `output-mode-btn rounded-md px-2.5 py-1 text-xs font-medium transition ${this.outputDetailMode ? inactive : active}`;
+        detailBtn.className = `output-mode-btn rounded-md px-2.5 py-1 text-xs font-medium transition ${this.outputDetailMode ? active : inactive}`;
     }
 
     // ----------------------------------------
@@ -1372,7 +1374,7 @@ export class BudgetManager {
         const displayAmount = categoryDisplayAmount(category);
 
         return `
-            <div class="category-item overflow-hidden rounded-xl bg-white/5 ring-1 ring-white/10" data-cat-id="${category.id}">
+            <div class="category-item overflow-hidden rounded-xl bg-graphite-card ring-1 ring-white/[0.08]" data-cat-id="${category.id}">
                 ${this._renderCategorySummary(category, displayAmount)}
                 ${this._renderCategoryDetails(category, displayAmount)}
             </div>
@@ -1390,9 +1392,9 @@ export class BudgetManager {
         // クイック入力欄は名前行の下に独立した行として出す（横に並べると名前が潰れて読めなくなるため）
         const quickInput = this.quickInputMode ? `
             <form class="quick-input-wrapper mt-2 flex items-center gap-2 pl-6" onsubmit="return app.budget.quickInputSubmit('${safeId}', null, event)" onclick="event.stopPropagation()">
-                <input type="number" class="quick-input-field min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" id="quick-${safeId}"
+                <input type="number" class="quick-input-field min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400" id="quick-${safeId}"
                     placeholder="${Utils.escapeHtml(category.name)} に金額を追加" inputmode="decimal" enterkeyhint="go">
-                <button type="submit" class="quick-add-btn flex h-9 w-12 shrink-0 items-center justify-center rounded-lg bg-indigo-500 font-bold text-white transition hover:bg-indigo-400" aria-label="追加">+</button>
+                <button type="submit" class="quick-add-btn flex h-9 w-12 shrink-0 items-center justify-center rounded-lg bg-white/10 text-zinc-100 ring-1 ring-inset ring-white/10 transition-colors hover:bg-white/15" aria-label="追加">${Icons.svg('plus')}</button>
             </form>
         ` : '';
 
@@ -1401,11 +1403,11 @@ export class BudgetManager {
                 <div class="flex items-center justify-between gap-3">
                     <div class="category-summary-left flex min-w-0 items-center gap-2.5">
                         <span class="accordion-icon text-xs text-zinc-500" id="icon-${category.id}">${Icons.svg('chevron-right')}</span>
-                        <span class="category-summary-name truncate text-sm font-semibold text-zinc-100">${Utils.escapeHtml(category.name)}</span>
-                        ${category.subcategories.length ? `<span class="shrink-0 text-[11px] font-semibold text-zinc-500">${category.subcategories.length}件</span>` : ''}
+                        <span class="category-summary-name truncate text-[15px] font-medium text-zinc-100">${Utils.escapeHtml(category.name)}</span>
+                        ${category.subcategories.length ? `<span class="shrink-0 font-mono text-[11px] text-zinc-500 tabular-nums">${category.subcategories.length}件</span>` : ''}
                     </div>
                     <div class="category-summary-right flex shrink-0 items-center gap-2">
-                        <span class="category-summary-amount whitespace-nowrap text-sm font-bold text-white">${Utils.formatCurrency(displayAmount)}円</span>
+                        <span class="category-summary-amount whitespace-nowrap font-mono text-[15px] font-medium text-zinc-100 tabular-nums">¥${Utils.formatCurrency(displayAmount)}</span>
                         <span class="drag-handle flex h-8 w-8 shrink-0 cursor-grab items-center justify-center text-lg text-zinc-500 transition hover:text-zinc-300 active:cursor-grabbing"
                             onpointerdown="app.budget.startCategoryDrag(event, ${category.id})" onclick="event.stopPropagation()">${Icons.svg('grip')}</span>
                     </div>
@@ -1429,15 +1431,16 @@ export class BudgetManager {
         const ratio = displayAmount / budget;
         const percent = Math.round(ratio * 100);
         const widthPercent = Math.min(100, Math.max(0, ratio * 100));
-        const barColor = ratio >= 1 ? 'bg-rose-500' : (ratio >= 0.8 ? 'bg-amber-400' : 'bg-emerald-500');
-        const textColor = ratio >= 1 ? 'text-rose-300' : (ratio >= 0.8 ? 'text-amber-300' : 'text-emerald-300');
+        // 余裕がある間は無彩色、8割を超えたら差し色（琥珀）、超過したら赤
+        const barColor = ratio >= 1 ? 'bg-rose-500' : (ratio >= 0.8 ? 'bg-amber-400' : 'bg-zinc-500');
+        const textColor = ratio >= 1 ? 'text-rose-300' : (ratio >= 0.8 ? 'text-amber-300' : 'text-zinc-500');
 
         return `
             <div class="budget-bar mt-2 flex items-center gap-2">
-                <div class="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-white/10">
-                    <div class="h-full rounded-full ${barColor} transition-[width]" style="width: ${widthPercent}%"></div>
+                <div class="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-white/[0.08]">
+                    <div class="h-full rounded-full ${barColor}" style="width: ${widthPercent}%"></div>
                 </div>
-                <span class="shrink-0 whitespace-nowrap text-[11px] font-semibold ${textColor}">${percent}% / 予算${Utils.formatCurrency(budget)}円</span>
+                <span class="shrink-0 whitespace-nowrap font-mono text-[11px] tabular-nums ${textColor}">${percent}% / ${Utils.formatCurrency(budget)}</span>
             </div>
         `;
     }
@@ -1465,26 +1468,26 @@ export class BudgetManager {
      */
     _renderCategoryHeader(category, displayAmount, hasSubcategories) {
         const amountSection = hasSubcategories
-            ? `<span class="text-base font-bold text-white">合計: ${Utils.formatCurrency(displayAmount)}円</span>`
-            : `<input type="number" id="amount-${category.id}" value="${category.amount ?? 0}" onchange="app.budget.updateAmount(${category.id}, null)" class="w-28 rounded-lg bg-white/5 px-2.5 py-1.5 text-right text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500"><span class="text-sm text-zinc-400">円</span>`;
+            ? `<span class="font-mono text-base font-medium text-zinc-100 tabular-nums">¥${Utils.formatCurrency(displayAmount)}</span>`
+            : `<input type="number" id="amount-${category.id}" value="${category.amount ?? 0}" onchange="app.budget.updateAmount(${category.id}, null)" class="w-28 rounded-lg bg-white/5 px-2.5 py-1.5 text-right text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-zinc-400"><span class="text-sm text-zinc-400">円</span>`;
 
         return `
             <div class="category-header flex flex-wrap items-start justify-between gap-3">
                 <div class="min-w-0">
-                    <span class="category-name text-sm font-bold text-white">${Utils.escapeHtml(category.name)}</span>
+                    <span class="category-name text-sm font-medium text-zinc-100">${Utils.escapeHtml(category.name)}</span>
                     ${category.note ? `<div class="note-text mt-0.5 text-xs text-zinc-500">備考: ${Utils.escapeHtml(category.note)}</div>` : ''}
                 </div>
                 <div class="category-amount flex items-center gap-2">
                     ${amountSection}
                     <div class="category-actions flex gap-1.5">
-                        <button class="edit-btn rounded-md bg-white/10 px-2.5 py-1.5 text-xs font-semibold text-zinc-300 transition hover:bg-white/15" onclick="app.budget.editCategory(${category.id})">編集</button>
-                        <button class="delete-btn rounded-md bg-rose-500/10 px-2.5 py-1.5 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20" onclick="app.budget.deleteCategory(${category.id})">削除</button>
+                        <button class="edit-btn rounded-md bg-white/10 px-2.5 py-1.5 text-xs font-medium text-zinc-300 transition hover:bg-white/15" onclick="app.budget.editCategory(${category.id})">編集</button>
+                        <button class="delete-btn rounded-md px-2.5 py-1.5 text-xs font-medium text-rose-300 transition-colors hover:bg-rose-500/10" onclick="app.budget.deleteCategory(${category.id})">削除</button>
                     </div>
                 </div>
             </div>
             <div class="category-budget mt-2.5 flex items-center gap-2">
-                <span class="text-xs font-semibold text-zinc-400">予算</span>
-                <input type="number" id="budget-${category.id}" value="${category.budget || ''}" placeholder="未設定" onchange="app.budget.updateBudget(${category.id})" class="w-28 rounded-lg bg-white/5 px-2.5 py-1.5 text-right text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+                <span class="text-xs font-medium text-zinc-400">予算</span>
+                <input type="number" id="budget-${category.id}" value="${category.budget || ''}" placeholder="未設定" onchange="app.budget.updateBudget(${category.id})" class="w-28 rounded-lg bg-white/5 px-2.5 py-1.5 text-right text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400">
                 <span class="text-sm text-zinc-400">円</span>
             </div>
         `;
@@ -1498,7 +1501,7 @@ export class BudgetManager {
         return `
             <div class="mt-3 flex items-center gap-2">
                 ${this._renderPayerChip(category.id, null, category.payer)}
-                <input type="text" class="note-input min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" id="note-${category.id}"
+                <input type="text" class="note-input min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400" id="note-${category.id}"
                     value="${Utils.escapeHtml(category.note || '')}" placeholder="備考を入力..."
                     onchange="app.budget.updateNote(${category.id}, null)">
             </div>
@@ -1517,11 +1520,17 @@ export class BudgetManager {
         const isWife = payer === 'wife';
         const subArg = subcategoryId === null ? 'null' : subcategoryId;
         const chipId = subcategoryId === null ? `payer-${categoryId}` : `payer-${categoryId}-${subcategoryId}`;
-        const classes = isWife
-            ? 'bg-pink-500/15 text-pink-300 ring-1 ring-inset ring-pink-500/30'
-            : 'bg-white/10 text-zinc-300 ring-1 ring-inset ring-white/10';
+        return `<button type="button" id="${chipId}" class="payer-chip inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/[0.06] px-2.5 py-1 text-xs text-zinc-200 ring-1 ring-inset ring-white/10 transition-colors hover:bg-white/10" onclick="app.budget.togglePayer(${categoryId}, ${subArg})" aria-label="支払った人を切り替え">${this._payerChipInner(isWife)}</button>`;
+    }
 
-        return `<button type="button" id="${chipId}" class="payer-chip shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${classes}" onclick="app.budget.togglePayer(${categoryId}, ${subArg})">${isWife ? '妻' : '夫'}</button>`;
+    /**
+     * 支払者チップの中身（人物の色のドット＋夫/妻）
+     * @private
+     * @param {boolean} isWife
+     * @returns {string}
+     */
+    _payerChipInner(isWife) {
+        return `<span class="h-1.5 w-1.5 rounded-full ${isWife ? 'bg-pink-400' : 'bg-sky-400'}"></span>${isWife ? '妻' : '夫'}`;
     }
 
     /**
@@ -1545,18 +1554,18 @@ export class BudgetManager {
             // クイック入力欄は独立した行に出す（横に並べると小カテゴリー名が潰れて読めなくなるため）
             const quickInput = this.quickInputMode ? `
                 <form class="quick-input-wrapper-sub mt-2 flex items-center gap-2" onsubmit="return app.budget.quickInputSubmit('${safeCatId}', '${safeSubId}', event)">
-                    <input type="number" class="quick-input-field quick-input-sub min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" id="quick-sub-${safeCatId}-${safeSubId}"
+                    <input type="number" class="quick-input-field quick-input-sub min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400" id="quick-sub-${safeCatId}-${safeSubId}"
                         placeholder="${Utils.escapeHtml(sub.name)} に金額を追加" inputmode="decimal" enterkeyhint="go">
-                    <button type="submit" class="quick-add-btn flex h-9 w-12 shrink-0 items-center justify-center rounded-lg bg-indigo-500 font-bold text-white transition hover:bg-indigo-400" aria-label="追加">+</button>
+                    <button type="submit" class="quick-add-btn flex h-9 w-12 shrink-0 items-center justify-center rounded-lg bg-white/10 text-zinc-100 ring-1 ring-inset ring-white/10 transition-colors hover:bg-white/15" aria-label="追加">${Icons.svg('plus')}</button>
                 </form>
             ` : '';
 
             return `
-                <div class="subcategory-item rounded-lg bg-white/5 p-3 ring-1 ring-inset ring-white/5" data-sub-id="${sub.id}">
+                <div class="subcategory-item rounded-lg bg-graphite-raised/60 p-3 ring-1 ring-inset ring-white/[0.06]" data-sub-id="${sub.id}">
                     <div class="sub-row-primary flex items-center gap-2">
                         <span class="subcategory-name min-w-0 flex-1 truncate text-sm font-medium text-zinc-200">${Utils.escapeHtml(sub.name)}</span>
                         <input type="number" id="subamount-${category.id}-${sub.id}" value="${sub.amount ?? 0}"
-                            onchange="app.budget.updateAmount(${category.id}, ${sub.id})" class="w-24 shrink-0 rounded-lg bg-white/5 px-2.5 py-1.5 text-right text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
+                            onchange="app.budget.updateAmount(${category.id}, ${sub.id})" class="w-24 shrink-0 rounded-lg bg-white/5 px-2.5 py-1.5 text-right text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-zinc-400">
                         <span class="shrink-0 text-sm text-zinc-400">円</span>
                         <span class="drag-handle flex h-8 w-8 shrink-0 cursor-grab items-center justify-center text-base text-zinc-500 transition hover:text-zinc-300 active:cursor-grabbing"
                             onpointerdown="app.budget.startSubcategoryDrag(event, ${category.id}, ${sub.id})">${Icons.svg('grip')}</span>
@@ -1564,12 +1573,12 @@ export class BudgetManager {
                     ${quickInput}
                     <div class="sub-row-secondary mt-2 flex items-center gap-2">
                         ${this._renderPayerChip(category.id, sub.id, sub.payer)}
-                        <input type="text" class="note-input min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500" id="subnote-edit-${category.id}-${sub.id}"
+                        <input type="text" class="note-input min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400" id="subnote-edit-${category.id}-${sub.id}"
                             value="${Utils.escapeHtml(sub.note || '')}" placeholder="備考を入力..."
                             onchange="app.budget.updateNote(${category.id}, ${sub.id})">
                         <div class="category-actions flex shrink-0 gap-1.5">
-                            <button class="edit-btn rounded-md bg-white/10 px-2.5 py-1.5 text-xs font-semibold text-zinc-300 transition hover:bg-white/15" onclick="app.budget.editSubcategory(${category.id}, ${sub.id})">編集</button>
-                            <button class="delete-btn rounded-md bg-rose-500/10 px-2.5 py-1.5 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20" onclick="app.budget.deleteSubcategory(${category.id}, ${sub.id})">削除</button>
+                            <button class="edit-btn rounded-md bg-white/10 px-2.5 py-1.5 text-xs font-medium text-zinc-300 transition hover:bg-white/15" onclick="app.budget.editSubcategory(${category.id}, ${sub.id})">編集</button>
+                            <button class="delete-btn rounded-md px-2.5 py-1.5 text-xs font-medium text-rose-300 transition-colors hover:bg-rose-500/10" onclick="app.budget.deleteSubcategory(${category.id}, ${sub.id})">削除</button>
                         </div>
                     </div>
                 </div>
@@ -1585,10 +1594,10 @@ export class BudgetManager {
         return `
             <div class="add-subcategory mt-3 rounded-lg bg-white/5 p-3 ring-1 ring-inset ring-white/5">
                 <form class="input-group flex flex-col gap-2 sm:flex-row" onsubmit="app.budget.addSubcategory(${categoryId}); return false;">
-                    <input type="text" id="subname-${categoryId}" placeholder="小カテゴリー（例：電気）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
-                    <input type="number" id="subamount-${categoryId}" placeholder="金額" class="min-w-0 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500 sm:w-24">
-                    <input type="text" id="subnote-${categoryId}" placeholder="備考（任意）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
-                    <button type="submit" class="shrink-0 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400">追加</button>
+                    <input type="text" id="subname-${categoryId}" placeholder="小カテゴリー（例：電気）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400">
+                    <input type="number" id="subamount-${categoryId}" placeholder="金額" class="min-w-0 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400 sm:w-24">
+                    <input type="text" id="subnote-${categoryId}" placeholder="備考（任意）" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400">
+                    <button type="submit" class="shrink-0 rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition-colors hover:bg-white/15">追加</button>
                 </form>
             </div>
         `;
