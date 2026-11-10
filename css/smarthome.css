@@ -30,8 +30,8 @@
 .fan-btn.active,
 .mode-btn.active:hover,
 .fan-btn.active:hover {
-    background-color: #6366f1; /* indigo-500 */
-    color: #ffffff;
+    background-color: #fbbf24; /* 差し色（琥珀）。docs/design.md */
+    color: #141415;
     box-shadow: none; /* Tailwindのring（box-shadow）を打ち消す */
 }
 

@@ -8,15 +8,15 @@
 
 /* ---------- チェックボックス（renderItem が .checked を付与） ---------- */
 .shopping-checkbox.checked {
-    background: #6366f1; /* indigo-500 */
+    background: #fbbf24; /* 差し色（琥珀）。docs/design.md */
     border-color: transparent;
 }
 
 .shopping-checkbox.checked::after {
     content: '✓';
-    color: #ffffff;
-    font-size: 14px;
-    font-weight: 700;
+    color: #141415;
+    font-size: 13px;
+    font-weight: 500;
 }
 
 /* ---------- 購入済みセクションの開閉矢印（toggleCompleted が .open を切り替え） ---------- */

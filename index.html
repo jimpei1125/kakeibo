@@ -619,20 +619,20 @@
 
         <!-- カレンダーセクション -->
         <div class="content-section" id="calendarSection" style="display: none;">
-            <h2 class="mb-4 text-center text-xl font-bold text-white"><span data-icon="calendar"></span> 休日カレンダー</h2>
+            <h2 class="mb-4 text-center text-xl font-medium text-white"><span data-icon="calendar"></span> 休日カレンダー</h2>
 
             <!-- Googleカレンダー連携ステータス（連携・トークン管理はgcal-sync Workerが担う） -->
             <div class="gcal-status mb-4 flex items-center justify-between gap-3 rounded-xl bg-white/5 px-4 py-3 ring-1 ring-white/10" id="gcalStatus">
                 <span class="text-sm text-zinc-300" id="gcalStatusText">Googleカレンダー: 未連携</span>
-                <button class="gcal-link-btn shrink-0 rounded-lg bg-indigo-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-400" id="gcalLinkBtn" onclick="app.holidayCalendar.toggleGoogleCalendar()"><span data-icon="link"></span> 連携</button>
+                <button class="gcal-link-btn shrink-0 rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-medium text-zinc-900 transition hover:bg-white" id="gcalLinkBtn" onclick="app.holidayCalendar.toggleGoogleCalendar()"><span data-icon="link"></span> 連携</button>
             </div>
 
             <!-- アプリキー入力（未設定時のみ表示。updateGcalStatusが制御） -->
             <div class="gcal-key-setup mb-4 rounded-xl bg-white/5 p-4 ring-1 ring-white/10" id="gcalKeySetup" style="display: none;">
                 <p class="mb-2 text-xs text-zinc-400">Googleカレンダー連携用のアプリキー（Workerに設定した合言葉）を入力すると、家族共有の予定表示が有効になります</p>
                 <div class="flex gap-2">
-                    <input type="password" id="gcalAppKeyInput" placeholder="アプリキー" autocomplete="off" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
-                    <button class="shrink-0 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.holidayCalendar.saveGcalAppKey()">保存</button>
+                    <input type="password" id="gcalAppKeyInput" placeholder="アプリキー" autocomplete="off" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400">
+                    <button class="shrink-0 rounded-lg bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-white" onclick="app.holidayCalendar.saveGcalAppKey()">保存</button>
                 </div>
             </div>
 
@@ -640,17 +640,17 @@
 
             <div class="calendar-month-selector my-4 flex items-center justify-center gap-4">
                 <button class="calendar-month-btn flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-200 transition hover:bg-white/20" onclick="app.holidayCalendar.changeMonth(-1)" aria-label="前の月"><span data-icon="chevron-left"></span></button>
-                <span class="calendar-current-month min-w-[120px] text-center text-lg font-bold text-white" id="calendarCurrentMonth"></span>
+                <span class="calendar-current-month min-w-[120px] text-center text-lg font-medium text-white" id="calendarCurrentMonth"></span>
                 <button class="calendar-month-btn flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-200 transition hover:bg-white/20" onclick="app.holidayCalendar.changeMonth(1)" aria-label="次の月"><span data-icon="chevron-right"></span></button>
             </div>
 
             <div class="holiday-calendar" id="holidayCalendar"></div>
 
             <div class="calendar-actions mt-4 grid grid-cols-2 gap-2.5">
-                <button class="action-btn user-edit-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.holidayCalendar.showUserManagement()"><span data-icon="users"></span> ユーザー管理</button>
-                <button class="action-btn memo-add-btn rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.holidayCalendar.showMemoForm()"><span data-icon="pencil"></span> メモ記入</button>
-                <button class="action-btn holiday-edit-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.holidayCalendar.showHolidayUserSelect()"><span data-icon="calendar-days"></span> 休日編集</button>
-                <button class="action-btn memo-view-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.holidayCalendar.toggleMemoList()"><span data-icon="clipboard-list"></span> メモ確認</button>
+                <button class="action-btn user-edit-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.holidayCalendar.showUserManagement()"><span data-icon="users"></span> ユーザー管理</button>
+                <button class="action-btn memo-add-btn rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-900 transition hover:bg-white" onclick="app.holidayCalendar.showMemoForm()"><span data-icon="pencil"></span> メモ記入</button>
+                <button class="action-btn holiday-edit-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.holidayCalendar.showHolidayUserSelect()"><span data-icon="calendar-days"></span> 休日編集</button>
+                <button class="action-btn memo-view-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.holidayCalendar.toggleMemoList()"><span data-icon="clipboard-list"></span> メモ確認</button>
             </div>
 
             <!-- メモ一覧エリア -->
@@ -661,16 +661,16 @@
 
         <!-- 買い物リストセクション -->
         <div class="content-section" id="shoppingSection" style="display: none;">
-            <h2 class="mb-4 text-center text-xl font-bold text-white"><span data-icon="shopping-cart"></span> 買い物リスト</h2>
+            <h2 class="mb-4 text-center text-xl font-medium text-white"><span data-icon="shopping-cart"></span> 買い物リスト</h2>
 
             <div class="sync-status" id="shoppingSyncStatus" style="display: none;">接続中...</div>
 
             <div class="shopping-header mb-4 flex items-center justify-between gap-3">
-                <div class="shopping-count flex items-center gap-2 text-sm font-semibold text-zinc-300">
+                <div class="shopping-count flex items-center gap-2 text-sm font-medium text-zinc-300">
                     <span>買い物リスト</span>
-                    <span class="count-badge rounded-full bg-indigo-500/15 px-2.5 py-0.5 text-xs font-bold text-indigo-300 ring-1 ring-inset ring-indigo-500/20" id="shoppingCount">0件</span>
+                    <span class="count-badge rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-medium text-zinc-200 ring-1 ring-inset ring-white/10" id="shoppingCount">0件</span>
                 </div>
-                <select id="shoppingFilter" onchange="app.shopping.filterItems()" class="rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500 [&>option]:bg-zinc-900">
+                <select id="shoppingFilter" onchange="app.shopping.filterItems()" class="rounded-lg bg-white/5 px-3 py-2 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-zinc-400 [&>option]:bg-zinc-900">
                     <option value="all">すべて</option>
                     <option value="high">急ぎのみ</option>
                 </select>
@@ -678,39 +678,39 @@
 
             <div class="shopping-add-form mb-4 space-y-2.5 rounded-2xl bg-white/5 p-5 ring-1 ring-white/10">
                 <div class="shopping-input-row relative">
-                    <input type="text" id="newItemName" placeholder="商品名" autocomplete="off" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+                    <input type="text" id="newItemName" placeholder="商品名" autocomplete="off" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400">
                     <div class="shopping-suggestions absolute inset-x-0 top-full z-10 mt-1 overflow-hidden rounded-lg bg-zinc-800 shadow-xl ring-1 ring-white/10" id="shoppingSuggestions" style="display: none;"></div>
                 </div>
                 <div class="shopping-input-row flex gap-2.5">
-                    <select id="newItemCategory" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500 [&>option]:bg-zinc-900">
-                        <option value="野菜・果物">🥬 野菜・果物</option>
-                        <option value="肉・魚">🍖 肉・魚</option>
-                        <option value="乳製品・卵">🥛 乳製品・卵</option>
-                        <option value="調味料">🧂 調味料</option>
-                        <option value="飲料">🥤 飲料</option>
-                        <option value="お菓子">🍪 お菓子</option>
-                        <option value="日用品">🧴 日用品</option>
-                        <option value="その他">📦 その他</option>
+                    <select id="newItemCategory" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-zinc-400 [&>option]:bg-zinc-900">
+                        <option value="野菜・果物">野菜・果物</option>
+                        <option value="肉・魚">肉・魚</option>
+                        <option value="乳製品・卵">乳製品・卵</option>
+                        <option value="調味料">調味料</option>
+                        <option value="飲料">飲料</option>
+                        <option value="お菓子">お菓子</option>
+                        <option value="日用品">日用品</option>
+                        <option value="その他">その他</option>
                     </select>
-                    <select id="newItemPriority" class="rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500 [&>option]:bg-zinc-900">
+                    <select id="newItemPriority" class="rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-zinc-400 [&>option]:bg-zinc-900">
                         <option value="normal">普通</option>
                         <option value="high">急ぎ</option>
                         <option value="low">後で</option>
                     </select>
-                    <input type="number" id="newItemQuantity" value="1" min="1" class="w-16 rounded-lg bg-white/5 px-3 py-2.5 text-center text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input type="number" id="newItemQuantity" value="1" min="1" class="w-16 rounded-lg bg-white/5 px-3 py-2.5 text-center text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-zinc-400">
                 </div>
-                <button class="shopping-add-btn w-full rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.shopping.addItem()"><span data-icon="plus"></span> 追加</button>
+                <button class="shopping-add-btn w-full rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-900 transition hover:bg-white" onclick="app.shopping.addItem()"><span data-icon="plus"></span> 追加</button>
             </div>
 
             <div class="shopping-template-actions mb-4 grid grid-cols-2 gap-2.5">
-                <button class="template-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.shopping.showTemplates()"><span data-icon="clipboard-list"></span> テンプレートから追加</button>
-                <button class="template-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.shopping.showTemplateManager()"><span data-icon="settings"></span> テンプレート管理</button>
+                <button class="template-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.shopping.showTemplates()"><span data-icon="clipboard-list"></span> テンプレートから追加</button>
+                <button class="template-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.shopping.showTemplateManager()"><span data-icon="settings"></span> テンプレート管理</button>
             </div>
 
             <div class="shopping-list" id="shoppingList"></div>
 
             <div class="shopping-completed-section mt-4 overflow-hidden rounded-2xl bg-white/5 ring-1 ring-white/10" id="completedSection" style="display: none;">
-                <div class="completed-header flex cursor-pointer items-center justify-between px-4 py-3 text-sm font-semibold text-zinc-300 transition hover:bg-white/5" onclick="app.shopping.toggleCompleted()">
+                <div class="completed-header flex cursor-pointer items-center justify-between px-4 py-3 text-sm font-medium text-zinc-300 transition hover:bg-white/5" onclick="app.shopping.toggleCompleted()">
                     <span><span data-icon="check-circle"></span> 購入済み (<span id="completedCount">0</span>)</span>
                     <span class="completed-toggle text-xs text-zinc-500" id="completedToggle"><span data-icon="chevron-down"></span></span>
                 </div>
@@ -718,27 +718,27 @@
             </div>
 
             <div class="shopping-actions mt-4">
-                <button class="clear-completed-btn w-full rounded-lg bg-rose-500/10 px-4 py-2.5 text-sm font-semibold text-rose-300 ring-1 ring-inset ring-rose-500/20 transition hover:bg-rose-500/20" onclick="app.shopping.clearCompleted()"><span data-icon="trash"></span> 購入済みを削除</button>
+                <button class="clear-completed-btn w-full rounded-lg bg-white/[0.06] px-4 py-2.5 text-sm font-medium text-rose-300 ring-1 ring-inset ring-white/10 transition-colors hover:bg-rose-500/10" onclick="app.shopping.clearCompleted()"><span data-icon="trash"></span> 購入済みを削除</button>
             </div>
         </div>
 
         <!-- スマートホームセクション -->
         <div class="content-section smarthome-page" id="smartHomeSection" style="display: none;">
-            <h2 class="mb-5 text-center text-xl font-bold text-white"><span data-icon="home"></span> スマートホーム</h2>
+            <h2 class="mb-5 text-center text-xl font-medium text-white"><span data-icon="home"></span> スマートホーム</h2>
 
             <!-- SwitchBotセットアップ -->
             <div class="smarthome-setup" id="smartHomeSetup">
                 <div class="setup-card rounded-2xl bg-white/5 p-5 ring-1 ring-white/10">
-                    <h3 class="text-base font-bold text-white"><span data-icon="bot"></span> SwitchBot API設定</h3>
+                    <h3 class="text-base font-medium text-white"><span data-icon="bot"></span> SwitchBot API設定</h3>
                     <p class="mt-2 text-sm text-zinc-400">SwitchBotデバイスを操作するには、APIトークンとシークレットが必要です。</p>
                     <div class="setup-form mt-4 flex flex-col gap-2.5">
-                        <input type="password" id="switchbotToken" placeholder="トークン" class="rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
-                        <input type="password" id="switchbotSecret" placeholder="シークレット" class="rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
-                        <button onclick="app.smartHome.saveToken()" class="rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400">保存して接続</button>
+                        <input type="password" id="switchbotToken" placeholder="トークン" class="rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400">
+                        <input type="password" id="switchbotSecret" placeholder="シークレット" class="rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400">
+                        <button onclick="app.smartHome.saveToken()" class="rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-900 transition hover:bg-white">保存して接続</button>
                     </div>
                     <div class="setup-help mt-4 text-sm text-zinc-400">
                         <details>
-                            <summary class="cursor-pointer font-semibold text-zinc-300">トークンの取得方法</summary>
+                            <summary class="cursor-pointer font-medium text-zinc-300">トークンの取得方法</summary>
                             <ol class="mt-2 list-inside list-decimal space-y-1 text-zinc-400">
                                 <li>SwitchBotアプリを開く</li>
                                 <li>プロフィール → 設定 → アプリバージョンを10回タップ</li>
@@ -753,32 +753,32 @@
             <div class="smarthome-devices" id="smartHomeDevices" style="display: none;">
                 <div class="devices-header mb-4 flex items-center justify-between gap-3">
                     <span class="devices-status text-sm text-zinc-400" id="devicesStatus">読み込み中...</span>
-                    <button class="refresh-btn shrink-0 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.smartHome.init(true); app.hue.init(true)"><span data-icon="refresh"></span> 更新</button>
+                    <button class="refresh-btn shrink-0 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.smartHome.init(true); app.hue.init(true)"><span data-icon="refresh"></span> 更新</button>
                 </div>
 
                 <div class="device-section mb-5">
-                    <h3 class="mb-3 text-base font-bold text-white"><span data-icon="radio"></span> 赤外線リモコン</h3>
+                    <h3 class="mb-3 text-base font-medium text-white"><span data-icon="radio"></span> 赤外線リモコン</h3>
                     <div class="device-grid" id="irDeviceList"></div>
                 </div>
 
                 <div class="device-section mb-5">
-                    <h3 class="mb-3 text-base font-bold text-white"><span data-icon="bot"></span> SwitchBotデバイス</h3>
+                    <h3 class="mb-3 text-base font-medium text-white"><span data-icon="bot"></span> SwitchBotデバイス</h3>
                     <div class="device-grid" id="physicalDeviceList"></div>
                 </div>
 
                 <div class="smarthome-settings">
-                    <button class="settings-btn w-full rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.smartHome.showSettings()"><span data-icon="settings"></span> API設定</button>
+                    <button class="settings-btn w-full rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.smartHome.showSettings()"><span data-icon="settings"></span> API設定</button>
                 </div>
             </div>
 
             <!-- Philips Hue -->
             <div class="hue-section mt-6 rounded-2xl bg-white/5 p-5 ring-1 ring-white/10">
-                <h3 class="mb-4 text-base font-bold text-white"><span data-icon="lightbulb"></span> Philips Hue</h3>
+                <h3 class="mb-4 text-base font-medium text-white"><span data-icon="lightbulb"></span> Philips Hue</h3>
                 <div class="hue-loading text-sm text-zinc-400" id="hueLoading">読み込み中...</div>
                 <div class="hue-light-grid" id="hueLightList"></div>
                 <div class="hue-actions mt-4 grid grid-cols-2 gap-2.5">
-                    <button class="hue-all-btn on rounded-lg bg-amber-400/10 px-4 py-2.5 text-sm font-semibold text-amber-300 ring-1 ring-inset ring-amber-400/20 transition hover:bg-amber-400/20" onclick="app.hue.allLightsOn()"><span data-icon="lightbulb"></span> 全ON</button>
-                    <button class="hue-all-btn off rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.hue.allLightsOff()"><span data-icon="moon"></span> 全OFF</button>
+                    <button class="hue-all-btn on rounded-lg bg-amber-400/10 px-4 py-2.5 text-sm font-medium text-amber-300 ring-1 ring-inset ring-amber-400/20 transition hover:bg-amber-400/20" onclick="app.hue.allLightsOn()"><span data-icon="lightbulb"></span> 全ON</button>
+                    <button class="hue-all-btn off rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.hue.allLightsOff()"><span data-icon="moon"></span> 全OFF</button>
                 </div>
             </div>
         </div>
@@ -787,10 +787,10 @@
     <!-- ユーザー管理モーダル -->
     <div class="modal-panel user-modal fixed left-1/2 top-1/2 z-[1500] max-h-[80vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="userModal">
         <div class="modal-header mb-5 flex items-center justify-between">
-            <h2 class="text-lg font-bold text-white"><span data-icon="users"></span> ユーザー管理</h2>
+            <h2 class="text-lg font-medium text-white"><span data-icon="users"></span> ユーザー管理</h2>
             <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.holidayCalendar.closeUserModal()"><span data-icon="x"></span></button>
         </div>
-        <button class="new-user-btn mb-4 w-full rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.holidayCalendar.showUserForm()"><span data-icon="plus"></span> 新規登録</button>
+        <button class="new-user-btn mb-4 w-full rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-900 transition hover:bg-white" onclick="app.holidayCalendar.showUserForm()"><span data-icon="plus"></span> 新規登録</button>
         <div class="user-list-container">
             <div class="user-list" id="userListModal"></div>
         </div>
@@ -799,20 +799,20 @@
     <!-- ユーザーフォームモーダル -->
     <div class="modal-panel user-form-modal fixed left-1/2 top-1/2 z-[1500] max-h-[80vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="userFormModal">
         <div class="modal-header mb-5 flex items-center justify-between">
-            <h2 class="text-lg font-bold text-white" id="userFormTitle"><span data-icon="user-plus"></span> ユーザー新規登録</h2>
+            <h2 class="text-lg font-medium text-white" id="userFormTitle"><span data-icon="user-plus"></span> ユーザー新規登録</h2>
             <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.holidayCalendar.closeUserForm()"><span data-icon="x"></span></button>
         </div>
         <div class="user-form space-y-3">
-            <label class="block text-sm font-semibold text-zinc-300">名前</label>
-            <input type="text" id="userName" placeholder="名前を入力" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+            <label class="block text-sm font-medium text-zinc-300">名前</label>
+            <input type="text" id="userName" placeholder="名前を入力" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400">
 
-            <label class="block text-sm font-semibold text-zinc-300">カラー</label>
+            <label class="block text-sm font-medium text-zinc-300">カラー</label>
             <div class="color-palette" id="colorPalette"></div>
 
             <div class="form-actions flex gap-2.5 pt-2">
-                <button class="save-btn flex-1 rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.holidayCalendar.saveUser()">保存</button>
-                <button class="cancel-btn flex-1 rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.holidayCalendar.closeUserForm()">キャンセル</button>
-                <button class="delete-user-btn rounded-lg bg-rose-500/10 px-4 py-2.5 text-sm font-semibold text-rose-300 ring-1 ring-inset ring-rose-500/20 transition hover:bg-rose-500/20" id="deleteUserBtn" onclick="app.holidayCalendar.deleteUser()" style="display: none;">削除</button>
+                <button class="save-btn flex-1 rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-900 transition hover:bg-white" onclick="app.holidayCalendar.saveUser()">保存</button>
+                <button class="cancel-btn flex-1 rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.holidayCalendar.closeUserForm()">キャンセル</button>
+                <button class="delete-user-btn rounded-lg bg-white/[0.06] px-4 py-2.5 text-sm font-medium text-rose-300 ring-1 ring-inset ring-white/10 transition-colors hover:bg-rose-500/10" id="deleteUserBtn" onclick="app.holidayCalendar.deleteUser()" style="display: none;">削除</button>
             </div>
         </div>
     </div>
@@ -820,7 +820,7 @@
     <!-- 休日ユーザー選択モーダル -->
     <div class="modal-panel holiday-user-select-modal fixed left-1/2 top-1/2 z-[1500] max-h-[80vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="holidayUserSelectModal">
         <div class="modal-header mb-5 flex items-center justify-between">
-            <h2 class="text-lg font-bold text-white"><span data-icon="user"></span> ユーザーを選択</h2>
+            <h2 class="text-lg font-medium text-white"><span data-icon="user"></span> ユーザーを選択</h2>
             <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.holidayCalendar.closeHolidayUserSelect()"><span data-icon="x"></span></button>
         </div>
         <div class="holiday-user-select">
@@ -832,56 +832,56 @@
     <!-- 休日編集モーダル -->
     <div class="modal-panel holiday-edit-modal fixed left-1/2 top-1/2 z-[1500] max-h-[85vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="holidayEditModal">
         <div class="modal-header mb-5 flex items-center justify-between">
-            <h2 class="text-lg font-bold text-white" id="holidayEditTitle"><span data-icon="calendar-days"></span> 休日編集</h2>
+            <h2 class="text-lg font-medium text-white" id="holidayEditTitle"><span data-icon="calendar-days"></span> 休日編集</h2>
             <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.holidayCalendar.cancelHolidayEdit()"><span data-icon="x"></span></button>
         </div>
         <div class="edit-calendar-nav mb-4 flex items-center justify-center gap-4">
             <button class="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xs text-zinc-200 transition hover:bg-white/20" onclick="app.holidayCalendar.changeEditMonth(-1)" aria-label="前の月"><span data-icon="chevron-left"></span></button>
-            <span class="min-w-[110px] text-center text-base font-bold text-white" id="editCalendarMonth"></span>
+            <span class="min-w-[110px] text-center text-base font-medium text-white" id="editCalendarMonth"></span>
             <button class="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xs text-zinc-200 transition hover:bg-white/20" onclick="app.holidayCalendar.changeEditMonth(1)" aria-label="次の月"><span data-icon="chevron-right"></span></button>
         </div>
         <div class="edit-calendar" id="editCalendar"></div>
-        <button class="weekend-holiday-btn mt-4 w-full rounded-lg bg-indigo-500/15 px-4 py-2.5 text-sm font-semibold text-indigo-200 ring-1 ring-inset ring-indigo-500/40 transition hover:bg-indigo-500/25" onclick="app.holidayCalendar.toggleWeekendHolidays()">🗓️ 土日祝をまとめて選択</button>
+        <button class="weekend-holiday-btn mt-4 w-full rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-zinc-200 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.holidayCalendar.toggleWeekendHolidays()"><span data-icon="calendar-days"></span> 土日祝をまとめて選択</button>
         <div class="edit-calendar-actions mt-2.5 flex gap-2.5">
-            <button id="holidaySaveBtn" class="complete-btn flex-1 rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60" onclick="app.holidayCalendar.saveHolidays()">✓ 保存</button>
-            <button class="cancel-btn flex-1 rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.holidayCalendar.cancelHolidayEdit()">キャンセル</button>
+            <button id="holidaySaveBtn" class="complete-btn flex-1 rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-900 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-60" onclick="app.holidayCalendar.saveHolidays()">保存</button>
+            <button class="cancel-btn flex-1 rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.holidayCalendar.cancelHolidayEdit()">キャンセル</button>
         </div>
     </div>
 
     <!-- メモ記入モーダル -->
     <div class="modal-panel memo-form-modal fixed left-1/2 top-1/2 z-[1500] max-h-[85vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="memoFormModal">
         <div class="modal-header mb-5 flex items-center justify-between">
-            <h2 class="text-lg font-bold text-white"><span data-icon="pencil"></span> メモ記入</h2>
+            <h2 class="text-lg font-medium text-white"><span data-icon="pencil"></span> メモ記入</h2>
             <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.holidayCalendar.closeMemoForm()"><span data-icon="x"></span></button>
         </div>
         <div class="memo-form space-y-3">
-            <label class="block text-sm font-semibold text-zinc-300">種類</label>
+            <label class="block text-sm font-medium text-zinc-300">種類</label>
             <div class="memo-type-selector grid grid-cols-2 gap-2.5">
-                <button class="memo-type-btn active rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-type="task" onclick="app.holidayCalendar.selectMemoType('task')"><span data-icon="pin"></span> タスク</button>
-                <button class="memo-type-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-type="schedule" onclick="app.holidayCalendar.selectMemoType('schedule')"><span data-icon="calendar"></span> 予定</button>
+                <button class="memo-type-btn active rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-type="task" onclick="app.holidayCalendar.selectMemoType('task')"><span data-icon="pin"></span> タスク</button>
+                <button class="memo-type-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-type="schedule" onclick="app.holidayCalendar.selectMemoType('schedule')"><span data-icon="calendar"></span> 予定</button>
             </div>
 
-            <label class="block text-sm font-semibold text-zinc-300">日付</label>
-            <input type="date" id="memoDate" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
+            <label class="block text-sm font-medium text-zinc-300">日付</label>
+            <input type="date" id="memoDate" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-zinc-400">
 
             <div class="memo-time-section space-y-3" id="memoTimeSection" style="display: none;">
-                <label class="block text-sm font-semibold text-zinc-300">開始時刻</label>
-                <input type="time" id="memoStartTime" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
-                <label class="block text-sm font-semibold text-zinc-300">終了時刻</label>
-                <input type="time" id="memoEndTime" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
+                <label class="block text-sm font-medium text-zinc-300">開始時刻</label>
+                <input type="time" id="memoStartTime" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-zinc-400">
+                <label class="block text-sm font-medium text-zinc-300">終了時刻</label>
+                <input type="time" id="memoEndTime" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-zinc-400">
             </div>
 
             <div class="memo-time-section space-y-3" id="memoTaskTimeSection" style="display: none;">
-                <label class="block text-sm font-semibold text-zinc-300">通知時刻（タスク）</label>
-                <input type="time" id="memoTaskTime" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500">
+                <label class="block text-sm font-medium text-zinc-300">通知時刻（タスク）</label>
+                <input type="time" id="memoTaskTime" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-zinc-400">
             </div>
 
-            <label class="block text-sm font-semibold text-zinc-300">内容</label>
-            <textarea id="memoContent" placeholder="メモ内容を入力" rows="3" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500"></textarea>
+            <label class="block text-sm font-medium text-zinc-300">内容</label>
+            <textarea id="memoContent" placeholder="メモ内容を入力" rows="3" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400"></textarea>
 
             <div class="memo-notification-section rounded-lg bg-white/5 p-3 ring-1 ring-inset ring-white/5">
-                <label class="flex items-center gap-2.5 text-sm font-semibold text-zinc-300">
-                    <input type="checkbox" id="memoNotification" checked class="h-4 w-4 rounded border-white/20 bg-white/5 text-indigo-500 focus:ring-indigo-500">
+                <label class="flex items-center gap-2.5 text-sm font-medium text-zinc-300">
+                    <input type="checkbox" id="memoNotification" checked class="h-4 w-4 rounded border-white/20 bg-white/5 accent-amber-400 focus:ring-zinc-400">
                     <span data-icon="bell"></span> Googleカレンダーに登録して通知する
                 </label>
                 <p class="gcal-notification-note mt-2 text-xs text-zinc-500" id="gcalNotificationNote">
@@ -890,9 +890,9 @@
             </div>
 
             <div class="form-actions flex gap-2.5 pt-2">
-                <button class="save-btn flex-1 rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.holidayCalendar.saveMemo()">保存</button>
-                <button class="cancel-btn flex-1 rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.holidayCalendar.closeMemoForm()">キャンセル</button>
-                <button class="delete-memo-btn rounded-lg bg-rose-500/10 px-4 py-2.5 text-sm font-semibold text-rose-300 ring-1 ring-inset ring-rose-500/20 transition hover:bg-rose-500/20" id="memoDeleteBtn" onclick="app.holidayCalendar.deleteMemoFromForm()" style="display: none;"><span data-icon="trash"></span> 削除</button>
+                <button class="save-btn flex-1 rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-900 transition hover:bg-white" onclick="app.holidayCalendar.saveMemo()">保存</button>
+                <button class="cancel-btn flex-1 rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.holidayCalendar.closeMemoForm()">キャンセル</button>
+                <button class="delete-memo-btn rounded-lg bg-white/[0.06] px-4 py-2.5 text-sm font-medium text-rose-300 ring-1 ring-inset ring-white/10 transition-colors hover:bg-rose-500/10" id="memoDeleteBtn" onclick="app.holidayCalendar.deleteMemoFromForm()" style="display: none;"><span data-icon="trash"></span> 削除</button>
             </div>
         </div>
     </div>
@@ -900,7 +900,7 @@
     <!-- 日付詳細モーダル -->
     <div class="modal-panel date-detail-modal fixed left-1/2 top-1/2 z-[1500] max-h-[80vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="dateDetailModal">
         <div class="modal-header mb-5 flex items-center justify-between">
-            <h2 class="text-lg font-bold text-white" id="dateDetailTitle"><span data-icon="calendar"></span> 日付詳細</h2>
+            <h2 class="text-lg font-medium text-white" id="dateDetailTitle"><span data-icon="calendar"></span> 日付詳細</h2>
             <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.holidayCalendar.closeDateDetail()"><span data-icon="x"></span></button>
         </div>
         <div class="date-detail-content space-y-4">
@@ -908,15 +908,15 @@
             <div class="date-detail-memos" id="dateDetailMemos"></div>
         </div>
         <div class="form-actions mt-5 flex gap-2.5">
-            <button class="save-btn flex-1 rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.holidayCalendar.showMemoFormForDate()"><span data-icon="plus"></span> メモを追加</button>
-            <button class="cancel-btn flex-1 rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.holidayCalendar.closeDateDetail()">閉じる</button>
+            <button class="save-btn flex-1 rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-900 transition hover:bg-white" onclick="app.holidayCalendar.showMemoFormForDate()"><span data-icon="plus"></span> メモを追加</button>
+            <button class="cancel-btn flex-1 rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.holidayCalendar.closeDateDetail()">閉じる</button>
         </div>
     </div>
 
     <!-- テンプレート選択モーダル -->
     <div class="modal-panel template-select-modal fixed left-1/2 top-1/2 z-[1500] max-h-[80vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="templateSelectModal">
         <div class="modal-header mb-5 flex items-center justify-between">
-            <h2 class="text-lg font-bold text-white"><span data-icon="clipboard-list"></span> テンプレートから追加</h2>
+            <h2 class="text-lg font-medium text-white"><span data-icon="clipboard-list"></span> テンプレートから追加</h2>
             <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.shopping.closeTemplateSelect()"><span data-icon="x"></span></button>
         </div>
         <div class="template-list" id="templateList"></div>
@@ -925,45 +925,45 @@
     <!-- テンプレート管理モーダル -->
     <div class="modal-panel template-manager-modal fixed left-1/2 top-1/2 z-[1500] max-h-[80vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="templateManagerModal">
         <div class="modal-header mb-5 flex items-center justify-between">
-            <h2 class="text-lg font-bold text-white"><span data-icon="settings"></span> テンプレート管理</h2>
+            <h2 class="text-lg font-medium text-white"><span data-icon="settings"></span> テンプレート管理</h2>
             <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.shopping.closeTemplateManager()"><span data-icon="x"></span></button>
         </div>
-        <button class="new-user-btn mb-4 w-full rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.shopping.showTemplateForm()"><span data-icon="plus"></span> 新規作成</button>
+        <button class="new-user-btn mb-4 w-full rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-900 transition hover:bg-white" onclick="app.shopping.showTemplateForm()"><span data-icon="plus"></span> 新規作成</button>
         <div class="template-list" id="templateManagerList"></div>
     </div>
 
     <!-- テンプレートフォームモーダル -->
     <div class="modal-panel template-form-modal fixed left-1/2 top-1/2 z-[1500] max-h-[85vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="templateFormModal">
         <div class="modal-header mb-5 flex items-center justify-between">
-            <h2 class="text-lg font-bold text-white" id="templateFormTitle"><span data-icon="plus"></span> 新規テンプレート作成</h2>
+            <h2 class="text-lg font-medium text-white" id="templateFormTitle"><span data-icon="plus"></span> 新規テンプレート作成</h2>
             <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.shopping.closeTemplateForm()"><span data-icon="x"></span></button>
         </div>
         <div class="template-form space-y-3">
-            <label class="block text-sm font-semibold text-zinc-300">テンプレート名:</label>
-            <input type="text" id="templateName" placeholder="例: 週末の買い出し" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+            <label class="block text-sm font-medium text-zinc-300">テンプレート名:</label>
+            <input type="text" id="templateName" placeholder="例: 週末の買い出し" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400">
 
-            <label class="block text-sm font-semibold text-zinc-300">アイテム:</label>
+            <label class="block text-sm font-medium text-zinc-300">アイテム:</label>
             <div class="template-items-list" id="templateItemsList"></div>
 
             <div class="template-item-add flex gap-2.5">
-                <input type="text" id="templateItemName" placeholder="商品名" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
-                <select id="templateItemCategory" class="min-w-0 rounded-lg bg-white/5 px-2 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-indigo-500 [&>option]:bg-zinc-900">
-                    <option value="野菜・果物">🥬 野菜・果物</option>
-                    <option value="肉・魚">🍖 肉・魚</option>
-                    <option value="乳製品・卵">🥛 乳製品・卵</option>
-                    <option value="調味料">🧂 調味料</option>
-                    <option value="飲料">🥤 飲料</option>
-                    <option value="お菓子">🍪 お菓子</option>
-                    <option value="日用品">🧴 日用品</option>
-                    <option value="その他">📦 その他</option>
+                <input type="text" id="templateItemName" placeholder="商品名" class="min-w-0 flex-1 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400">
+                <select id="templateItemCategory" class="min-w-0 rounded-lg bg-white/5 px-2 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none focus:ring-2 focus:ring-zinc-400 [&>option]:bg-zinc-900">
+                    <option value="野菜・果物">野菜・果物</option>
+                    <option value="肉・魚">肉・魚</option>
+                    <option value="乳製品・卵">乳製品・卵</option>
+                    <option value="調味料">調味料</option>
+                    <option value="飲料">飲料</option>
+                    <option value="お菓子">お菓子</option>
+                    <option value="日用品">日用品</option>
+                    <option value="その他">その他</option>
                 </select>
-                <button onclick="app.shopping.addTemplateItem()" class="shrink-0 rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400">追加</button>
+                <button onclick="app.shopping.addTemplateItem()" class="shrink-0 rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-900 transition hover:bg-white">追加</button>
             </div>
 
             <div class="template-form-actions flex gap-2.5 pt-2">
-                <button class="save-btn flex-1 rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.shopping.saveTemplate()">保存</button>
-                <button class="cancel-btn flex-1 rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.shopping.closeTemplateForm()">キャンセル</button>
-                <button class="delete-template-btn rounded-lg bg-rose-500/10 px-4 py-2.5 text-sm font-semibold text-rose-300 ring-1 ring-inset ring-rose-500/20 transition hover:bg-rose-500/20" id="deleteTemplateBtn" onclick="app.shopping.deleteTemplate()" style="display: none;">削除</button>
+                <button class="save-btn flex-1 rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-900 transition hover:bg-white" onclick="app.shopping.saveTemplate()">保存</button>
+                <button class="cancel-btn flex-1 rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.shopping.closeTemplateForm()">キャンセル</button>
+                <button class="delete-template-btn rounded-lg bg-white/[0.06] px-4 py-2.5 text-sm font-medium text-rose-300 ring-1 ring-inset ring-white/10 transition-colors hover:bg-rose-500/10" id="deleteTemplateBtn" onclick="app.shopping.deleteTemplate()" style="display: none;">削除</button>
             </div>
         </div>
     </div>
@@ -971,73 +971,73 @@
     <!-- エアコン操作モーダル -->
     <div class="modal-panel ac-control-modal fixed left-1/2 top-1/2 z-[1500] max-h-[85vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="acControlModal">
         <div class="modal-header mb-5 flex items-center justify-between">
-            <h2 class="text-lg font-bold text-white" id="acControlTitle"><span data-icon="snowflake"></span> エアコン操作</h2>
+            <h2 class="text-lg font-medium text-white" id="acControlTitle"><span data-icon="snowflake"></span> エアコン操作</h2>
             <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.smartHome.closeAcControl()"><span data-icon="x"></span></button>
         </div>
         <div class="ac-control-content space-y-5">
             <div class="ac-power-section grid grid-cols-2 gap-2.5">
-                <button class="ac-power-btn on flex flex-col items-center gap-1 rounded-xl bg-emerald-500/10 px-4 py-4 text-sm font-bold text-emerald-300 ring-1 ring-inset ring-emerald-500/20 transition hover:bg-emerald-500/20" onclick="app.smartHome.acCommand('turnOn')">
-                    <span class="power-icon text-2xl">⏻</span>
+                <button class="ac-power-btn on flex flex-col items-center gap-1 rounded-xl bg-zinc-100 px-4 py-4 text-sm font-medium text-zinc-900 transition-colors hover:bg-white" onclick="app.smartHome.acCommand('turnOn')">
+                    <span class="power-icon text-xl" data-icon="power"></span>
                     <span>ON</span>
                 </button>
-                <button class="ac-power-btn off flex flex-col items-center gap-1 rounded-xl bg-white/5 px-4 py-4 text-sm font-bold text-zinc-300 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.smartHome.acCommand('turnOff')">
-                    <span class="power-icon text-2xl">⏻</span>
+                <button class="ac-power-btn off flex flex-col items-center gap-1 rounded-xl bg-white/5 px-4 py-4 text-sm font-medium text-zinc-300 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.smartHome.acCommand('turnOff')">
+                    <span class="power-icon text-xl" data-icon="power"></span>
                     <span>OFF</span>
                 </button>
             </div>
 
             <div class="ac-temp-section">
-                <label class="mb-2 block text-sm font-semibold text-zinc-300">温度設定</label>
+                <label class="mb-2 block text-sm font-medium text-zinc-300">温度設定</label>
                 <div class="ac-temp-controls flex items-center justify-center gap-5">
-                    <button class="temp-btn flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-xl font-bold text-zinc-100 transition hover:bg-white/20" onclick="app.smartHome.adjustTemp(-1)">−</button>
-                    <span class="temp-display min-w-[90px] text-center text-3xl font-black text-white" id="acTempDisplay">26°C</span>
-                    <button class="temp-btn flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-xl font-bold text-zinc-100 transition hover:bg-white/20" onclick="app.smartHome.adjustTemp(1)">+</button>
+                    <button class="temp-btn flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-xl font-medium text-zinc-100 transition hover:bg-white/20" onclick="app.smartHome.adjustTemp(-1)">−</button>
+                    <span class="temp-display min-w-[90px] text-center text-3xl font-medium text-white" id="acTempDisplay">26°C</span>
+                    <button class="temp-btn flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-xl font-medium text-zinc-100 transition hover:bg-white/20" onclick="app.smartHome.adjustTemp(1)">+</button>
                 </div>
             </div>
 
             <div class="ac-mode-section">
-                <label class="mb-2 block text-sm font-semibold text-zinc-300">モード</label>
+                <label class="mb-2 block text-sm font-medium text-zinc-300">モード</label>
                 <div class="ac-mode-buttons grid grid-cols-2 gap-2.5">
-                    <button class="mode-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-mode="1" onclick="app.smartHome.setAcMode(1)"><span data-icon="flame"></span> 暖房</button>
-                    <button class="mode-btn active rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-mode="2" onclick="app.smartHome.setAcMode(2)"><span data-icon="snowflake"></span> 冷房</button>
-                    <button class="mode-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-mode="3" onclick="app.smartHome.setAcMode(3)"><span data-icon="wind"></span> 送風</button>
-                    <button class="mode-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-mode="5" onclick="app.smartHome.setAcMode(5)"><span data-icon="droplet"></span> 除湿</button>
+                    <button class="mode-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-mode="1" onclick="app.smartHome.setAcMode(1)"><span data-icon="flame"></span> 暖房</button>
+                    <button class="mode-btn active rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-mode="2" onclick="app.smartHome.setAcMode(2)"><span data-icon="snowflake"></span> 冷房</button>
+                    <button class="mode-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-mode="3" onclick="app.smartHome.setAcMode(3)"><span data-icon="wind"></span> 送風</button>
+                    <button class="mode-btn rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-mode="5" onclick="app.smartHome.setAcMode(5)"><span data-icon="droplet"></span> 除湿</button>
                 </div>
             </div>
 
             <div class="ac-fan-section">
-                <label class="mb-2 block text-sm font-semibold text-zinc-300">風量</label>
+                <label class="mb-2 block text-sm font-medium text-zinc-300">風量</label>
                 <div class="ac-fan-buttons grid grid-cols-4 gap-2.5">
-                    <button class="fan-btn rounded-lg bg-white/10 px-3 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-fan="1" onclick="app.smartHome.setAcFan(1)">自動</button>
-                    <button class="fan-btn rounded-lg bg-white/10 px-3 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-fan="2" onclick="app.smartHome.setAcFan(2)">弱</button>
-                    <button class="fan-btn rounded-lg bg-white/10 px-3 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-fan="3" onclick="app.smartHome.setAcFan(3)">中</button>
-                    <button class="fan-btn rounded-lg bg-white/10 px-3 py-2.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-fan="4" onclick="app.smartHome.setAcFan(4)">強</button>
+                    <button class="fan-btn rounded-lg bg-white/10 px-3 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-fan="1" onclick="app.smartHome.setAcFan(1)">自動</button>
+                    <button class="fan-btn rounded-lg bg-white/10 px-3 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-fan="2" onclick="app.smartHome.setAcFan(2)">弱</button>
+                    <button class="fan-btn rounded-lg bg-white/10 px-3 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-fan="3" onclick="app.smartHome.setAcFan(3)">中</button>
+                    <button class="fan-btn rounded-lg bg-white/10 px-3 py-2.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" data-fan="4" onclick="app.smartHome.setAcFan(4)">強</button>
                 </div>
             </div>
 
-            <button class="ac-apply-btn w-full rounded-lg bg-indigo-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition hover:bg-indigo-400" onclick="app.smartHome.applyAcSettings()">設定を送信</button>
+            <button class="ac-apply-btn w-full rounded-lg bg-zinc-100 px-4 py-3 text-sm font-medium text-zinc-900 transition hover:bg-white" onclick="app.smartHome.applyAcSettings()">設定を送信</button>
         </div>
     </div>
 
     <!-- スマートホームAPI設定モーダル -->
     <div class="modal-panel smarthome-settings-modal fixed left-1/2 top-1/2 z-[1500] max-h-[80vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="smartHomeSettingsModal">
         <div class="modal-header mb-5 flex items-center justify-between">
-            <h2 class="text-lg font-bold text-white"><span data-icon="settings"></span> API設定</h2>
+            <h2 class="text-lg font-medium text-white"><span data-icon="settings"></span> API設定</h2>
             <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.smartHome.closeSettings()"><span data-icon="x"></span></button>
         </div>
         <div class="settings-content space-y-4">
             <div class="settings-section rounded-xl bg-white/5 p-4 ring-1 ring-white/5">
-                <h3 class="mb-3 text-sm font-bold text-white">SwitchBot API</h3>
+                <h3 class="mb-3 text-sm font-medium text-white">SwitchBot API</h3>
                 <div class="settings-form space-y-2.5">
-                    <label class="block text-sm font-semibold text-zinc-300">トークン</label>
-                    <input type="password" id="settingsSwitchbotToken" placeholder="トークン" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
-                    <label class="block text-sm font-semibold text-zinc-300">シークレット</label>
-                    <input type="password" id="settingsSwitchbotSecret" placeholder="シークレット" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500">
+                    <label class="block text-sm font-medium text-zinc-300">トークン</label>
+                    <input type="password" id="settingsSwitchbotToken" placeholder="トークン" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400">
+                    <label class="block text-sm font-medium text-zinc-300">シークレット</label>
+                    <input type="password" id="settingsSwitchbotSecret" placeholder="シークレット" class="w-full rounded-lg bg-white/5 px-3 py-2.5 text-sm text-zinc-100 ring-1 ring-inset ring-white/10 outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-zinc-400">
                 </div>
             </div>
             <div class="settings-actions flex gap-2.5">
-                <button class="save-btn flex-1 rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.smartHome.updateToken()">保存</button>
-                <button class="danger-btn flex-1 rounded-lg bg-rose-500/10 px-4 py-2.5 text-sm font-semibold text-rose-300 ring-1 ring-inset ring-rose-500/20 transition hover:bg-rose-500/20" onclick="app.smartHome.clearToken()">トークンを削除</button>
+                <button class="save-btn flex-1 rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-900 transition hover:bg-white" onclick="app.smartHome.updateToken()">保存</button>
+                <button class="danger-btn flex-1 rounded-lg bg-white/[0.06] px-4 py-2.5 text-sm font-medium text-rose-300 ring-1 ring-inset ring-white/10 transition-colors hover:bg-rose-500/10" onclick="app.smartHome.clearToken()">トークンを削除</button>
             </div>
         </div>
     </div>
@@ -1045,29 +1045,29 @@
     <!-- Hueライト操作モーダル -->
     <div class="modal-panel hue-control-modal fixed left-1/2 top-1/2 z-[1500] max-h-[85vh] w-[90%] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-zinc-900 p-6 shadow-2xl ring-1 ring-white/10" id="hueControlModal">
         <div class="modal-header mb-5 flex items-center justify-between">
-            <h2 class="text-lg font-bold text-white" id="hueControlTitle"><span data-icon="lightbulb"></span> ライト操作</h2>
+            <h2 class="text-lg font-medium text-white" id="hueControlTitle"><span data-icon="lightbulb"></span> ライト操作</h2>
             <button aria-label="閉じる" class="modal-close flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm text-zinc-300 transition hover:bg-white/20" onclick="app.hue.closeControl()"><span data-icon="x"></span></button>
         </div>
         <div class="hue-control-content space-y-5">
             <div class="hue-power-section grid grid-cols-2 gap-2.5">
-                <button class="hue-power-btn on flex flex-col items-center gap-1 rounded-xl bg-amber-400/10 px-4 py-4 text-sm font-bold text-amber-300 ring-1 ring-inset ring-amber-400/20 transition hover:bg-amber-400/20" onclick="app.hue.setPower(true)">
-                    <span class="power-icon text-2xl">💡</span>
+                <button class="hue-power-btn on flex flex-col items-center gap-1 rounded-xl bg-amber-400/10 px-4 py-4 text-sm font-medium text-amber-300 ring-1 ring-inset ring-amber-400/20 transition hover:bg-amber-400/20" onclick="app.hue.setPower(true)">
+                    <span class="power-icon text-xl" data-icon="lightbulb"></span>
                     <span>ON</span>
                 </button>
-                <button class="hue-power-btn off flex flex-col items-center gap-1 rounded-xl bg-white/5 px-4 py-4 text-sm font-bold text-zinc-300 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.hue.setPower(false)">
-                    <span class="power-icon text-2xl">🌙</span>
+                <button class="hue-power-btn off flex flex-col items-center gap-1 rounded-xl bg-white/5 px-4 py-4 text-sm font-medium text-zinc-300 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.hue.setPower(false)">
+                    <span class="power-icon text-xl" data-icon="moon"></span>
                     <span>OFF</span>
                 </button>
             </div>
 
             <div class="hue-brightness-section">
-                <label class="mb-2 block text-sm font-semibold text-zinc-300">グループ明るさ: <span id="hueBrightnessValue">100</span>%</label>
-                <input type="range" id="hueBrightnessSlider" min="1" max="100" value="100" oninput="app.hue.updateBrightnessLabel()" class="w-full accent-indigo-500">
-                <button class="hue-apply-btn mt-3 w-full rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400" onclick="app.hue.applyBrightness()">明るさを適用</button>
+                <label class="mb-2 block text-sm font-medium text-zinc-300">グループ明るさ: <span id="hueBrightnessValue">100</span>%</label>
+                <input type="range" id="hueBrightnessSlider" min="1" max="100" value="100" oninput="app.hue.updateBrightnessLabel()" class="w-full accent-amber-400">
+                <button class="hue-apply-btn mt-3 w-full rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-900 transition hover:bg-white" onclick="app.hue.applyBrightness()">明るさを適用</button>
             </div>
 
             <div class="hue-individual-section">
-                <label class="mb-2 block text-sm font-semibold text-zinc-300">個別ライト調整</label>
+                <label class="mb-2 block text-sm font-medium text-zinc-300">個別ライト調整</label>
                 <div class="hue-individual-lights" id="hueIndividualLights"></div>
             </div>
         </div>

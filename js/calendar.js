@@ -14,14 +14,14 @@ const CALENDAR_CELLS = 42;
 const SWIPE_THRESHOLD = 50;
 
 const USER_COLORS = [
-    { name: '赤', value: '#FF5733', emoji: '🔴' },
-    { name: 'オレンジ', value: '#FF8C42', emoji: '🟠' },
-    { name: '黄', value: '#FFC300', emoji: '🟡' },
-    { name: '緑', value: '#38EF7D', emoji: '🟢' },
-    { name: '青', value: '#4FACFE', emoji: '🔵' },
-    { name: '紫', value: '#9B59B6', emoji: '🟣' },
-    { name: 'ピンク', value: '#FF69B4', emoji: '💗' },
-    { name: '茶', value: '#8B4513', emoji: '🟤' }
+    { name: '赤', value: '#FF5733' },
+    { name: 'オレンジ', value: '#FF8C42' },
+    { name: '黄', value: '#FFC300' },
+    { name: '緑', value: '#38EF7D' },
+    { name: '青', value: '#4FACFE' },
+    { name: '紫', value: '#9B59B6' },
+    { name: 'ピンク', value: '#FF69B4' },
+    { name: '茶', value: '#8B4513' }
 ];
 
 /** カレンダーのマスに個別表示する予定の最大件数（超過分は +n 表示） */
@@ -236,8 +236,8 @@ export class HolidayCalendar {
         
         const indicator = document.createElement('div');
         indicator.id = 'pullToRefreshIndicator';
-        indicator.className = 'pull-to-refresh-indicator mb-2.5 flex items-center justify-center gap-2.5 overflow-hidden rounded-xl bg-indigo-500/10';
-        indicator.innerHTML = `<span class="pull-icon text-xl">${Icons.svg('arrow-down')}</span><span class="pull-text text-sm font-semibold text-zinc-300">引っ張って更新</span>`;
+        indicator.className = 'pull-to-refresh-indicator mb-2.5 flex items-center justify-center gap-2.5 overflow-hidden rounded-xl bg-white/10';
+        indicator.innerHTML = `<span class="pull-icon text-xl">${Icons.svg('arrow-down')}</span><span class="pull-text text-sm font-medium text-zinc-300">引っ張って更新</span>`;
         calendarSection.insertBefore(indicator, calendarSection.firstChild);
 
         calendarSection.addEventListener('touchstart', (e) => this.handlePullStart(e), { passive: true });
@@ -483,7 +483,7 @@ export class HolidayCalendar {
             linkBtn.innerHTML = `${Icons.svg('link')} 連携`;
         }
         statusText.style.color = '';
-        const primary = ['bg-indigo-500', 'text-white', 'hover:bg-indigo-400'];
+        const primary = ['bg-zinc-100', 'text-zinc-900', 'hover:bg-white'];
         const quiet = ['bg-white/10', 'text-zinc-400', 'ring-1', 'ring-inset', 'ring-white/10', 'hover:bg-white/15'];
         linkBtn.classList.remove(...primary, ...quiet);
         linkBtn.classList.add(...(this.gcalConnected ? quiet : primary));
@@ -601,6 +601,18 @@ export class HolidayCalendar {
     }
 
     /**
+     * マスの中の予定表示。スマホ幅ではマスが狭く時刻まで入らないため、時刻は広い画面だけで出す
+     * （時刻は日付の詳細で確認できる）
+     * @private
+     * @returns {string} HTML
+     */
+    _gcalCellLabel(ev) {
+        const time = ev.allDay ? '' : this._jstTimeHHMM(ev.start);
+        const timeHtml = time ? `<span class="hidden font-mono sm:inline">${time} </span>` : '';
+        return `${timeHtml}${Utils.escapeHtml(ev.title)}`;
+    }
+
+    /**
      * 詳細モーダル用の時刻表示（"10:00 - 11:00" / 終日）
      * @private
      */
@@ -680,7 +692,7 @@ export class HolidayCalendar {
         if (!el) return;
         el.innerHTML = this.users.length === 0
             ? '<span class="no-users text-sm text-zinc-500">ユーザーが登録されていません</span>'
-            : this.users.map(u => `<div class="user-tag inline-flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-1 text-xs font-semibold text-zinc-300 ring-1 ring-inset ring-white/10"><div class="user-color-dot h-2.5 w-2.5 shrink-0 rounded-full" style="background-color:${u.color}"></div><span>${Utils.escapeHtml(u.name)}</span></div>`).join('');
+            : this.users.map(u => `<div class="user-tag inline-flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-1 text-xs font-medium text-zinc-300 ring-1 ring-inset ring-white/10"><div class="user-color-dot h-2.5 w-2.5 shrink-0 rounded-full" style="background-color:${u.color}"></div><span>${Utils.escapeHtml(u.name)}</span></div>`).join('');
     }
 
     // ==================== 月切り替え ====================
@@ -717,7 +729,7 @@ export class HolidayCalendar {
         const todayStr = Utils.formatDateString(new Date());
         const prevDays = new Date(this.currentYear, this.currentMonth - 1, 0).getDate();
 
-        const numberBase = 'calendar-date-number mb-0.5 text-[11px] font-bold leading-none sm:text-[12px]';
+        const numberBase = 'calendar-date-number mb-0.5 font-mono text-[11px] font-medium leading-none tabular-nums sm:text-[12px]';
         const otherMonthCell = (n) => `<div class="calendar-date-cell other-month min-h-[25px] rounded-md bg-white/5 p-0.5 opacity-30 sm:min-h-[30px]"><div class="${numberBase} text-white">${n}</div></div>`;
 
         const gcalMap = this._buildGcalEventMap();
@@ -726,7 +738,7 @@ export class HolidayCalendar {
         // 休日編集画面と同じ配色（日曜・祝日=赤、土曜=青）で、月を見渡したときに週末がすぐ分かるようにする
         let html = WEEKDAYS.map((d, i) => {
             const color = i === 0 ? 'text-rose-400' : i === 6 ? 'text-sky-400' : 'text-zinc-500';
-            return `<div class="calendar-weekday py-1.5 text-center text-[10px] font-bold ${color} sm:text-[11px]">${d}</div>`;
+            return `<div class="calendar-weekday py-1.5 text-center text-[10px] font-medium ${color} sm:text-[11px]">${d}</div>`;
         }).join('');
 
         for (let i = startDow - 1; i >= 0; i--) html += otherMonthCell(prevDays - i);
@@ -739,7 +751,7 @@ export class HolidayCalendar {
             const dayE = gcalMap[dateStr] || [];
 
             let cellClass = 'calendar-date-cell flex min-h-[96px] cursor-pointer flex-col rounded-md p-0.5 transition sm:min-h-[112px]';
-            cellClass += isToday ? ' today bg-indigo-500/15 ring-2 ring-inset ring-indigo-500' : ' bg-white/5 hover:bg-white/10';
+            cellClass += isToday ? ' today bg-white/10 ring-2 ring-inset ring-amber-400' : ' bg-white/5 hover:bg-white/10';
             if (dayM.length) cellClass += ' has-memo';
 
             const dow = new Date(this.currentYear, this.currentMonth - 1, day).getDay();
@@ -754,24 +766,24 @@ export class HolidayCalendar {
                 const tc = dayM.filter(m => m.type === 'task').length;
                 const sc = dayM.filter(m => m.type === 'schedule').length;
                 html += '<div class="calendar-memo-indicator mb-px flex flex-wrap gap-px">';
-                if (tc) html += `<span class="memo-badge task rounded-sm bg-black/40 px-1 text-[7px] leading-snug text-rose-300 sm:text-[8px]">${Icons.svg('pin')}${tc}</span>`;
-                if (sc) html += `<span class="memo-badge schedule rounded-sm bg-black/40 px-1 text-[7px] leading-snug text-sky-300 sm:text-[8px]">${Icons.svg('calendar')}${sc}</span>`;
+                if (tc) html += `<span class="memo-badge task inline-flex items-center gap-0.5 rounded-sm bg-black/40 px-1 font-mono text-[10px] leading-tight text-zinc-300 sm:text-[11px]">${Icons.svg('pin')}${tc}</span>`;
+                if (sc) html += `<span class="memo-badge schedule inline-flex items-center gap-0.5 rounded-sm bg-black/40 px-1 font-mono text-[10px] leading-tight text-sky-300 sm:text-[11px]">${Icons.svg('calendar')}${sc}</span>`;
                 html += '</div>';
             }
 
             // Googleカレンダーの予定チップ（休日行と同じ極小スタイル・スカイ系で区別）
             dayE.slice(0, GCAL_MAX_EVENTS_PER_CELL).forEach(ev => {
-                html += `<div class="calendar-gcal-event flex items-center rounded-sm bg-sky-500/15 px-1 py-px text-[7px] leading-snug text-sky-300 sm:text-[8px]"><span class="truncate">${Utils.escapeHtml(this._gcalEventLabel(ev))}</span></div>`;
+                html += `<div class="calendar-gcal-event flex items-center rounded-sm bg-sky-500/15 px-1 py-px text-[10px] leading-tight text-sky-300 sm:text-[11px]"><span class="truncate">${this._gcalCellLabel(ev)}</span></div>`;
             });
             if (dayE.length > GCAL_MAX_EVENTS_PER_CELL) {
-                html += `<div class="calendar-more-events text-center text-[9px] text-sky-300/70">+${dayE.length - GCAL_MAX_EVENTS_PER_CELL}</div>`;
+                html += `<div class="calendar-more-events text-center font-mono text-[10px] text-sky-300/70">+${dayE.length - GCAL_MAX_EVENTS_PER_CELL}</div>`;
             }
 
             dayH.slice(0, 3).forEach(h => {
                 const u = this.users.find(x => x.id === h.userId);
-                if (u) html += `<div class="calendar-holiday-user flex items-center gap-1 rounded-sm bg-black/30 px-1 py-px text-[7px] leading-snug sm:text-[8px]"><div class="calendar-holiday-dot h-1.5 w-1.5 shrink-0 rounded-full" style="background-color:${u.color}"></div><span class="calendar-holiday-name truncate">${Utils.escapeHtml(u.name)}</span></div>`;
+                if (u) html += `<div class="calendar-holiday-user flex items-center gap-1 rounded-sm bg-black/30 px-1 py-px text-[10px] leading-tight sm:text-[11px]"><div class="calendar-holiday-dot h-1.5 w-1.5 shrink-0 rounded-full" style="background-color:${u.color}"></div><span class="calendar-holiday-name truncate">${Utils.escapeHtml(u.name)}</span></div>`;
             });
-            if (dayH.length > 3) html += `<div class="calendar-more-users mt-px text-center text-[9px] text-zinc-400">+${dayH.length - 3}</div>`;
+            if (dayH.length > 3) html += `<div class="calendar-more-users mt-px text-center font-mono text-[10px] text-zinc-400">+${dayH.length - 3}</div>`;
             html += '</div></div>';
         }
 
@@ -937,7 +949,7 @@ export class HolidayCalendar {
         if (this.memoFilter !== 'all') memos = memos.filter(m => m.type === this.memoFilter);
         memos = memos.sort((a,b) => a.date !== b.date ? a.date.localeCompare(b.date) : (a.type === 'task' ? -1 : 1));
         
-        const filterBtnClass = 'memo-filter-btn flex-1 rounded-lg bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-400 transition hover:bg-white/15';
+        const filterBtnClass = 'memo-filter-btn flex-1 rounded-lg bg-white/10 px-3 py-2 text-xs font-medium text-zinc-400 transition hover:bg-white/15';
         let html = `<div class="memo-filter-section mb-3 flex gap-2 rounded-xl bg-white/5 p-2 ring-1 ring-inset ring-white/5">
             <button class="${filterBtnClass}${this.memoFilter === 'all' ? ' active' : ''}" data-filter="all" onclick="app.holidayCalendar.setMemoFilter('all')">すべて</button>
             <button class="${filterBtnClass}${this.memoFilter === 'task' ? ' active' : ''}" data-filter="task" onclick="app.holidayCalendar.setMemoFilter('task')">${Icons.svg('pin')} タスク</button>
@@ -953,14 +965,14 @@ export class HolidayCalendar {
                 curDate = m.date;
                 const isToday = m.date === todayStr;
                 const headerClass = isToday
-                    ? ' today rounded-md border-l-2 border-l-indigo-400 bg-indigo-500/15 pl-3'
+                    ? ' today rounded-md border-l-2 border-l-amber-400 bg-white/10 pl-3'
                     : '';
-                html += `<div class="memo-date-header mt-2.5 border-b border-white/10 pb-1 pt-2 text-sm font-bold text-indigo-300 first:mt-0${headerClass}">${isToday ? `${Icons.svg('pin')} 今日 - ` : ''}${m.date.substring(5).replace('-','/')} (${WEEKDAYS[parseDateLocal(m.date).getDay()]})</div>`;
+                html += `<div class="memo-date-header mt-2.5 border-b border-white/10 pb-1 pt-2 text-sm font-medium text-zinc-200 first:mt-0${headerClass}">${isToday ? `${Icons.svg('pin')} 今日 - ` : ''}${m.date.substring(5).replace('-','/')} (${WEEKDAYS[parseDateLocal(m.date).getDay()]})</div>`;
             }
             const icon = m.type === 'task' ? Icons.svg('pin') : Icons.svg('calendar');
             const timeText = this._memoTimeText(m);
             const time = timeText ? `<span class="memo-time text-[11px] text-zinc-400">${timeText}</span>` : '';
-            html += `<div class="memo-item ${m.type} mb-2 flex cursor-grab items-center justify-between gap-2 rounded-lg border-l-[3px] ${m.type === 'task' ? 'border-amber-400' : 'border-sky-400'} bg-white/5 p-3 ring-1 ring-inset ring-white/10" draggable="true" ondragstart="app.holidayCalendar.handleDragStart(event, '${m.id}')" ondragend="app.holidayCalendar.handleDragEnd(event)">
+            html += `<div class="memo-item ${m.type} mb-2 flex cursor-grab items-center justify-between gap-2 rounded-lg border-l-[3px] ${m.type === 'task' ? 'border-zinc-400' : 'border-sky-400'} bg-white/5 p-3 ring-1 ring-inset ring-white/10" draggable="true" ondragstart="app.holidayCalendar.handleDragStart(event, '${m.id}')" ondragend="app.holidayCalendar.handleDragEnd(event)">
                 <div class="memo-item-content group flex min-w-0 flex-1 cursor-pointer items-center gap-2" onclick="app.holidayCalendar.editMemoFromList('${m.id}')">
                     <span class="memo-icon shrink-0 text-sm">${icon}</span>
                     <div class="memo-details flex min-w-0 flex-col"><span class="memo-text truncate text-[13px] text-zinc-100">${Utils.escapeHtml(m.content)}</span>${time}</div>
@@ -1034,7 +1046,7 @@ export class HolidayCalendar {
         const d = parseDateLocal(dateStr);
         document.getElementById('dateDetailTitle').innerHTML = `${Icons.svg('calendar')} ${d.getMonth()+1}/${d.getDate()} (${WEEKDAYS[d.getDay()]})`;
         
-        const sectionTitleClass = 'detail-section-title mb-2.5 border-b border-white/10 pb-2 text-sm font-bold text-indigo-300';
+        const sectionTitleClass = 'detail-section-title mb-2.5 border-b border-white/10 pb-2 text-sm font-medium text-zinc-200';
         const holidays = this.holidays.filter(h => h.date === dateStr);
         let hHtml = holidays.length ? `<div class="${sectionTitleClass}">${Icons.svg('sun')} 休日</div>` + holidays.map(h => {
             const u = this.users.find(x => x.id === h.userId);
@@ -1051,7 +1063,7 @@ export class HolidayCalendar {
                     : '';
                 return `<div class="detail-gcal-event mb-2 rounded-lg border-l-[3px] border-sky-400 bg-white/5 p-3 ring-1 ring-inset ring-white/10">
                     <div class="flex items-center gap-2">
-                        <span class="shrink-0 text-xs font-semibold text-sky-300">${Utils.escapeHtml(this._gcalEventTimeRange(ev))}</span>
+                        <span class="shrink-0 text-xs font-medium text-sky-300">${Utils.escapeHtml(this._gcalEventTimeRange(ev))}</span>
                         <span class="break-words text-sm text-zinc-100">${Utils.escapeHtml(ev.title)}</span>
                     </div>${location}
                 </div>`;
@@ -1065,7 +1077,7 @@ export class HolidayCalendar {
             const icon = m.type === 'task' ? Icons.svg('pin') : Icons.svg('calendar');
             const timeText = this._memoTimeText(m);
             const time = timeText ? `<div class="detail-memo-time ml-6 mt-1 text-xs text-zinc-400">${timeText}</div>` : '';
-            mHtml += `<div class="detail-memo-item ${m.type} relative mb-2 flex cursor-grab flex-col rounded-lg border-l-[3px] ${m.type === 'task' ? 'border-amber-400' : 'border-sky-400'} bg-white/5 p-3 ring-1 ring-inset ring-white/10" draggable="true" ondragstart="app.holidayCalendar.handleDragStart(event, '${m.id}')" ondragend="app.holidayCalendar.handleDragEnd(event)">
+            mHtml += `<div class="detail-memo-item ${m.type} relative mb-2 flex cursor-grab flex-col rounded-lg border-l-[3px] ${m.type === 'task' ? 'border-zinc-400' : 'border-sky-400'} bg-white/5 p-3 ring-1 ring-inset ring-white/10" draggable="true" ondragstart="app.holidayCalendar.handleDragStart(event, '${m.id}')" ondragend="app.holidayCalendar.handleDragEnd(event)">
                 <div class="detail-memo-main group flex flex-1 cursor-pointer items-center gap-2 pr-7" onclick="app.holidayCalendar.editMemo('${m.id}')">
                     <span class="memo-icon shrink-0 text-sm">${icon}</span>
                     <span class="detail-memo-content break-words text-sm text-zinc-100">${Utils.escapeHtml(m.content)}${m.gcalEventId ? ` ${Icons.svg('calendar-days')}` : ''}</span>
@@ -1091,7 +1103,7 @@ export class HolidayCalendar {
         if (!el) return;
         el.innerHTML = this.users.length === 0
             ? '<p class="py-4 text-center text-sm text-zinc-500">ユーザーが登録されていません</p>'
-            : this.users.map(u => `<div class="user-item flex cursor-pointer items-center gap-2.5 rounded-xl bg-white/5 p-3.5 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.holidayCalendar.editUser('${u.id}')"><div class="user-color-dot h-3 w-3 shrink-0 rounded-full" style="background-color:${u.color}"></div><span>${Utils.escapeHtml(u.name)}</span></div>`).join('');
+            : this.users.map(u => `<div class="user-item flex cursor-pointer items-center gap-2.5 rounded-xl bg-white/5 p-3.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.holidayCalendar.editUser('${u.id}')"><div class="user-color-dot h-3 w-3 shrink-0 rounded-full" style="background-color:${u.color}"></div><span>${Utils.escapeHtml(u.name)}</span></div>`).join('');
     }
 
     showUserForm(userId = null) {
@@ -1116,9 +1128,9 @@ export class HolidayCalendar {
         el.innerHTML = this.colors.map(c => {
             const used = usedColors.includes(c.value), sel = this.selectedColor === c.value;
             let cls = 'color-option flex aspect-square items-center justify-center rounded-xl text-xl transition';
-            cls += used ? ' disabled cursor-not-allowed opacity-30' : ' cursor-pointer hover:scale-105';
-            if (sel) cls += ' selected ring-2 ring-white shadow-[0_0_20px_rgba(255,255,255,0.4)]';
-            return `<div class="${cls}" style="background-color:${c.value}" onclick="app.holidayCalendar.selectColor('${c.value}',${used})">${sel ? '✓' : c.emoji}</div>`;
+            cls += used ? ' disabled cursor-not-allowed opacity-30' : ' cursor-pointer hover:ring-2 hover:ring-white/40';
+            if (sel) cls += ' selected ring-2 ring-white ring-offset-2 ring-offset-zinc-900';
+            return `<div class="${cls}" style="background-color:${c.value}" aria-label="${c.name}" onclick="app.holidayCalendar.selectColor('${c.value}',${used})">${sel ? `<span class="text-zinc-900">${Icons.svg('check')}</span>` : ''}</div>`;
         }).join('');
     }
 
@@ -1163,7 +1175,7 @@ export class HolidayCalendar {
         if (!el) return;
         el.innerHTML = this.users.length === 0
             ? '<p class="py-4 text-center text-sm text-zinc-500">先にユーザーを登録してください</p>'
-            : this.users.map(u => `<button class="holiday-user-btn flex w-full items-center gap-2.5 rounded-xl bg-white/5 p-3.5 text-sm font-bold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.holidayCalendar.selectHolidayUser('${u.id}')" style="border-left:4px solid ${u.color}"><span class="user-emoji">${Icons.svg('user')}</span> ${Utils.escapeHtml(u.name)}</button>`).join('');
+            : this.users.map(u => `<button class="holiday-user-btn flex w-full items-center gap-2.5 rounded-xl bg-white/5 p-3.5 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/10" onclick="app.holidayCalendar.selectHolidayUser('${u.id}')" style="border-left:4px solid ${u.color}"><span class="user-emoji">${Icons.svg('user')}</span> ${Utils.escapeHtml(u.name)}</button>`).join('');
     }
 
     selectHolidayUser(userId) {
@@ -1191,11 +1203,11 @@ export class HolidayCalendar {
 
         let html = WEEKDAYS.map((d, i) => {
             const color = i === 0 ? 'text-rose-400' : i === 6 ? 'text-sky-400' : 'text-zinc-500';
-            return `<div class="edit-calendar-weekday p-1.5 text-center text-[11px] font-bold ${color} sm:text-xs">${d}</div>`;
+            return `<div class="edit-calendar-weekday p-1.5 text-center text-[11px] font-medium ${color} sm:text-xs">${d}</div>`;
         }).join('');
         for (let i = 0; i < startDow; i++) html += '<div class="edit-calendar-cell empty"></div>';
 
-        const cellBase = 'edit-calendar-cell relative flex aspect-square min-h-[35px] cursor-pointer items-center justify-center rounded-md p-0.5 text-xs font-bold transition sm:min-h-[40px] sm:text-[13px]';
+        const cellBase = 'edit-calendar-cell relative flex aspect-square min-h-[35px] cursor-pointer items-center justify-center rounded-md p-0.5 text-xs font-medium transition sm:min-h-[40px] sm:text-[13px]';
         for (let day = 1; day <= daysInMonth; day++) {
             const dateStr = toDateStr(this.editYear, this.editMonth, day);
             const dow = new Date(this.editYear, this.editMonth - 1, day).getDay();
@@ -1203,10 +1215,10 @@ export class HolidayCalendar {
             const sel = this.tempHolidays.includes(dateStr);
             let cls;
             if (sel) {
-                cls = `${cellBase} selected bg-indigo-500 text-white shadow-lg shadow-indigo-500/30`;
+                cls = `${cellBase} selected bg-amber-400 text-zinc-900`;
             } else {
                 const textColor = (dow === 0 || holidayName) ? 'text-rose-300' : dow === 6 ? 'text-sky-300' : 'text-zinc-100';
-                cls = `${cellBase} bg-white/5 ${textColor} hover:scale-105 hover:bg-white/15`;
+                cls = `${cellBase} bg-white/5 ${textColor} hover:bg-white/15`;
             }
             const title = holidayName ? ` title="${holidayName}"` : '';
             const dot = holidayName ? '<span class="absolute right-1 top-1 h-1 w-1 rounded-full bg-rose-400"></span>' : '';
