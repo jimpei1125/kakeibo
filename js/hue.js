@@ -81,7 +81,7 @@ export class PhilipsHue {
         return `
             <div class="hue-auth-prompt col-span-full rounded-xl bg-white/5 p-8 text-center ring-1 ring-white/10">
                 <p class="mb-4 text-sm text-zinc-400">Philips Hueアカウントとの連携が必要です</p>
-                <button onclick="app.hue.startAuth()" class="rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400">
+                <button onclick="app.hue.startAuth()" class="rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-900 transition hover:bg-white">
                     ${Icons.svg('link')} Hueアカウントを連携
                 </button>
             </div>
@@ -211,9 +211,9 @@ export class PhilipsHue {
     _renderConnectionError(message) {
         return `
             <div class="hue-error col-span-full rounded-xl bg-rose-500/10 p-6 text-center ring-1 ring-inset ring-rose-500/20">
-                <p class="text-sm font-semibold text-rose-300">Hueに接続できません</p>
+                <p class="text-sm font-medium text-rose-300">Hueに接続できません</p>
                 <p class="mt-2 text-xs text-rose-300/70">${Utils.escapeHtml(message)}</p>
-                <button onclick="app.hue.logout()" class="mt-4 rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15">
+                <button onclick="app.hue.logout()" class="mt-4 rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15">
                     再認証する
                 </button>
             </div>
@@ -253,14 +253,14 @@ export class PhilipsHue {
                 ? 'bg-amber-400/10 ring-amber-400/30 hover:bg-amber-400/15'
                 : 'bg-white/5 ring-white/10 opacity-70 hover:bg-white/10';
             const dotState = allOn
-                ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]'
+                ? 'bg-emerald-400'
                 : (isOn ? 'bg-emerald-400' : 'bg-white/20');
 
             return `
                 <div class="hue-light-card ${isOn ? 'on' : 'off'} relative cursor-pointer rounded-xl p-4 text-center ring-1 transition ${cardState}" onclick="app.hue.showControl('${Utils.escapeHtml(id)}')">
                     <div class="hue-light-status ${allOn ? 'all-on' : ''} absolute right-2.5 top-2.5 h-2 w-2 rounded-full ${dotState}"></div>
                     <div class="hue-light-icon mb-2 text-3xl${isOn ? ' drop-shadow-[0_0_10px_rgba(251,191,36,0.5)]' : ''}">${icon}</div>
-                    <div class="hue-light-name truncate text-sm font-bold text-zinc-100">${Utils.escapeHtml(g.name)}</div>
+                    <div class="hue-light-name truncate text-sm font-medium text-zinc-100">${Utils.escapeHtml(g.name)}</div>
                     <div class="hue-light-brightness text-[11px] ${isOn ? 'text-amber-300' : 'text-zinc-500'}">${isOn ? (allOn ? '全点灯' : '一部点灯') : 'OFF'}</div>
                     <div class="hue-light-count mt-1 text-[11px] text-zinc-500">${g.lights?.length || 0}台</div>
                 </div>
@@ -315,8 +315,8 @@ export class PhilipsHue {
                         ${isOn ? Icons.svg('lightbulb') : Icons.svg('moon')}
                     </button>
                     <div class="hue-individual-info min-w-0 flex-1">
-                        <div class="hue-individual-name mb-1.5 truncate text-sm font-semibold text-zinc-100">${Utils.escapeHtml(light.name)}</div>
-                        <input type="range" class="hue-individual-slider w-full accent-indigo-500" min="1" max="100" value="${brightness}"
+                        <div class="hue-individual-name mb-1.5 truncate text-sm font-medium text-zinc-100">${Utils.escapeHtml(light.name)}</div>
+                        <input type="range" class="hue-individual-slider w-full accent-amber-400" min="1" max="100" value="${brightness}"
                             onchange="app.hue.setIndividualBrightness('${safeId}',this.value)">
                     </div>
                     <div class="hue-individual-brightness w-10 shrink-0 text-right text-xs text-zinc-400">${brightness}%</div>

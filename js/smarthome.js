@@ -14,11 +14,11 @@ import { Dialog } from './dialog.js';
 /** SwitchBot API プロキシURL */
 const SWITCHBOT_PROXY_URL = 'https://switchbot-proxy.zinnpei11251818.workers.dev/v1.1';
 
-/** デバイスタイプ別アイコン */
+/** デバイスタイプ別アイコン（js/icons.js の線のアイコン名） */
 const DEVICE_ICONS = {
-    'Air Conditioner': '❄️', 'Fan': '🌀', 'Light': '💡', 'TV': '📺',
-    'Hub Mini': '📡', 'Hub 2': '📡', 'Bot': '🤖', 'Plug': '🔌',
-    'Meter': '🌡️', 'Motion Sensor': '👁️', 'Contact Sensor': '🚪', 'default': '📱'
+    'Air Conditioner': 'snowflake', 'Fan': 'fan', 'Light': 'lightbulb', 'TV': 'tv',
+    'Hub Mini': 'radio', 'Hub 2': 'radio', 'Bot': 'bot', 'Plug': 'plug',
+    'Meter': 'thermometer', 'Motion Sensor': 'eye', 'Contact Sensor': 'door-open', 'default': 'smartphone'
 };
 
 /** エアコンのデフォルト設定 */
@@ -266,8 +266,8 @@ export class SmartHome {
 
         return `
             <div class="device-card cursor-pointer rounded-xl bg-white/5 p-4 text-center ring-1 ring-white/10 transition hover:bg-white/10" onclick="${onclick}">
-                <div class="device-icon mb-2 text-3xl">${icon}</div>
-                <div class="device-name truncate text-sm font-bold text-zinc-100">${Utils.escapeHtml(device.deviceName)}</div>
+                <div class="device-icon mb-3 text-2xl text-zinc-400">${Icons.svg(icon)}</div>
+                <div class="device-name truncate text-sm font-medium text-zinc-100">${Utils.escapeHtml(device.deviceName)}</div>
                 <div class="device-type mt-1 text-[11px] text-zinc-500">${Utils.escapeHtml(type)}</div>
                 ${meterInfo}
             </div>
@@ -288,9 +288,9 @@ export class SmartHome {
         const humidity = Math.round(meter.humidity);
 
         return `
-            <div class="device-meter mt-2 flex items-center justify-center gap-2.5 text-xs font-semibold text-zinc-300">
-                <span>🌡 ${temperature}℃</span>
-                <span>💧 ${humidity}%</span>
+            <div class="device-meter mt-2 flex items-center justify-center gap-3 font-mono text-xs text-zinc-300 tabular-nums">
+                <span class="inline-flex items-center gap-1"><span class="text-zinc-500">${Icons.svg('thermometer')}</span>${temperature}℃</span>
+                <span class="inline-flex items-center gap-1"><span class="text-zinc-500">${Icons.svg('droplet')}</span>${humidity}%</span>
             </div>
         `;
     }

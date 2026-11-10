@@ -100,7 +100,8 @@ console.log('\n【4】renderCalendar（マス表示）');
     cal.renderCalendar();
     const html = elements.get('holidayCalendar').innerHTML;
     check('予定チップが描画される', html.includes('calendar-gcal-event'));
-    check('時刻つきラベル', html.includes('10:00 通常予定'));
+    // 時刻はスマホ幅で隠す別要素（sm以上で表示）、タイトルは常に表示
+    check('時刻つきラベル（時刻は広い画面だけ表示）', html.includes('sm:inline">10:00 </span>通常予定'));
     check('終日タイトル', html.includes('旅行'));
     check('メモ由来は描画されない', !html.includes('メモ由来'));
 

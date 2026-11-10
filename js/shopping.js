@@ -12,12 +12,6 @@ import { Dialog } from './dialog.js';
 // 定数定義
 // ============================================================
 
-/** カテゴリ別絵文字 */
-const CATEGORY_EMOJIS = {
-    '野菜・果物': '🥬', '肉・魚': '🍖', '乳製品・卵': '🥛', '調味料': '🧂',
-    '飲料': '🥤', 'お菓子': '🍪', '日用品': '🧴', 'その他': '📦'
-};
-
 /** カテゴリ推測用キーワード */
 const CATEGORY_KEYWORDS = {
     '野菜・果物': ['野菜', '果物', 'りんご', 'みかん', 'バナナ', 'トマト', 'キャベツ', 'にんじん', 'たまねぎ', '玉ねぎ', 'レタス', 'きゅうり', 'なす', 'ピーマン', 'ほうれん草', '白菜', '大根', 'じゃがいも', 'さつまいも'],
@@ -29,10 +23,10 @@ const CATEGORY_KEYWORDS = {
     '日用品': ['洗剤', 'シャンプー', 'リンス', '石鹸', 'ティッシュ', 'トイレットペーパー', 'ラップ', 'アルミホイル', 'ゴミ袋', '歯磨き粉', '歯ブラシ', '綿棒']
 };
 
-/** 優先度バッジ（急ぎ=rose / 後で=sky） */
+/** 優先度（急ぎ=赤い文字 / 後で=控えめな文字。ピルにはしない） */
 const PRIORITY_BADGES = {
-    high: '<span class="priority-badge rounded-full bg-rose-500/15 px-2 py-0.5 text-[11px] font-semibold text-rose-300 ring-1 ring-inset ring-rose-500/20">急ぎ</span>',
-    low: '<span class="priority-badge rounded-full bg-sky-500/15 px-2 py-0.5 text-[11px] font-semibold text-sky-300 ring-1 ring-inset ring-sky-500/20">後で</span>'
+    high: '<span class="priority-badge text-xs text-rose-300">急ぎ</span>',
+    low: '<span class="priority-badge text-xs text-zinc-500">後で</span>'
 };
 
 // ============================================================
@@ -51,7 +45,6 @@ export class ShoppingList {
         this.tempTemplateItems = [];
         this.currentFilter = 'all';
         this.completedExpanded = false;
-        this.categoryEmojis = CATEGORY_EMOJIS;
     }
 
     // ==================== 初期化 ====================
@@ -86,11 +79,11 @@ export class ShoppingList {
             (snap) => {
                 this.items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 this.renderList();
-                this.showSyncStatus('synced', '✓ 同期済み');
+                this.showSyncStatus('synced', '同期済み');
             },
             (err) => {
                 console.error('買い物リスト読み込みエラー:', err);
-                this.showSyncStatus('error', '✗ 接続エラー');
+                this.showSyncStatus('error', '接続エラー');
             }
         );
     }
@@ -136,7 +129,7 @@ export class ShoppingList {
         }
         
         suggestionsEl.innerHTML = `
-            <div class="suggestions-title border-b border-white/10 px-3 py-2 text-xs font-semibold text-zinc-400">${Icons.svg('lightbulb')} 過去の購入履歴から</div>
+            <div class="suggestions-title border-b border-white/10 px-3 py-2 text-xs font-medium text-zinc-400">${Icons.svg('lightbulb')} 過去の購入履歴から</div>
             <div class="suggestion-items max-h-56 overflow-y-auto">
                 ${suggestions.map(i => `
                     <div class="suggestion-item cursor-pointer px-3 py-2 text-sm text-zinc-100 transition hover:bg-white/10" onclick="app.shopping.selectSuggestion(${Utils.escapeJsArg(i.name)},${Utils.escapeJsArg(i.category || 'その他')})">
@@ -210,7 +203,7 @@ export class ShoppingList {
             Utils.showToast('追加しました');
         } catch (err) {
             console.error('アイテム追加エラー:', err);
-            this.showSyncStatus('error', '✗ エラー');
+            this.showSyncStatus('error', 'エラー');
             Utils.showToast('追加に失敗しました');
         }
     }
@@ -311,11 +304,11 @@ export class ShoppingList {
         
         // 未購入リスト
         if (uncompleted.length === 0) {
-            listEl.innerHTML = this.renderEmptyState('買い物リストは空です', '🛒');
+            listEl.innerHTML = this.renderEmptyState('買い物リストは空です', Icons.svg('shopping-cart'));
         } else {
             listEl.innerHTML = Object.entries(grouped).map(([cat, items]) => `
                 <div class="shopping-category-group mb-5">
-                    <div class="shopping-category-header mb-2 border-b border-white/10 pb-2 text-sm font-bold text-zinc-400">${this.categoryEmojis[cat] || '📦'} ${Utils.escapeHtml(cat)}</div>
+                    <div class="shopping-category-header mb-2 border-b border-white/10 pb-2 text-sm font-medium text-zinc-400">${Utils.escapeHtml(cat)}</div>
                     ${items.map(i => this.renderItem(i)).join('')}
                 </div>
             `).join('');
@@ -332,25 +325,24 @@ export class ShoppingList {
 
     renderItem(item, isCompleted = false) {
         const priorityClass = item.priority === 'high' ? 'high-priority' : item.priority === 'low' ? 'low-priority' : '';
-        const surface = item.priority === 'high' && !isCompleted
-            ? 'bg-rose-500/10 ring-rose-500/20 hover:bg-rose-500/15'
-            : 'bg-white/5 ring-white/10 hover:bg-white/10';
+        // 急ぎでも面は塗らない（「急ぎ」の赤い文字で十分に伝わる）
+        const surface = 'bg-white/5 ring-white/10 hover:bg-white/10';
         const stateClass = isCompleted ? 'completed opacity-60' : item.priority === 'low' ? 'opacity-70' : '';
 
         return `
             <div class="shopping-item ${priorityClass} ${stateClass} mb-2 flex items-center gap-3 rounded-xl ${surface} p-3 ring-1 transition">
                 <div class="shopping-checkbox ${isCompleted ? 'checked' : ''} flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 border-white/20 transition hover:border-indigo-400" onclick="app.shopping.toggleComplete('${item.id}')"></div>
                 <div class="shopping-item-content min-w-0 flex-1 ${isCompleted ? 'line-through' : ''}">
-                    <div class="shopping-item-name flex items-center gap-2 text-[15px] font-bold text-zinc-100">
+                    <div class="shopping-item-name flex items-center gap-2 text-[15px] font-medium text-zinc-100">
                         <span class="truncate">${Utils.escapeHtml(item.name)}</span>
                         ${!isCompleted ? (PRIORITY_BADGES[item.priority] || '') : ''}
                     </div>
                     <div class="shopping-item-meta mt-0.5 flex gap-2.5 text-xs text-zinc-500">
-                        <span>${this.categoryEmojis[item.category] || '📦'} ${Utils.escapeHtml(item.category)}</span>
+                        <span>${Utils.escapeHtml(item.category)}</span>
                     </div>
                 </div>
-                <div class="shopping-item-quantity shrink-0 rounded-full bg-white/10 px-2.5 py-1 text-xs font-bold text-zinc-300">×${item.quantity}</div>
-                <button aria-label="削除" class="shopping-item-delete flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-sm text-rose-300 ring-1 ring-inset ring-rose-500/20 transition hover:bg-rose-500/20" onclick="app.shopping.deleteItem('${item.id}')">${Icons.svg('x')}</button>
+                <div class="shopping-item-quantity shrink-0 rounded-full bg-white/10 px-2.5 py-1 text-xs font-medium text-zinc-300">×${item.quantity}</div>
+                <button aria-label="削除" class="shopping-item-delete flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-sm text-zinc-400 ring-1 ring-inset ring-white/10 hover:text-rose-300 transition hover:bg-rose-500/20" onclick="app.shopping.deleteItem('${item.id}')">${Icons.svg('x')}</button>
             </div>
         `;
     }
@@ -363,7 +355,7 @@ export class ShoppingList {
     renderEmptyState(text, icon = '') {
         return `
             <div class="shopping-empty py-10 text-center text-zinc-500">
-                ${icon ? `<div class="shopping-empty-icon mb-3 text-5xl">${icon}</div>` : ''}
+                ${icon ? `<div class="shopping-empty-icon mb-3 text-3xl text-zinc-600">${icon}</div>` : ''}
                 <div class="shopping-empty-text text-sm">${text}</div>
             </div>
         `;
@@ -375,7 +367,7 @@ export class ShoppingList {
     renderTemplateInfo(template) {
         return `
             <div class="template-info min-w-0 flex-1">
-                <div class="template-name truncate font-bold text-zinc-100">${Utils.escapeHtml(template.name)}</div>
+                <div class="template-name truncate font-medium text-zinc-100">${Utils.escapeHtml(template.name)}</div>
                 <div class="template-count mt-0.5 text-xs text-zinc-500">${template.items?.length || 0}件のアイテム</div>
             </div>
         `;
@@ -429,8 +421,8 @@ export class ShoppingList {
                 <div class="template-list-item flex items-center justify-between gap-3 rounded-xl bg-white/5 p-4 ring-1 ring-white/10 transition hover:bg-white/10">
                     ${this.renderTemplateInfo(t)}
                     <div class="template-actions flex shrink-0 gap-2">
-                        <button class="template-edit-btn rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.shopping.editTemplate('${t.id}')">編集</button>
-                        <button class="template-delete-btn rounded-lg bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-300 ring-1 ring-inset ring-rose-500/20 transition hover:bg-rose-500/20" onclick="app.shopping.deleteTemplateFromList('${t.id}')">削除</button>
+                        <button class="template-edit-btn rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-zinc-100 ring-1 ring-inset ring-white/10 transition hover:bg-white/15" onclick="app.shopping.editTemplate('${t.id}')">編集</button>
+                        <button class="template-delete-btn rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-rose-300 ring-1 ring-inset ring-white/10 transition-colors hover:bg-rose-500/10" onclick="app.shopping.deleteTemplateFromList('${t.id}')">削除</button>
                     </div>
                 </div>
             `).join('');
@@ -468,8 +460,8 @@ export class ShoppingList {
         el.innerHTML = this.tempTemplateItems.map((item, idx) => `
             <div class="template-item-row mb-1.5 flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2 ring-1 ring-white/10 last:mb-0">
                 <span class="item-name min-w-0 flex-1 truncate text-sm text-zinc-100">${Utils.escapeHtml(item.name)}</span>
-                <span class="item-category shrink-0 text-xs text-zinc-500">${this.categoryEmojis[item.category] || '📦'} ${Utils.escapeHtml(item.category)}</span>
-                <button aria-label="削除" class="remove-item flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-xs text-rose-300 transition hover:bg-rose-500/20" onclick="app.shopping.removeTemplateItem(${idx})">${Icons.svg('x')}</button>
+                <span class="item-category shrink-0 text-xs text-zinc-500">${Utils.escapeHtml(item.category)}</span>
+                <button aria-label="削除" class="remove-item flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-xs text-zinc-400 transition-colors hover:text-rose-300" onclick="app.shopping.removeTemplateItem(${idx})">${Icons.svg('x')}</button>
             </div>
         `).join('');
     }
