@@ -32,7 +32,7 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 
 const {
-    doc, getDoc, onSnapshot, collection, addDoc, updateDoc, deleteDoc, query, where, getDocs, orderBy,
+    doc, getDoc, onSnapshot, collection, addDoc, updateDoc, deleteDoc, deleteField, query, where, getDocs, orderBy,
     setDoc: firestoreSetDoc,
 } = firestore;
 
@@ -277,6 +277,7 @@ export {
     addDoc, 
     updateDoc, 
     deleteDoc, 
+    deleteField,
     query, 
     where, 
     getDocs, 

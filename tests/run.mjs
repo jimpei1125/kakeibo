@@ -10,6 +10,7 @@ const registerPath = path.join(here, 'register.mjs');
 /** @type {Array<{file: string, env?: Object, label: string}>} */
 const runs = [
     { file: 'budget.test.mjs', label: '家計簿（budget/copy-month/recurring/calculator/statement-import）' },
+    { file: 'family-card.test.mjs', label: '家族カードの買い物（記録・レシートからの記録）' },
     { file: 'worker.test.mjs', label: 'gcal-sync Worker' },
     { file: 'discord.test.mjs', label: 'Discord Webhook送信' },
     { file: 'smarthome.test.mjs', label: 'スマートホーム（一覧キャッシュ）' },

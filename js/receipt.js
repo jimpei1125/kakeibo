@@ -7,6 +7,7 @@
  * - Workerの認可はカレンダー連携と同じアプリキー（端末のlocalStorage）を使う
  * - 写真はブラウザ内で縮小してから送る（通信量と画像トークンを抑える）
  * - 読み取り結果は必ず確認画面で見直してから保存する（自動では追加しない）
+ * - 記録先は「家計簿」か「家族カードの買い物」（js/family-card.js。明細との照らし合わせ用の記録）
  */
 
 import { Utils } from './utils.js';
@@ -155,13 +156,21 @@ export class ReceiptReader {
         this.receipt = null;
         /** @type {'husband'|'wife'} */
         this.payer = 'husband';
+        /** @type {'budget'|'family'} 記録先（家計簿に追加するか、家族カードの買い物として記録するか） */
+        this.target = 'budget';
+        /** @type {import('./family-card.js').FamilyCardManager|null} 家族カードの記録（app.jsから注入） */
+        this.familyCard = null;
         this._previewUrl = null;
         /** 読み取り中に閉じた・撮り直した場合に、遅れて届いた結果を捨てるための番号 */
         this._requestId = 0;
     }
 
-    /** シートを開く（撮影の画面から） */
-    open() {
+    /**
+     * シートを開く（撮影の画面から）
+     * @param {{target?: 'budget'|'family'}} [options] - 記録先。省略時は家計簿
+     */
+    open({ target } = {}) {
+        this.target = target === 'family' ? 'family' : 'budget';
         this._reset();
         Utils.showModal('receiptSheet');
     }
@@ -238,11 +247,25 @@ export class ReceiptReader {
         this._renderPayer();
     }
 
-    /** 確認画面の内容で家計簿に追加する */
+    /**
+     * 記録先を切り替える
+     * @param {'budget'|'family'} target
+     */
+    setTarget(target) {
+        this.target = target === 'family' ? 'family' : 'budget';
+        this._renderTarget();
+    }
+
+    /** 確認画面の内容で、選んだ記録先に追加する */
     save() {
         const value = (id) => document.getElementById(id)?.value ?? '';
         let categoryName = value('receiptCategory');
         if (categoryName === NEW_CATEGORY) categoryName = value('receiptNewCategory').trim();
+
+        if (this.target === 'family') {
+            this._saveToFamilyCard(categoryName, value);
+            return;
+        }
         if (!categoryName) {
             Utils.showToast('カテゴリーを選んでください', 'error');
             return;
@@ -269,12 +292,43 @@ export class ReceiptReader {
     // 内部処理
     // ----------------------------------------
 
+    /**
+     * 家族カードの買い物として記録する（家計簿の合計には入れない。カテゴリーは未定でもよい）
+     * @param {string} categoryName
+     * @param {(id: string) => string} value - 入力欄の値を読む関数
+     */
+    _saveToFamilyCard(categoryName, value) {
+        if (!this.familyCard) return;
+        const date = value('receiptDate');
+        const memo = value('receiptMemo').trim();
+        const { purchase, error } = this.familyCard.add({
+            date,
+            store: value('receiptStore'),
+            amount: value('receiptAmount'),
+            category: categoryName,
+            // メモ欄の既定値は日付なので、日付だけのメモは重ねて持たせない
+            memo: memo === dateToNote(date) ? '' : memo,
+            source: 'receipt',
+        });
+        if (error) {
+            Utils.showToast(error, 'error');
+            return;
+        }
+        Utils.showToast(`${purchase.store || 'レシート'} ${Utils.formatCurrency(purchase.amount)}円を家族カードの買い物に記録しました`);
+        this.close();
+    }
+
     /** 撮影の画面に戻し、前回の結果を消す */
     _reset() {
         this.receipt = null;
         this._revokePreview();
         const monthEl = document.getElementById('receiptTargetMonth');
         if (monthEl) monthEl.textContent = this._monthLabel();
+        const family = this.target === 'family';
+        Utils.setVisible('receiptLeadBudget', !family);
+        Utils.setVisible('receiptLeadFamily', family);
+        Utils.setVisible('receiptTipBudget', !family);
+        Utils.setVisible('receiptTipFamily', family);
         this._showStep('Capture');
     }
 
@@ -353,26 +407,11 @@ export class ReceiptReader {
         setValue('receiptAmount', receipt.total);
         setValue('receiptMemo', dateToNote(receipt.date));
         setText('receiptPayment', PAYMENT_LABELS[receipt.paymentMethod] || PAYMENT_LABELS.unknown);
-        setText('receiptSubmit', `${this._monthLabel()}に追加`);
-
-        // カード払いは明細の取込でも入るので、二重に入れないよう注意を出す
-        Utils.setVisible('receiptCardWarning', receipt.paymentMethod === 'credit_card');
 
         const noteEl = document.getElementById('receiptAiNote');
         if (noteEl) {
             noteEl.textContent = receipt.note ? `読み取りメモ: ${receipt.note}` : '';
             noteEl.style.display = receipt.note ? 'block' : 'none';
-        }
-
-        // レシートの日付が表示中の月と違うときは、追加先を明示する
-        const hint = document.getElementById('receiptMonthHint');
-        if (hint) {
-            const [y, m] = (receipt.date || '').split('-').map(Number);
-            const differs = y && m && (y !== this.budget.currentYear || m !== this.budget.currentMonth);
-            hint.textContent = differs
-                ? `レシートの日付は${y}年${m}月です。追加先は表示中の${this._monthLabel()}です。`
-                : '';
-            hint.style.display = differs ? 'block' : 'none';
         }
 
         this._renderCategoryOptions(receipt.category);
@@ -381,8 +420,48 @@ export class ReceiptReader {
         let lastPayer = 'husband';
         try { lastPayer = localStorage.getItem(LAST_PAYER_KEY) || 'husband'; } catch { /* 既定は夫 */ }
         this.setPayer(lastPayer);
+        this._renderTarget();
 
         this._showStep('Result');
+    }
+
+    /** 記録先に合わせて、確認画面の出し分けをする */
+    _renderTarget() {
+        const family = this.target === 'family';
+        const styles = {
+            on: 'bg-amber-400 text-zinc-900 ring-transparent',
+            off: 'bg-white/5 text-zinc-400 ring-white/10',
+        };
+        ['budget', 'family'].forEach(t => {
+            const btn = document.getElementById(`receiptTarget-${t}`);
+            if (!btn) return;
+            const selected = this.target === t;
+            btn.className = `rounded-lg px-3 py-2.5 text-sm font-medium ring-1 ring-inset transition-colors ${selected ? styles.on : styles.off}`;
+            btn.setAttribute('aria-pressed', String(selected));
+        });
+
+        const submit = document.getElementById('receiptSubmit');
+        if (submit) submit.textContent = family ? '家族カードの買い物に記録' : `${this._monthLabel()}に追加`;
+
+        // 家族カードの買い物は、支払った人を選ばない（精算は明細との照らし合わせで決まる）
+        Utils.setVisible('receiptPayerWrap', !family);
+        // 家族カードの買い物はカテゴリーが未定でもよい
+        const placeholder = document.getElementById('receiptCategory')?.options?.[0];
+        if (placeholder) placeholder.textContent = family ? 'あとで決める' : '選んでください';
+
+        // カード払いは明細の取込でも入るので、家計簿に入れるときは二重に入れないよう注意を出す
+        Utils.setVisible('receiptCardWarning', !family && this.receipt?.paymentMethod === 'credit_card');
+
+        // レシートの日付が表示中の月と違うときは、追加先を明示する（家計簿に入れるときだけ）
+        const hint = document.getElementById('receiptMonthHint');
+        if (hint) {
+            const [y, m] = (document.getElementById('receiptDate')?.value || this.receipt?.date || '').split('-').map(Number);
+            const differs = !family && y && m && (y !== this.budget.currentYear || m !== this.budget.currentMonth);
+            hint.textContent = differs
+                ? `レシートの日付は${y}年${m}月です。追加先は表示中の${this._monthLabel()}です。`
+                : '';
+            hint.style.display = differs ? 'block' : 'none';
+        }
     }
 
     /** カテゴリーの選択肢を作る（Claudeの提案に合うものを選んだ状態にする） */

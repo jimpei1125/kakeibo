@@ -21,9 +21,34 @@ function assertNoUndefined(value, path, docPath) {
 export const db = {};
 export const doc = (_db, collectionName, id) => ({ path: `${collectionName}/${id}` });
 
+/** deleteField() の番兵（本物と同じく、プレーンなオブジェクトではないインスタンス） */
+class DeleteFieldSentinel {}
+const DELETE_FIELD = new DeleteFieldSentinel();
+export const deleteField = () => DELETE_FIELD;
+
+/** { merge: true } の挙動: マップは再帰的に重ね、deleteField() の項目は消す */
+function mergeInto(target, data) {
+    for (const [k, v] of Object.entries(data)) {
+        if (v === DELETE_FIELD) {
+            delete target[k];
+        } else if (v && typeof v === 'object' && !Array.isArray(v)) {
+            if (!target[k] || typeof target[k] !== 'object' || Array.isArray(target[k])) target[k] = {};
+            mergeInto(target[k], v);
+        } else {
+            target[k] = JSON.parse(JSON.stringify(v));
+        }
+    }
+}
+
 /** Firestore本体の挙動 */
-export async function rawSetDoc(ref, data) {
+export async function rawSetDoc(ref, data, options) {
     assertNoUndefined(data, '', ref.path);
+    if (options?.merge) {
+        const next = JSON.parse(JSON.stringify(store[ref.path] || {}));
+        mergeInto(next, data);
+        store[ref.path] = next;
+        return;
+    }
     store[ref.path] = JSON.parse(JSON.stringify(data));
 }
 
