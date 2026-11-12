@@ -10,6 +10,7 @@ import { Calculator } from './calculator.js';
 import { CSVExporter } from './csv-export.js';
 import { CSVImporter } from './statement-import.js';
 import { ReceiptReader } from './receipt.js';
+import { FamilyCardManager } from './family-card.js';
 import { CopyMonthManager } from './copy-month.js';
 import { RecurringManager } from './recurring.js';
 import { PayPayRequestManager } from './paypay.js';
@@ -56,6 +57,9 @@ class KakeiboApp {
         this.csv = new CSVExporter(this.budget);
         this.csvImporter = new CSVImporter(this.budget);
         this.receipt = new ReceiptReader(this.budget);
+        this.familyCard = new FamilyCardManager(this.budget);
+        this.receipt.familyCard = this.familyCard;
+        this.familyCard.receipt = this.receipt;
         this.copyMonth = new CopyMonthManager(this.budget);
         this.recurring = new RecurringManager(this.budget);
         this.budget.recurringManager = this.recurring;
@@ -96,7 +100,7 @@ class KakeiboApp {
     // ==================== その他の機能シート ====================
 
     /**
-     * 「その他の機能」シート（計算機・CSV出力・CSV取込）を表示
+     * 「その他の機能」シート（レシート読み取り・家族カードの買い物・計算機など）を表示
      */
     showToolsSheet() {
         Utils.showModal('toolsSheet');
@@ -222,6 +226,9 @@ class KakeiboApp {
 
         // CSVインポートの店名→カテゴリルールを購読
         this.csvImporter.init();
+
+        // 家族カードの買い物（明細との照らし合わせ用の記録）を購読
+        this.familyCard.init();
 
         // PayPay請求のアプリ設定（受け取りリンク）を購読
         this.paypay.init();
