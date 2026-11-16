@@ -82,7 +82,11 @@ export class PayPayRequestManager {
         const year = this.budgetManager.currentYear;
         const month = this.budgetManager.currentMonth;
 
-        return `📅 ${year}年${month}月分 今月の精算 ¥${Utils.formatCurrency(settlement.settlementAmount)} をお願いします🙏\n`
+        // 妻の個人利用があれば、精算額の内訳として添える
+        const personal = settlement.wifePersonal > 0 && settlement.direction === 'wife-to-husband'
+            ? `（うち妻の個人利用 ¥${Utils.formatCurrency(settlement.wifePersonal)}）`
+            : '';
+        return `📅 ${year}年${month}月分 今月の精算 ¥${Utils.formatCurrency(settlement.settlementAmount)}${personal} をお願いします🙏\n`
             + `こちらから送金できます → ${this.link}`;
     }
 

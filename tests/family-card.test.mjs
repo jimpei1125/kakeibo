@@ -308,5 +308,198 @@ console.log('\n【6】レシート読み取りから家族カードの買い物�
     check('家族カード: 月の案内は出さない', elements.receiptMonthHint.style.display === 'none');
 }
 
+console.log('\n【7】家族カードの明細CSV（見出し行なし）の読み取り');
+const S = await import('../js/statement-import.js');
+// 実物と同じ列の並びの架空データ（利用日,店名,利用者,支払区分,,支払月,利用金額,支払金額,,,現地通貨額,通貨,換算レート,換算日）
+const FAMILY_CSV = [
+    '2026/10/02,スーパーマルナカ,ご家族,1回払い,,26/11,4210,4210,,,,,',
+    '2026/10/03,ＳＡＭＰＬＥ＊  ＳＴＯＲＥ  ＪＰ,ご家族,1回払い,,26/11,1980,,,12,USD,165.000,10/04',
+    '2026/10/05,Ａ  Ｂ  Ｃ  Ｄ,ご家族,1回払い,,26/11,1200,1200,,,,,',
+    '2026/10/07,ドラッグスト－ア駅前店,ご家族,1回払い,,26/11,880,880,,,,,',
+    '2026/10/09,ブティック花,ご家族,1回払い,,26/11,8800,8800,,,,,',
+    '2026/10/12,スーパーマルナカ,ご家族,1回払い,,26/11,4210,4210,,,,,',
+].join('\n');
+{
+    check('全角英数を半角に・空白をまとめる', S.normalizeStoreName('ＳＡＭＰＬＥ＊  ＳＴＯＲＥ  ＪＰ') === 'SAMPLE* STORE JP');
+    check('1文字ずつ空いた名前は詰める', S.normalizeStoreName('Ｕ  Ｂ  Ｅ  Ｒ') === 'UBER');
+    check('長音の代わりの「－」は残す', S.normalizeStoreName('業務ス－パ－') === '業務ス－パ－');
+    check('全角スラッシュ・英字', S.normalizeStoreName('ホワイティ／ＮＦＣ') === 'ホワイティ/NFC');
+
+    const lines = ['山田 様,1234-****-****-5678,テストカード', ...FAMILY_CSV.split('\n'), ',,,,,,25280,,,,,,'];
+    const parsed = S.parseHeaderlessCardRows(lines.map(l => l.split(',')));
+    check('利用日で始まる行だけを明細にする（氏名・合計の行は読み飛ばす）', parsed.rows.length === 6, `got ${parsed.rows.length}`);
+    check('支払月 26/11 → 2026-11', parsed.payMonth === '2026-11');
+    check('海外利用は支払金額が空なので利用金額を使う', parsed.rows[1].amount === 1980 && parsed.rows[1].store === 'SAMPLE* STORE JP');
+    check('ご家族の行に印が付く', parsed.rows.every(r => r.family));
+    const self = S.parseHeaderlessCardRows([['2026/10/02', 'コンビニ', 'ご本人', '1回払い', '', '26/11', '500', '500']]);
+    check('ご本人の行には印が付かない', self.rows.length === 1 && self.rows[0].family === false);
+
+    // CSVImporter 経由（見出しがないと判断して読み替える）
+    const imp = new S.CSVImporter(makeBudget('2026-11'));
+    imp._parseTransactions(FAMILY_CSV);
+    check('取込: 6件・支払月の2026-11に入れる', imp.transactions.length === 6 && imp.payMonth === '2026-11');
+    check('取込: 家族カードの印', imp.transactions.every(t => t.family));
+    let err = null;
+    try { imp._parseTransactions('a,b,c\nx,y,z'); } catch (e) { err = e.message; }
+    check('見出しも利用日もないCSVはこれまでどおりエラー', !!err && err.includes('利用店名'));
+}
+
+console.log('\n【8】明細の行と記録の照らし合わせ');
+{
+    const row = (id, date, amount) => ({ id, date, amount });
+    const rec = (id, date, amount, createdAt = '2026-10-01T00:00:00Z') => ({ id, date, amount, createdAt });
+    const m1 = F.matchFamilyRows([row(0, '2026/10/10', 3000)], [rec('a', '2026-10-10', 3000)]);
+    check('同じ日・同じ金額は一致', m1.get(0)?.id === 'a');
+    check('利用日が記録日の前日なら一致', F.matchFamilyRows([row(0, '2026/10/09', 3000)], [rec('a', '2026-10-10', 3000)]).size === 1);
+    check('2日前は一致しない', F.matchFamilyRows([row(0, '2026/10/08', 3000)], [rec('a', '2026-10-10', 3000)]).size === 0);
+    check('7日後は一致（通販の発送日請求）', F.matchFamilyRows([row(0, '2026/10/17', 3000)], [rec('a', '2026-10-10', 3000)]).size === 1);
+    check('8日後は一致しない', F.matchFamilyRows([row(0, '2026/10/18', 3000)], [rec('a', '2026-10-10', 3000)]).size === 0);
+    check('金額が1円でも違えば一致しない', F.matchFamilyRows([row(0, '2026/10/10', 3001)], [rec('a', '2026-10-10', 3000)]).size === 0);
+    check('月をまたいでも日数で数える', F.matchFamilyRows([row(0, '2026/11/02', 3000)], [rec('a', '2026-10-30', 3000)]).size === 1);
+
+    // 同じ金額が2回: それぞれ日付の近い記録と組む
+    const m2 = F.matchFamilyRows(
+        [row(0, '2026/10/02', 4210), row(1, '2026/10/12', 4210)],
+        [rec('late', '2026-10-12', 4210), rec('early', '2026-10-02', 4210)]
+    );
+    check('同じ金額が2回あっても、日付の近い組にする', m2.get(0)?.id === 'early' && m2.get(1)?.id === 'late');
+    // 記録1つに行2つ: 近い方だけ
+    const m3 = F.matchFamilyRows([row(0, '2026/10/10', 500), row(1, '2026/10/12', 500)], [rec('a', '2026-10-11', 500)]);
+    check('1つの記録は1行にだけ使う', m3.size === 1);
+    const m4 = F.matchFamilyRows([row(0, '2026/10/14', 500), row(1, '2026/10/11', 500)], [rec('a', '2026-10-11', 500)]);
+    check('ずれの小さい行を優先', m4.get(1)?.id === 'a' && !m4.has(0));
+    check('日付の読めない行・記録は飛ばす', F.matchFamilyRows([row(0, '', 500)], [rec('a', '2026-10-11', 500)]).size === 0);
+}
+
+console.log('\n【9】取込: 共有と妻の個人利用の振り分け');
+{
+    delete store[DOC];
+    delete store['budgetMonths/2026-11'];
+    const budget = makeBudget('2026-11', [{ id: 1, name: '食費', amount: 0, note: '', subcategories: [] }]);
+    budget.data['2026-11'].categories[0].subcategories.push({ id: 11, name: '既存', amount: 1000, note: '' });
+    const fc = new F.FamilyCardManager(budget);
+    await fc.add({ date: '2026-10-02', store: 'マルナカ', amount: 4210, category: '食費' }).saved;
+    await fc.add({ date: '2026-10-12', store: 'マルナカ', amount: 4210, category: '食費' }).saved;
+    await fc.add({ date: '2026-10-07', store: '薬局', amount: 880, category: '' }).saved;
+    await fc.add({ date: '2026-10-30', store: '月末の買い物', amount: 2500, category: '食費' }).saved;
+
+    const imp = new S.CSVImporter(budget);
+    imp.familyCard = fc;
+    imp._saveRules = async () => { imp.rulesSaved = true; };
+    imp._parseTransactions(FAMILY_CSV);
+    imp._applyFamilyMatching();
+    const byStore = (name) => imp.transactions.filter(t => t.store === name);
+
+    check('記録と一致した行は共有・記録のカテゴリー', byStore('スーパーマルナカ').every(t => !t.personal && t.category === '食費' && t.recordId));
+    check('カテゴリーが未定の記録と一致した行は共有・未分類', (() => { const t = byStore('ドラッグスト－ア駅前店')[0]; return !t.personal && !t.category && !!t.recordId; })());
+    check('記録のない行は妻の個人利用', ['SAMPLE* STORE JP', 'ABCD', 'ブティック花'].every(n => byStore(n)[0].personal));
+
+    // 画面の表示（まとめ・一覧）
+    globalThis.domValues = { csvImportMonth: { value: '2026-11' } };
+    imp._renderAll();
+    const panel = elements.csvFamilyPanel.innerHTML;
+    check('まとめ: 家族カード6件・妻の個人利用3件と金額', panel.includes('6件') && panel.includes('3件') && panel.includes('¥11,980'));
+    check('まとめ: 照らし合わせできなかった記録（月末の買い物）を出す', panel.includes('月末の買い物') && panel.includes('1件'));
+    check('一覧: 記録と一致した行に印、切り替えボタン', elements.csvTxList.innerHTML.includes('記録あり 10/2') && elements.csvTxList.innerHTML.includes('共有にする'));
+    check('プレビュー: 妻の個人利用は合計外として別に出す', elements.csvPreview.innerHTML.includes('妻の個人利用 ¥11,980'));
+    check('取込ボタンが押せる', elements.csvImportBtn.disabled === false);
+
+    // 共有の買い物だった行を切り替え、カテゴリーを付ける
+    const abc = byStore('ABCD')[0];
+    imp.setPersonal(abc.id, false);
+    check('共有にすると未分類になる', !abc.personal && !abc.category);
+    abc.checked = true;
+    imp._assignToChecked('日用品');
+    check('カテゴリーを選ぶと共有で分類される', abc.category === '日用品' && !abc.personal);
+    // チェックした行をまとめて妻個人に戻せる
+    abc.checked = true;
+    imp.markCheckedPersonal();
+    check('「妻個人にする」でまとめて戻せる', abc.personal === true);
+    imp.setPersonal(abc.id, false);
+    check('戻したあと共有にすると、前に選んだカテゴリーが残る', abc.category === '日用品');
+    // 薬局（カテゴリー未定）も分類する
+    const drug = byStore('ドラッグスト－ア駅前店')[0];
+    drug.checked = true;
+    imp._assignToChecked('日用品');
+
+    const realConfirm = Dialog.confirm;
+    Dialog.confirm = async () => true;
+    await imp.importData();
+    await flush();
+    Dialog.confirm = realConfirm;
+    globalThis.domValues = {};
+
+    const month = budget.data['2026-11'];
+    const food = month.categories.find(c => c.name === '食費');
+    const daily = month.categories.find(c => c.name === '日用品');
+    check('共有の行はカテゴリーに明細として入る', food.subcategories.length === 3 && daily.subcategories.length === 2);
+    check('妻の個人利用は別に持つ（店名・金額・利用日）',
+        month.wifePersonal.length === 2
+        && month.wifePersonal.some(p => p.name === 'SAMPLE* STORE JP' && p.amount === 1980 && p.note === '2026/10/03')
+        && month.wifePersonal.some(p => p.name === 'ブティック花' && p.amount === 8800));
+    check('保存される', store['budgetMonths/2026-11']?.wifePersonal?.length === 2);
+    check('共有で取り込んだ行と一致した記録は消える、月末の記録は残る',
+        Object.values(store[DOC].items).length === 1 && Object.values(store[DOC].items)[0].store === '月末の買い物');
+    check('妻の個人利用の店名は学習しない', imp.rules['ブティック花'] === undefined && imp.rules['ABCD'] === '日用品');
+    check('取込を知らせる（妻の個人利用の件数と金額）', toasts.at(-1).message.includes('妻の個人利用2件') && toasts.at(-1).message.includes('10,780'));
+}
+
+console.log('\n【10】精算・合計・出力（妻の個人利用は合計外、精算で全額）');
+{
+    const B = await import('../js/budget.js');
+    const budget = makeBudget('2026-11', [
+        { id: 1, name: '食費', amount: 0, note: '', subcategories: [
+            { id: 11, name: 'スーパー', amount: 30000, note: '' },
+            { id: 12, name: '外食', amount: 10000, payer: 'wife', note: '' },
+        ] },
+    ]);
+    const before = budget.calculateSettlement();
+    check('個人利用がなければ今までどおり（差の半分）', before.settlementAmount === 10000 && before.direction === 'wife-to-husband' && before.wifePersonal === 0);
+
+    B.addWifePersonal(budget.data['2026-11'], [{ name: 'ブティック', amount: 8800, note: '2026/10/09' }, { name: 'ネット', amount: 1980, note: '2026/10/03' }]);
+    const s1 = budget.calculateSettlement();
+    check('精算: 差の半分に、個人利用の全額を足す', s1.settlementAmount === 20780 && s1.direction === 'wife-to-husband' && s1.wifePersonal === 10780);
+    check('合計には入れない', budget.calculateTotal() === 40000 && s1.total === 40000);
+    check('内訳グラフにも入れない', budget._getCategoryBreakdown().total === 40000);
+
+    // 妻払いが多い月: 夫→妻の精算が、個人利用の分だけ減る・逆転する
+    const b2 = makeBudget('2026-12', [{ id: 1, name: '家賃', amount: 60000, payer: 'wife', note: '', subcategories: [] }]);
+    B.addWifePersonal(b2.data['2026-12'], [{ name: 'x', amount: 10000 }]);
+    const s2 = b2.calculateSettlement();
+    check('夫→妻の精算から個人利用を差し引く', s2.direction === 'husband-to-wife' && s2.settlementAmount === 20000);
+    B.addWifePersonal(b2.data['2026-12'], [{ name: 'y', amount: 30000 }]);
+    const s3 = b2.calculateSettlement();
+    check('個人利用が多ければ妻→夫に変わる', s3.direction === 'wife-to-husband' && s3.settlementAmount === 10000);
+    const b3 = makeBudget('2027-01', [{ id: 1, name: '家賃', amount: 20000, payer: 'wife', note: '', subcategories: [] }]);
+    B.addWifePersonal(b3.data['2027-01'], [{ name: 'z', amount: 10000 }]);
+    check('ちょうど相殺なら精算なし', b3.calculateSettlement().direction === 'none');
+
+    const out = budget.generateOutput();
+    check('出力: 妻の個人利用を合計外として載せる', out.includes('■ 妻の個人利用（合計外）：10,780円') && out.includes('ブティック：8,800円'));
+    check('出力: 合計は個人利用を含まない・精算額に含む',
+        out.includes('Total：40,000円') && out.includes('妻の個人利用：10,780円（精算で妻が全額負担）') && out.includes('妻→夫 ¥20,780'));
+    check('出力: 個人利用のない月は行を出さない', !makeBudget('2027-02', [{ id: 1, name: 'a', amount: 1, note: '', subcategories: [] }]).generateOutput().includes('個人利用'));
+
+    // 家計簿画面の一覧と削除
+    const html = budget._renderWifePersonal(budget.data['2026-11']);
+    check('一覧: 件数・合計・各行', html.includes('2件') && html.includes('¥10,780') && html.includes('ブティック') && html.includes('10/09'));
+    check('一覧: 個人利用がなければ何も出さない', budget._renderWifePersonal({ categories: [] }) === '');
+    const id = budget.data['2026-11'].wifePersonal[0].id;
+    const realConfirm = Dialog.confirm;
+    Dialog.confirm = async () => true;
+    await budget.deleteWifePersonal(id);
+    await flush();
+    Dialog.confirm = realConfirm;
+    check('削除: その1件だけ消えて保存される',
+        budget.data['2026-11'].wifePersonal.length === 1 && store['budgetMonths/2026-11']?.wifePersonal?.length === 1);
+
+    // PayPayの請求文に内訳を添える
+    const { PayPayRequestManager } = await import('../js/paypay.js');
+    const pp = new PayPayRequestManager(budget, null);
+    pp.link = 'https://qr.paypay.ne.jp/x';
+    const msg = pp._buildMessage();
+    check('PayPay: 精算額と、うち妻の個人利用', msg.includes('¥11,980') && msg.includes('うち妻の個人利用 ¥1,980'));
+}
+
 console.log(`\n結果: ${pass}件成功 / ${fail}件失敗`);
 process.exit(fail === 0 ? 0 : 1);

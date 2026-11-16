@@ -59,6 +59,7 @@ class KakeiboApp {
         this.receipt = new ReceiptReader(this.budget);
         this.familyCard = new FamilyCardManager(this.budget);
         this.receipt.familyCard = this.familyCard;
+        this.csvImporter.familyCard = this.familyCard;
         this.familyCard.receipt = this.receipt;
         this.copyMonth = new CopyMonthManager(this.budget);
         this.recurring = new RecurringManager(this.budget);

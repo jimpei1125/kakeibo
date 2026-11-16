@@ -7,7 +7,9 @@
 import { db, doc, setDoc, onSnapshot } from './firebase-config.js';
 import { Utils } from './utils.js';
 import { Dialog } from './dialog.js';
-import { moveDirectAmountToDetail } from './budget.js';
+import { Icons } from './icons.js';
+import { moveDirectAmountToDetail, addWifePersonal } from './budget.js';
+import { matchFamilyRows, formatShortDate } from './family-card.js';
 
 
 /** カテゴリ候補のデフォルト値（既存カテゴリ・学習済みルールに追加で表示） */
@@ -45,6 +47,64 @@ const KANGXI_RADICAL_TO_KANJI = {
  */
 function normalizeKangxiRadicals(text) {
     return text.replace(/[⺀-⻿⼀-⿟]/g, (ch) => KANGXI_RADICAL_TO_KANJI[ch] || ch);
+}
+
+/** 明細の利用日（YYYY/M/D）。見出し行のないCSVで、明細の行を見分けるのに使う */
+const ROW_DATE = /^\d{4}\/\d{1,2}\/\d{1,2}$/;
+
+/**
+ * 明細の店名を読みやすくする。
+ * 全角の英数字・記号を半角にし、続く空白を1つにまとめる。
+ * 「Ｕ  Ｂ  Ｅ  Ｒ」のように1文字ずつ空けた名前は、空白を詰める。
+ * 長音の代わりに使われている「－」はそのまま残す（半角にすると「ス-パ-」になるため）。
+ * @param {string} name
+ * @returns {string}
+ */
+export function normalizeStoreName(name) {
+    const half = String(name || '')
+        .replace(/[\uFF01-\uFF0C\uFF0E-\uFF5E]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+        .replace(/\u3000/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    const words = half.split(' ');
+    return words.length >= 3 && words.every(w => w.length === 1) ? words.join('') : half;
+}
+
+/**
+ * 見出し行のないカード明細CSVを読む（家族カードの明細で確認した形式）。
+ * 列: 利用日, 利用店名, 利用者（ご本人／ご家族）, 支払区分, (空), 支払月（YY/MM）,
+ *     利用金額, 支払金額, …, 現地通貨額, 通貨, 換算レート, 換算日
+ * 海外利用は支払金額が空なので、利用金額を使う。利用日で始まらない行（氏名・合計など）は読み飛ばす。
+ * @param {string[][]} rows - CSVの各行を列に分けたもの
+ * @returns {{rows: Array<{date: string, store: string, amount: number, family: boolean}>, payMonth: string|null}}
+ */
+export function parseHeaderlessCardRows(rows) {
+    const toAmount = (v) => {
+        const cleaned = String(v ?? '').replace(/[,¥円\s]/g, '');
+        if (!cleaned) return null;
+        const n = Number(cleaned);
+        return Number.isFinite(n) ? n : null;
+    };
+
+    const result = [];
+    const payMonths = {};
+    rows.forEach(cols => {
+        const date = (cols[0] || '').trim();
+        if (!ROW_DATE.test(date)) return;
+        const store = normalizeStoreName(cols[1]);
+        const amount = toAmount(cols[7]) ?? toAmount(cols[6]);
+        if (!store || !amount) return;
+        result.push({ date, store, amount, family: /家族/.test(cols[2] || '') });
+
+        const pm = /^(\d{2})\/(\d{1,2})$/.exec((cols[5] || '').trim());
+        if (pm) {
+            const key = Utils.getMonthKey(2000 + Number(pm[1]), Number(pm[2]));
+            payMonths[key] = (payMonths[key] || 0) + 1;
+        }
+    });
+
+    const best = Object.entries(payMonths).sort((a, b) => b[1] - a[1])[0];
+    return { rows: result, payMonth: best ? best[0] : null };
 }
 
 /** pdf.jsの読み込みPromise（PDF選択時に初回のみCDNから動的import） */
@@ -96,6 +156,8 @@ export class CSVImporter {
         this.fileHash = null;
         /** @type {Array<{hash: string, month: string, date: string, count: number, total: number}>} 取込履歴 */
         this.importHistory = [];
+        /** @type {import('./family-card.js').FamilyCardManager|null} 家族カードの買い物の記録（app.jsから注入） */
+        this.familyCard = null;
     }
 
     /**
@@ -236,12 +298,17 @@ export class CSVImporter {
                 this.fileHash = await this._sha256(content);
                 this._parseTransactions(content);
             }
+            this._applyFamilyMatching();
             this._setupImportUI();
 
-            const autoAssigned = this.transactions.filter(t => t.category).length;
-            Utils.showToast(autoAssigned > 0
-                ? `${this.transactions.length}件読み込み（${autoAssigned}件を自動分類）`
-                : `${this.transactions.length}件読み込みました`);
+            const familyCount = this.transactions.filter(t => t.family).length;
+            const matched = this.transactions.filter(t => t.recordId).length;
+            const autoAssigned = this.transactions.filter(t => t.category && !t.personal).length;
+            Utils.showToast(familyCount > 0
+                ? `${this.transactions.length}件読み込み（家族カード${familyCount}件のうち、記録と一致${matched}件）`
+                : autoAssigned > 0
+                    ? `${this.transactions.length}件読み込み（${autoAssigned}件を自動分類）`
+                    : `${this.transactions.length}件読み込みました`);
         } catch (error) {
             console.error('明細読み込みエラー:', error);
             Utils.showToast(`ファイルの読み込みに失敗しました: ${error.message}`, 'error');
@@ -313,8 +380,15 @@ export class CSVImporter {
         const payAmountCol = findCol('当月支払金額', '当月請求額');
         const dateCol = findCol('利用日');
         const payDateCol = findCol('当月お支払日', 'お支払日', '支払日');
+        const userCol = findCol('利用者');
 
         if (storeCol === -1 || (amountCol === -1 && payAmountCol === -1)) {
+            // 見出し行がなく、利用日で始まる行が並ぶ形式（家族カードの明細）
+            const parsed = lines.map(line => this._parseCSVLine(line));
+            if (parsed.some(cols => ROW_DATE.test((cols[0] || '').trim()))) {
+                this._useHeaderlessRows(parsed);
+                return;
+            }
             throw new Error('「利用店名」または「利用金額」の列が見つかりません。ヘッダー行を確認してください。');
         }
 
@@ -338,7 +412,8 @@ export class CSVImporter {
                 store,
                 amount,
                 category: this.rules[store] || null,
-                checked: false
+                checked: false,
+                family: userCol !== -1 && /家族/.test(row[userCol] || '')
             });
 
             if (payDateCol !== -1 && row[payDateCol]?.trim()) {
@@ -352,6 +427,47 @@ export class CSVImporter {
 
         this.transactions = transactions;
         this.payMonth = this._detectPayMonth(payDates);
+    }
+
+    /**
+     * 見出し行のないCSVの行を明細にする
+     * @private
+     * @param {string[][]} parsed - CSVの各行を列に分けたもの
+     */
+    _useHeaderlessRows(parsed) {
+        const { rows, payMonth } = parseHeaderlessCardRows(parsed);
+        if (rows.length === 0) {
+            throw new Error('有効な明細が見つかりませんでした');
+        }
+        this.transactions = rows.map((r, i) => ({
+            id: i,
+            date: r.date,
+            store: r.store,
+            amount: r.amount,
+            category: this.rules[r.store] || null,
+            checked: false,
+            family: r.family
+        }));
+        this.payMonth = payMonth || this._detectPayMonth([]);
+    }
+
+    /**
+     * 家族カードの行を、共有の買い物の記録と照らし合わせる。
+     * 一致した行は共有（記録のカテゴリーを使う）、一致しない行は妻の個人利用にしておく。
+     * 取込画面で、行ごとに共有と妻個人を切り替えられる。
+     * @private
+     */
+    _applyFamilyMatching() {
+        const familyRows = this.transactions.filter(t => t.family);
+        if (familyRows.length === 0) return;
+
+        const matches = matchFamilyRows(familyRows, this.familyCard?.list() || []);
+        familyRows.forEach(t => {
+            const record = matches.get(t.id);
+            t.recordId = record ? record.id : null;
+            t.personal = !record;
+            if (record?.category) t.category = record.category;
+        });
     }
 
     /**
@@ -646,6 +762,7 @@ export class CSVImporter {
      */
     _renderAll() {
         this._buildChipCategories();
+        this._renderFamilyPanel();
         this._renderChips();
         this._renderToolbar();
         this._renderTable();
@@ -710,10 +827,16 @@ export class CSVImporter {
                     class="h-4 w-4 rounded border-white/20 bg-white/5 accent-amber-400 focus:ring-zinc-400">
                 全選択（選択中 ${checkedCount}件）
             </label>
-            <button type="button" onclick="app.csvImporter.selectUnassigned()"
-                class="rounded-md bg-white/10 px-2.5 py-1.5 text-xs font-medium text-zinc-300 transition hover:bg-white/15">
-                未分類を選択
-            </button>
+            <span class="flex shrink-0 gap-1.5">
+                ${this.transactions.some(t => t.family) ? `<button type="button" onclick="app.csvImporter.markCheckedPersonal()"
+                    class="rounded-md bg-white/10 px-2.5 py-1.5 text-xs font-medium text-zinc-300 transition hover:bg-white/15">
+                    妻個人にする
+                </button>` : ''}
+                <button type="button" onclick="app.csvImporter.selectUnassigned()"
+                    class="rounded-md bg-white/10 px-2.5 py-1.5 text-xs font-medium text-zinc-300 transition hover:bg-white/15">
+                    未分類を選択
+                </button>
+            </span>
         `;
     }
 
@@ -728,7 +851,9 @@ export class CSVImporter {
         list.innerHTML = this.transactions.map(t => {
             const shortDate = t.date.replace(/^\d{4}[\/\-]/, '');
             const amountClass = t.amount < 0 ? 'text-rose-400' : 'text-white';
-            const badge = t.category
+            const badge = t.personal
+                ? `<span class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2 py-0.5 text-xs font-medium text-zinc-200"><span class="h-1.5 w-1.5 rounded-full bg-pink-400"></span>妻個人</span>`
+                : t.category
                 ? `<span class="inline-flex max-w-full items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-xs font-medium text-zinc-200">
                         <span class="truncate">${Utils.escapeHtml(t.category)}</span>
                         <button type="button" onclick="event.preventDefault(); event.stopPropagation(); app.csvImporter.clearCategory(${t.id})"
@@ -743,13 +868,99 @@ export class CSVImporter {
                         class="h-4 w-4 shrink-0 rounded border-white/20 bg-white/5 accent-amber-400 focus:ring-zinc-400">
                     <div class="min-w-0 flex-1">
                         <div class="truncate text-sm text-zinc-100">${Utils.escapeHtml(t.store)}</div>
-                        <div class="text-xs text-zinc-500">${Utils.escapeHtml(shortDate)}</div>
+                        <div class="flex flex-wrap items-center gap-x-1.5 text-xs text-zinc-500">
+                            <span class="font-mono tabular-nums">${Utils.escapeHtml(shortDate)}</span>
+                            ${t.family ? this._renderFamilyRowStatus(t) : ''}
+                        </div>
                     </div>
                     <div class="whitespace-nowrap text-sm font-medium ${amountClass} font-mono tabular-nums">¥${Utils.formatCurrency(t.amount)}</div>
-                    <div class="w-28 shrink-0 text-right">${badge}</div>
+                    <div class="flex w-28 shrink-0 flex-col items-end gap-1 text-right">${badge}${t.family ? this._renderFamilyToggle(t) : ''}</div>
                 </label>
             `;
         }).join('');
+    }
+
+    /**
+     * 家族カードの行の補足（記録と一致したか。一致したら記録の日付を添える）
+     * @private
+     * @param {Object} t - 明細
+     * @returns {string}
+     */
+    _renderFamilyRowStatus(t) {
+        const record = t.recordId ? this.familyCard?.items?.[t.recordId] : null;
+        if (!record) return '<span aria-hidden="true">·</span><span>家族カード</span>';
+        const title = `記録: ${formatShortDate(record.date)} ${record.store || ''} ¥${Utils.formatCurrency(record.amount)}`;
+        return `<span aria-hidden="true">·</span><span class="text-zinc-300" title="${Utils.escapeHtml(title)}">記録あり ${formatShortDate(record.date)}</span>`;
+    }
+
+    /**
+     * 家族カードの行の、共有と妻の個人利用の切り替えボタン
+     * @private
+     * @param {Object} t - 明細
+     * @returns {string}
+     */
+    _renderFamilyToggle(t) {
+        return `<button type="button" class="text-xs font-medium text-zinc-400 underline decoration-white/20 underline-offset-2 transition-colors hover:text-white"
+            onclick="event.preventDefault(); event.stopPropagation(); app.csvImporter.setPersonal(${t.id}, ${!t.personal})">${t.personal ? '共有にする' : '妻個人にする'}</button>`;
+    }
+
+    /**
+     * 家族カードのまとめ（共有・妻個人の件数と金額、照らし合わせできなかった記録）
+     * @private
+     */
+    _renderFamilyPanel() {
+        const panel = document.getElementById('csvFamilyPanel');
+        if (!panel) return;
+
+        const familyRows = this.transactions.filter(t => t.family);
+        if (familyRows.length === 0) {
+            panel.style.display = 'none';
+            panel.innerHTML = '';
+            return;
+        }
+        panel.style.display = 'block';
+
+        const sum = (rows) => rows.reduce((s, t) => s + t.amount, 0);
+        const personal = familyRows.filter(t => t.personal);
+        const shared = familyRows.filter(t => !t.personal);
+        const matched = familyRows.filter(t => t.recordId);
+
+        const usedIds = new Set(matched.map(t => t.recordId));
+        const leftovers = (this.familyCard?.list() || []).filter(r => !usedIds.has(r.id));
+        const leftoverHtml = leftovers.length === 0 ? '' : `
+            <div class="mt-4">
+                <p class="text-xs font-medium text-zinc-400">照らし合わせできなかった記録 <span class="font-mono tabular-nums">${leftovers.length}件</span></p>
+                <ul class="mt-1 divide-y divide-white/[0.06]">
+                    ${leftovers.map(r => `
+                        <li class="flex items-center gap-3 py-2 text-sm">
+                            <span class="w-10 shrink-0 font-mono text-xs tabular-nums text-zinc-500">${formatShortDate(r.date)}</span>
+                            <span class="min-w-0 flex-1 truncate ${r.store ? 'text-zinc-200' : 'text-zinc-500'}">${Utils.escapeHtml(r.store || '店名なし')}</span>
+                            <span class="shrink-0 font-mono tabular-nums text-zinc-200">¥${Utils.formatCurrency(r.amount)}</span>
+                            <button type="button" aria-label="この記録を削除" onclick="app.csvImporter.removeRecord(${Utils.escapeJsArg(r.id)})"
+                                class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-zinc-400 ring-1 ring-inset ring-white/10 transition-colors hover:bg-rose-500/10 hover:text-rose-300">${Icons.svg('x')}</button>
+                        </li>`).join('')}
+                </ul>
+                <p class="mt-1.5 text-xs leading-relaxed text-zinc-500">来月の明細に載る買い物は、残しておけば次の取込で照らし合わせます。金額が違って一致しなかったもの（分割発送など）は、行を「共有にする」に切り替えてから、記録を削除してください。</p>
+            </div>`;
+
+        panel.innerHTML = `
+            <div class="flex items-baseline justify-between gap-3">
+                <p class="text-sm font-medium text-zinc-300">${Icons.svg('credit-card')} 家族カード <span class="font-mono text-xs tabular-nums text-zinc-500">${familyRows.length}件</span></p>
+                <span class="font-mono text-sm tabular-nums text-zinc-200">¥${Utils.formatCurrency(sum(familyRows))}</span>
+            </div>
+            <dl class="mt-3 space-y-1.5 text-sm">
+                <div class="flex items-baseline justify-between gap-3">
+                    <dt class="text-zinc-400">共有 <span class="font-mono text-xs tabular-nums text-zinc-500">${shared.length}件・記録と一致 ${matched.length}件</span></dt>
+                    <dd class="font-mono tabular-nums text-zinc-200">¥${Utils.formatCurrency(sum(shared))}</dd>
+                </div>
+                <div class="flex items-baseline justify-between gap-3">
+                    <dt class="flex items-center gap-1.5 text-zinc-400"><span class="h-1.5 w-1.5 rounded-full bg-pink-400"></span>妻の個人利用 <span class="font-mono text-xs tabular-nums text-zinc-500">${personal.length}件</span></dt>
+                    <dd class="font-mono font-medium tabular-nums text-amber-300">¥${Utils.formatCurrency(sum(personal))}</dd>
+                </div>
+            </dl>
+            <p class="mt-3 text-xs leading-relaxed text-zinc-500">記録と一致しなかった行は、妻の個人利用にしています。共有の買い物だった行は「共有にする」で切り替えるか、チェックを入れてカテゴリーを選んでください。妻の個人利用は家計の合計に入れず、精算で全額を妻が負担します。</p>
+            ${leftoverHtml}
+        `;
     }
 
     /**
@@ -761,12 +972,13 @@ export class CSVImporter {
         if (!preview) return;
 
         const total = this.transactions.reduce((sum, t) => sum + t.amount, 0);
-        const unassigned = this.transactions.filter(t => !t.category);
+        const unassigned = this.transactions.filter(t => !t.category && !t.personal);
+        const personal = this.transactions.filter(t => t.personal);
 
         // カテゴリごとに集計
         const groups = {};
         this.transactions.forEach(t => {
-            if (!t.category) return;
+            if (!t.category || t.personal) return;
             if (!groups[t.category]) groups[t.category] = { count: 0, sum: 0 };
             groups[t.category].count++;
             groups[t.category].sum += t.amount;
@@ -784,9 +996,15 @@ export class CSVImporter {
                </span>`
             : '';
 
+        const personalChip = personal.length > 0
+            ? `<span class="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.06] px-2.5 py-1.5 text-xs font-medium text-zinc-200 ring-1 ring-inset ring-white/10">
+                    <span class="h-1.5 w-1.5 rounded-full bg-pink-400"></span>妻の個人利用 ¥${Utils.formatCurrency(personal.reduce((s, t) => s + t.amount, 0))}（${personal.length}件・合計外）
+               </span>`
+            : '';
+
         preview.innerHTML = `
             <div class="mb-2 text-xs font-medium text-zinc-400">全${this.transactions.length}件 / 合計 ¥${Utils.formatCurrency(total)}</div>
-            <div class="flex flex-wrap gap-2">${chips}${unassignedChip}</div>
+            <div class="flex flex-wrap gap-2">${chips}${personalChip}${unassignedChip}</div>
         `;
     }
 
@@ -797,7 +1015,7 @@ export class CSVImporter {
     _updateImportButton() {
         const importBtn = document.getElementById('csvImportBtn');
         if (importBtn) {
-            importBtn.disabled = !this.transactions.some(t => t.category);
+            importBtn.disabled = !this.transactions.some(t => t.personal || t.category);
         }
     }
 
@@ -835,7 +1053,7 @@ export class CSVImporter {
      * 未分類の明細のみを選択
      */
     selectUnassigned() {
-        this.transactions.forEach(t => { t.checked = !t.category; });
+        this.transactions.forEach(t => { t.checked = !t.category && !t.personal; });
         this._renderToolbar();
         this._renderTable();
     }
@@ -875,14 +1093,52 @@ export class CSVImporter {
             return false;
         }
 
+        // カテゴリーを選んだ家族カードの行は共有の買い物として扱う
         checked.forEach(t => {
             t.category = categoryName;
+            t.personal = false;
             t.checked = false;
         });
 
         this._renderAll();
         Utils.showToast(`${checked.length}件を「${categoryName}」に割り当てました`);
         return true;
+    }
+
+    /**
+     * 家族カードの行を、共有と妻の個人利用で切り替える
+     * @param {number} id - 明細ID
+     * @param {boolean} personal - 妻の個人利用にするか
+     */
+    setPersonal(id, personal) {
+        const t = this.transactions.find(row => row.id === id);
+        if (!t || !t.family) return;
+        t.personal = !!personal;
+        this._renderAll();
+    }
+
+    /** チェックを入れた家族カードの行を、まとめて妻の個人利用にする */
+    markCheckedPersonal() {
+        const checked = this.transactions.filter(t => t.checked && t.family);
+        if (checked.length === 0) {
+            Utils.showToast('家族カードの行にチェックを入れてください');
+            return;
+        }
+        checked.forEach(t => {
+            t.personal = true;
+            t.checked = false;
+        });
+        this._renderAll();
+        Utils.showToast(`${checked.length}件を妻の個人利用にしました`);
+    }
+
+    /**
+     * 照らし合わせできなかった記録を削除する（確認あり）
+     * @param {string} recordId
+     */
+    async removeRecord(recordId) {
+        await this.familyCard?.remove(recordId);
+        this._renderFamilyPanel();
     }
 
     /**
@@ -910,8 +1166,9 @@ export class CSVImporter {
             return;
         }
 
-        const assigned = this.transactions.filter(t => t.category);
-        if (assigned.length === 0) {
+        const assigned = this.transactions.filter(t => t.category && !t.personal);
+        const personal = this.transactions.filter(t => t.personal);
+        if (assigned.length === 0 && personal.length === 0) {
             Utils.showToast('カテゴリを割り当てた明細がありません', 'error');
             return;
         }
@@ -927,7 +1184,7 @@ export class CSVImporter {
             if (!proceed) return;
         }
 
-        const skipped = this.transactions.length - assigned.length;
+        const skipped = this.transactions.length - assigned.length - personal.length;
         if (skipped > 0) {
             const proceed = await Dialog.confirm(`未分類の${skipped}件は取り込まれません。続行しますか？`, { okLabel: '続行' });
             if (!proceed) return;
@@ -951,18 +1208,26 @@ export class CSVImporter {
             }
         });
 
-        // 店名→カテゴリのルールを学習して保存
+        // 妻の個人利用は、家計の合計に入れず別に持つ（精算で全額を妻が負担する）
+        addWifePersonal(monthData, personal.map(t => ({ name: t.store, amount: t.amount, note: t.date })));
+
+        // 店名→カテゴリのルールを学習して保存（妻の個人利用の行は学習しない）
         assigned.forEach(t => { this.rules[t.store] = t.category; });
-        this._saveRules();
+        if (assigned.length > 0) this._saveRules();
+
+        // 共有として取り込んだ行と一致した記録は、照らし合わせ済みなので消す
+        const usedRecordIds = assigned.map(t => t.recordId).filter(Boolean);
+        if (usedRecordIds.length > 0) this.familyCard?.removeMatched(usedRecordIds);
 
         // 取込履歴に記録（次回の二重取込検出用）
+        const importedRows = [...assigned, ...personal];
         if (this.fileHash) {
             this._recordImport({
                 hash: this.fileHash,
                 month: monthKey,
                 date: Utils.getTodayString(),
-                count: assigned.length,
-                total: assigned.reduce((s, t) => s + t.amount, 0)
+                count: importedRows.length,
+                total: importedRows.reduce((s, t) => s + t.amount, 0)
             });
         }
 
@@ -973,7 +1238,10 @@ export class CSVImporter {
         this.budgetManager.saveWithStatus();
         this.budgetManager.updateDisplay();
 
-        Utils.showToast(`${assigned.length}件を${parseInt(month)}月に取り込みました`);
+        const personalTotal = personal.reduce((s, t) => s + t.amount, 0);
+        Utils.showToast(personal.length > 0
+            ? `${assigned.length}件を${parseInt(month)}月に取り込み、妻の個人利用${personal.length}件（¥${Utils.formatCurrency(personalTotal)}）を分けました`
+            : `${assigned.length}件を${parseInt(month)}月に取り込みました`);
         this.closeModal();
     }
 

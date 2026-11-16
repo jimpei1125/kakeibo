@@ -89,6 +89,62 @@ export function formatShortDate(date) {
     return m ? `${Number(m[2])}/${Number(m[3])}` : '-';
 }
 
+/**
+ * 明細の行と記録を照らし合わせるときの、利用日のずれの許容範囲（日）。
+ * 店頭は当日だが、通販は発送日に請求されて数日後になることがあるため、後ろに広く取る。
+ */
+export const MATCH_DAYS_BEFORE = 1;
+export const MATCH_DAYS_AFTER = 7;
+
+/**
+ * 日付の文字列（YYYY-MM-DD または YYYY/M/D）を、UTCの日数に直す
+ * @param {string} date
+ * @returns {number|null}
+ */
+function toDayNumber(date) {
+    const m = /^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/.exec(String(date || '').trim());
+    if (!m) return null;
+    return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) / 86400000;
+}
+
+/**
+ * 家族カードの明細の行と、共有の買い物の記録を照らし合わせる。
+ * 金額が同じで、明細の利用日が記録日の前日から7日後までなら一致とみなす。
+ * 候補が複数あるときは日付のずれが小さい組から決め、1つの記録は1行にだけ使う。
+ * @param {Array<{id: number, date: string, amount: number}>} rows - 明細の行（日付は YYYY/MM/DD）
+ * @param {Array<{id: string, date: string, amount: number, createdAt?: string}>} records - 記録
+ * @returns {Map<number, Object>} 行ID → 一致した記録
+ */
+export function matchFamilyRows(rows, records) {
+    const pairs = [];
+    rows.forEach(row => {
+        const rowDay = toDayNumber(row.date);
+        if (rowDay === null) return;
+        records.forEach(record => {
+            if (record.amount !== row.amount) return;
+            const recordDay = toDayNumber(record.date);
+            if (recordDay === null) return;
+            const diff = rowDay - recordDay;
+            if (diff < -MATCH_DAYS_BEFORE || diff > MATCH_DAYS_AFTER) return;
+            pairs.push({ row, record, gap: Math.abs(diff) });
+        });
+    });
+
+    // ずれの小さい順。同じなら先に記録したもの、先に出てくる行を優先する
+    pairs.sort((a, b) => a.gap - b.gap
+        || (a.record.createdAt || '').localeCompare(b.record.createdAt || '')
+        || a.row.id - b.row.id);
+
+    const matches = new Map();
+    const usedRecords = new Set();
+    pairs.forEach(({ row, record }) => {
+        if (matches.has(row.id) || usedRecords.has(record.id)) return;
+        matches.set(row.id, record);
+        usedRecords.add(record.id);
+    });
+    return matches;
+}
+
 /** 端末をまたいでも重ならない記録ID */
 function newId() {
     return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -228,6 +284,24 @@ export class FamilyCardManager {
     cancelEdit() {
         this._resetForm();
         this._renderList();
+    }
+
+    /**
+     * 明細と照らし合わせて家計簿に取り込んだ記録を、確認なしでまとめて消す
+     * @param {string[]} ids
+     * @returns {Promise<void>}
+     */
+    removeMatched(ids) {
+        const targets = ids.filter(id => this.items[id]);
+        if (targets.length === 0) return Promise.resolve();
+        const patch = {};
+        targets.forEach(id => {
+            delete this.items[id];
+            patch[id] = deleteField();
+        });
+        if (this.editingId && targets.includes(this.editingId)) this._resetForm();
+        this._render();
+        return this._save({ items: patch });
     }
 
     /**
