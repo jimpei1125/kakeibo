@@ -55,6 +55,39 @@ export function moveDirectAmountToDetail(category) {
     category.amount = 0;
 }
 
+/**
+ * 妻の個人利用（家族カードで妻が個人で使った分）。
+ * 家計の合計・予算・グラフには入れず、精算で全額を妻が負担する。
+ * 月データの wifePersonal に、明細の行（店名・金額・利用日）を持つ。
+ * @param {{wifePersonal?: Array<{amount?: number}>}} monthData
+ * @returns {Array<{id: number, name: string, amount: number, note: string}>}
+ */
+export function wifePersonalItems(monthData) {
+    return Array.isArray(monthData?.wifePersonal) ? monthData.wifePersonal : [];
+}
+
+/**
+ * 妻の個人利用の合計
+ * @param {Object} monthData
+ * @returns {number}
+ */
+export function wifePersonalTotal(monthData) {
+    return wifePersonalItems(monthData).reduce((sum, item) => sum + (item.amount || 0), 0);
+}
+
+/**
+ * 妻の個人利用を月データに足す（明細の取込から呼ばれる）
+ * @param {Object} monthData
+ * @param {Array<{name: string, amount: number, note?: string}>} items
+ */
+export function addWifePersonal(monthData, items) {
+    if (!items.length) return;
+    monthData.wifePersonal = [
+        ...wifePersonalItems(monthData),
+        ...items.map(item => ({ id: Utils.generateId(), name: item.name, amount: item.amount, note: item.note || '' })),
+    ];
+}
+
 /** 「他の月からコピー」ボタンの配色（月が空のときは目立たせる） */
 const COPY_BTN_EMPHASIS = ['bg-amber-400/10', 'text-amber-300', 'ring-1', 'ring-inset', 'ring-amber-400/20', 'hover:bg-amber-400/20'];
 const COPY_BTN_NEUTRAL = ['bg-white/10', 'text-zinc-300', 'ring-1', 'ring-inset', 'ring-white/10', 'hover:bg-white/15'];
@@ -262,6 +295,9 @@ export class BudgetManager {
         setText('receiptWife', `¥${Utils.formatCurrency(settlement.wife)}`);
         setText('totalAmount', `¥${Utils.formatCurrency(total)}`);
         setText('settlementAmount', this._formatSettlementLabel(settlement));
+        setText('receiptPersonal', `¥${Utils.formatCurrency(settlement.wifePersonal)}`);
+        const personalRow = document.getElementById('receiptPersonalRow');
+        if (personalRow) personalRow.style.display = settlement.wifePersonal > 0 ? 'flex' : 'none';
         // 差し色は「精算がある月の精算額」だけに使う（精算なしの月は控えめな文字色）
         const hasSettlement = settlement.direction !== 'none';
         const receiptSettlement = document.getElementById('settlementAmount');
@@ -1005,7 +1041,9 @@ export class BudgetManager {
     /**
      * 立替精算を計算（夫払い・妻払いの内訳と精算額・方向）
      * payerフィールドが'wife'の項目のみ妻払い、それ以外（未設定含む）は夫払い扱い。
-     * @returns {{husband: number, wife: number, total: number, settlementAmount: number, direction: 'wife-to-husband'|'husband-to-wife'|'none'}}
+     * 夫払いと妻払いの差の半分に、妻の個人利用の全額を足す
+     * （家族カードの引き落としは夫なので、妻の個人利用は全額を妻が夫に返す）。
+     * @returns {{husband: number, wife: number, total: number, wifePersonal: number, settlementAmount: number, direction: 'wife-to-husband'|'husband-to-wife'|'none'}}
      */
     calculateSettlement() {
         const monthData = this.getCurrentMonthData();
@@ -1026,11 +1064,13 @@ export class BudgetManager {
         });
 
         const total = husband + wife;
-        const diff = husband - wife;
-        const settlementAmount = Math.round(Math.abs(diff) / 2);
-        const direction = diff > 0 ? 'wife-to-husband' : (diff < 0 ? 'husband-to-wife' : 'none');
+        const wifePersonal = wifePersonalTotal(monthData);
+        // 正なら妻→夫、負なら夫→妻
+        const owedByWife = (husband - wife) / 2 + wifePersonal;
+        const settlementAmount = Math.round(Math.abs(owedByWife));
+        const direction = owedByWife > 0 ? 'wife-to-husband' : (owedByWife < 0 ? 'husband-to-wife' : 'none');
 
-        return { husband, wife, total, settlementAmount, direction };
+        return { husband, wife, total, wifePersonal, settlementAmount, direction };
     }
 
     /**
@@ -1114,11 +1154,20 @@ export class BudgetManager {
             if (index < monthData.categories.length - 1) output += '\n';
         });
         
+        const personalItems = wifePersonalItems(monthData);
+        if (personalItems.length > 0) {
+            if (monthData.categories.length > 0) output += '\n';
+            output += this._formatCategoryOutput({ name: '妻の個人利用（合計外）', subcategories: personalItems });
+        }
+
         const total = this.calculateTotal();
         const settlement = this.calculateSettlement();
         output += '\n━━━━━━━━━━━━━━━━\n';
         output += `💰 Total：${Utils.formatCurrency(total)}円\n`;
         output += `👤 夫払い：${Utils.formatCurrency(settlement.husband)}円 / 妻払い：${Utils.formatCurrency(settlement.wife)}円\n`;
+        if (settlement.wifePersonal > 0) {
+            output += `👛 妻の個人利用：${Utils.formatCurrency(settlement.wifePersonal)}円（精算で妻が全額負担）\n`;
+        }
         output += `🔄 精算：${this._formatSettlementLabel(settlement)}\n`;
         output += '━━━━━━━━━━━━━━━━';
         
@@ -1278,8 +1327,16 @@ export class BudgetManager {
         const jumpEl = document.getElementById('jumpToCurrentMonth');
         if (jumpEl) jumpEl.style.display = this.isViewingCurrentMonth() ? 'none' : '';
 
+        // 妻の個人利用（開いていたら開いたまま描き直す）
+        const personalEl = document.getElementById('wifePersonalSection');
+        if (personalEl) {
+            const wasOpen = !!document.getElementById('wifePersonalDetails')?.open;
+            personalEl.innerHTML = this._renderWifePersonal(monthData);
+            if (wasOpen) document.getElementById('wifePersonalDetails')?.setAttribute('open', '');
+        }
+
         // 記録のない月の案内と、コピー導線の強調（読み込み完了前は判定しない）
-        const isEmpty = !this.isInitialLoad && monthData.categories.length === 0;
+        const isEmpty = !this.isInitialLoad && monthData.categories.length === 0 && wifePersonalItems(monthData).length === 0;
         const emptyEl = document.getElementById('categoryEmptyState');
         if (emptyEl) emptyEl.style.display = isEmpty ? '' : 'none';
         const copyBtn = document.getElementById('copyMonthBtn');
@@ -1584,6 +1641,62 @@ export class BudgetManager {
                 </div>
             `;
         }).join('');
+    }
+
+    /**
+     * 妻の個人利用の一覧（家計の合計の外。明細の取込で家族カードから分けた分）
+     * @private
+     * @param {Object} monthData
+     * @returns {string}
+     */
+    _renderWifePersonal(monthData) {
+        const items = wifePersonalItems(monthData);
+        if (items.length === 0) return '';
+        const total = wifePersonalTotal(monthData);
+
+        const rows = items.map(item => `
+            <li class="flex items-center gap-3 py-2">
+                <span class="w-11 shrink-0 font-mono text-xs tabular-nums text-zinc-500">${Utils.escapeHtml(String(item.note || '').replace(/^\d{4}[\/\-]/, ''))}</span>
+                <span class="min-w-0 flex-1 truncate text-sm text-zinc-200">${Utils.escapeHtml(item.name)}</span>
+                <span class="shrink-0 font-mono text-sm tabular-nums text-zinc-100">¥${Utils.formatCurrency(item.amount)}</span>
+                <button type="button" aria-label="削除" onclick="app.budget.deleteWifePersonal(${item.id})"
+                    class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-zinc-400 ring-1 ring-inset ring-white/10 transition-colors hover:bg-rose-500/10 hover:text-rose-300">${Icons.svg('x')}</button>
+            </li>`).join('');
+
+        return `
+            <details class="group overflow-hidden rounded-xl bg-graphite-card ring-1 ring-white/[0.08]" id="wifePersonalDetails">
+                <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 transition hover:bg-white/5 [&::-webkit-details-marker]:hidden">
+                    <span class="flex min-w-0 items-center gap-2.5">
+                        <span class="text-xs text-zinc-500 transition-transform group-open:rotate-90">${Icons.svg('chevron-right')}</span>
+                        <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-pink-400"></span>
+                        <span class="truncate text-[15px] font-medium text-zinc-100">妻の個人利用</span>
+                        <span class="shrink-0 font-mono text-[11px] tabular-nums text-zinc-500">${items.length}件</span>
+                    </span>
+                    <span class="shrink-0 font-mono text-[15px] font-medium tabular-nums text-zinc-100">¥${Utils.formatCurrency(total)}</span>
+                </summary>
+                <div class="border-t border-white/10 px-4 pb-3 pt-2">
+                    <p class="text-xs leading-relaxed text-zinc-500">家族カードの明細のうち、共有の買い物ではなかった分です。家計の合計には入れず、精算で全額を妻が負担します。</p>
+                    <ul class="mt-1 divide-y divide-white/[0.06]">${rows}</ul>
+                </div>
+            </details>`;
+    }
+
+    /**
+     * 妻の個人利用を1件削除する（取込の誤りを直すとき）
+     * @param {number} itemId
+     */
+    async deleteWifePersonal(itemId) {
+        const monthData = this.getCurrentMonthData();
+        const item = wifePersonalItems(monthData).find(i => i.id === itemId);
+        if (!item) return;
+        const ok = await Dialog.confirm(
+            `妻の個人利用から「${item.name} ¥${Utils.formatCurrency(item.amount)}」を削除しますか？\n共有の買い物だった場合は、削除してからカテゴリーに追加し直してください。`,
+            { okLabel: '削除', danger: true }
+        );
+        if (!ok) return;
+        monthData.wifePersonal = wifePersonalItems(monthData).filter(i => i.id !== itemId);
+        this.updateDisplay();
+        this.saveWithStatus();
     }
 
     /**
