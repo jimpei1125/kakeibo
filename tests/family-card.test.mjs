@@ -501,5 +501,162 @@ console.log('\n【10】精算・合計・出力（妻の個人利用は合計外
     check('PayPay: 精算額と、うち妻の個人利用', msg.includes('¥11,980') && msg.includes('うち妻の個人利用 ¥1,980'));
 }
 
+console.log('\n【11】本会員のアカウントの明細CSV（会員ごとの区切り行つき）');
+// 実物と同じ並びの架空データ。本会員（スマホ決済用カードを含む）→小計→家族会員→小計→総合計
+const SECTIONED_CSV = [
+    '山田　太郎　様,1234-56**-****-****,テストカード',
+    '2026/10/01,ＧＯＯＧＬＥ　ＰＬＡＹ　ＪＡＰＡＮ,750,１,１,750,',
+    '2026/10/01,ＧＯＯＧＬＥ　ＰＬＡＹ　ＪＡＰＡＮ,750,１,１,750,',
+    '2026/10/07,SAMPLE* MEMBERSHIP (INTERNET ),1614,１,１,1614,10.00　USD　161.485　10 07',
+    '2025/11/21,ＡＭＡＺＯＮ．ＣＯ．ＪＰ,132103,１２,１２,11008,',
+    '山田　太郎　様,9999-11**-****-****,スマホ決済／ｉＤ',
+    '2026/10/05,スーパーマルナカ／ｉＤ,5290,１,１,5290,',
+    ',,,,,19412',
+    '山田　花子　様,1234-56**-****-****,テストカード',
+    '2026/10/02,スーパーマルナカ,4210,１,１,4210,',
+    '2026/10/09,ブティック花,8800,１,１,8800,',
+    '2026/10/18,Ｕ　Ｂ　Ｅ　Ｒ,2257,１,１,2257,',
+    ',,,,,15267',
+    ',,,,,34679,',
+].join('\n');
+{
+    const parsed = S.parseSectionedCardRows(SECTIONED_CSV.split('\n').map(l => l.split(',')), '202611_1.csv');
+    check('区切り行・小計・総合計を読み飛ばし、明細の行だけ読む', parsed.rows.length === 8, `got ${parsed.rows.length}`);
+    check('最初の会員（本会員）の行は家族カードではない', parsed.rows.slice(0, 5).every(r => !r.family));
+    check('同じ氏名のスマホ決済用カードも本会員のまま', parsed.rows[4].store === 'スーパーマルナカ/iD' && !parsed.rows[4].family);
+    check('氏名の違う会員の行は家族カード', parsed.rows.slice(5).every(r => r.family));
+    check('分割払いは今回の支払金額', parsed.rows[3].amount === 11008 && parsed.rows[3].date === '2025/11/21');
+    check('全角の店名を半角に・1文字ずつ空いた名前を詰める', parsed.rows[0].store === 'GOOGLE PLAY JAPAN' && parsed.rows[7].store === 'UBER');
+    check('合計が明細の小計・総合計と合う', parsed.rows.reduce((s, r) => s + r.amount, 0) === 34679);
+    check('ファイル名から支払月', parsed.payMonth === '2026-11');
+    check('ファイル名に年月がなければ、最も多い利用月の翌月',
+        S.parseSectionedCardRows(SECTIONED_CSV.split('\n').map(l => l.split(',')), 'meisai.csv').payMonth === '2026-11');
+    check('支払月: 12月の翌月は翌年1月',
+        S.parseSectionedCardRows([['A 様', '1234-56**-****-****', 'x'], ['2026/12/03', 'a', '100', '1', '1', '100', '']], '').payMonth === '2027-01');
+    check('ファイル名の読み方', S.payMonthFromFileName('202611.csv') === '2026-11' && S.payMonthFromFileName('202611_1.csv') === '2026-11'
+        && S.payMonthFromFileName('202613.csv') === null && S.payMonthFromFileName('明細.csv') === null);
+
+    const imp = new S.CSVImporter(makeBudget('2026-11'));
+    imp.fileName = '202611_1.csv';
+    imp._parseTransactions(SECTIONED_CSV);
+    check('取込: 区切り行つきの形式を見分ける', imp.transactions.length === 8 && imp.payMonth === '2026-11'
+        && imp.transactions.filter(t => t.family).length === 3);
+    // 全角のまま覚えた店名のルールも使える
+    imp.rules = { 'ＧＯＯＧＬＥ　ＰＬＡＹ　ＪＡＰＡＮ': 'サブスク' };
+    imp._parseTransactions(SECTIONED_CSV);
+    check('全角で覚えた店名のカテゴリーも使う', imp.transactions[0].category === 'サブスク');
+}
+
+console.log('\n【12】取込済みの明細（別のファイルで同じ明細を読んだとき）');
+{
+    const month = { categories: [
+        { id: 1, name: '食費', amount: 0, note: '', subcategories: [
+            { id: 11, name: 'マルナカ', amount: 4210, note: '2026/10/02', familyCard: true },
+            { id: 12, name: 'GOOGLE', amount: 750, note: '2026/10/01' },
+        ] },
+    ], wifePersonal: [{ id: 21, name: 'ブティック花', amount: 8800, note: '2026/10/09' }] };
+    const rows = [
+        { id: 0, date: '2026/10/01', amount: 750 }, { id: 1, date: '2026/10/01', amount: 750 },
+        { id: 2, date: '2026/10/02', amount: 4210 }, { id: 3, date: '2026/10/09', amount: 8800 },
+        { id: 4, date: '2026/10/09', amount: 8801 },
+    ];
+    const found = S.findAlreadyImported(rows, month);
+    check('利用日と金額が同じ明細を取込済みとみなす', found.get(0)?.subId === 12 && found.get(2)?.subId === 11 && found.get(3)?.id === 21);
+    check('同じ日・同じ金額が2回あれば、取込済みの数だけ対応させる', found.has(0) && !found.has(1));
+    check('金額が違えば別の明細', !found.has(4));
+    check('振り分け済みかどうか', found.get(2).classified === true && found.get(0).classified === false && found.get(3).classified === true);
+    check('月データがなくても動く', S.findAlreadyImported(rows, undefined).size === 0);
+
+    // 妻のCSVで振り分けて取り込んだあと、本会員のCSVを読む
+    delete store['budgetMonths/2026-11'];
+    const budget = makeBudget('2026-11');
+    const realConfirm = Dialog.confirm;
+    Dialog.confirm = async () => true;
+    const mkImporter = () => {
+        const i = new S.CSVImporter(budget);
+        i.familyCard = new F.FamilyCardManager(budget);
+        i._saveRules = async () => {};
+        return i;
+    };
+    globalThis.domValues = { csvImportMonth: { value: '2026-11' } };
+    const wifeImp = mkImporter();
+    wifeImp._parseTransactions(FAMILY_CSV);
+    wifeImp._applyFamilyMatching();
+    wifeImp.transactions.filter(t => t.store === 'スーパーマルナカ').forEach(t => { t.personal = false; t.category = '食費'; });
+    await wifeImp.importData();
+    const afterWife = budget.data['2026-11'];
+    check('妻のCSV: 共有2件・妻個人4件', afterWife.categories[0].subcategories.length === 2 && afterWife.wifePersonal.length === 4);
+    check('家族カードの共有の明細に印が付く', afterWife.categories[0].subcategories.every(sub => sub.familyCard === true));
+
+    const ownImp = mkImporter();
+    ownImp.fileName = '202611_1.csv';
+    // 家族会員の行を、妻のCSVと同じ明細にそろえる（マルナカ2回・ブティック花）
+    const ownCsv = SECTIONED_CSV.replace('2026/10/18,Ｕ　Ｂ　Ｅ　Ｒ,2257,１,１,2257,', '2026/10/12,スーパーマルナカ,4210,１,１,4210,');
+    ownImp._parseTransactions(ownCsv);
+    ownImp._applyFamilyMatching();
+    ownImp._renderAll();
+    const plan = (t) => ownImp._rowPlan(t);
+    const ownFamily = ownImp.transactions.filter(t => t.family);
+    check('本会員のCSV: 振り分け済みの家族カード分は前回の振り分けを引き継いで取り込まない',
+        ownFamily.every(t => plan(t) === 'skip') && ownFamily.filter(t => t.store === 'スーパーマルナカ').every(t => !t.personal && t.category === '食費'));
+    check('本会員の分は取り込む', ownImp.transactions.filter(t => !t.family).every(t => plan(t) === 'import'));
+    check('一覧に取込済みと出し、集計からは外す',
+        elements.csvTxList.innerHTML.includes('取込済み') && elements.csvPreview.innerHTML.includes('取込済み ¥17,220（3件・取り込みません）'));
+    const personalBefore = afterWife.wifePersonal.length;
+    ownImp.transactions.filter(t => !t.family).forEach(t => { t.category = 'その他'; });
+    await ownImp.importData();
+    check('取り込んでも家族カード分は二重にならない',
+        budget.data['2026-11'].wifePersonal.length === personalBefore && budget.data['2026-11'].categories[0].subcategories.length === 2);
+    check('本会員の分（5件）が入る', budget.data['2026-11'].categories.find(c => c.name === 'その他')?.subcategories.length === 5);
+    check('取込済みを除いたことを知らせる', toasts.at(-1).message.includes('取込済み3件は除きました'));
+
+    // 同じファイルをもう一度
+    const again = mkImporter();
+    again.fileName = '202611_1.csv';
+    again._parseTransactions(ownCsv);
+    again._applyFamilyMatching();
+    await again.importData();
+    check('同じ明細をもう一度読むと、すべて取込済み', toasts.at(-1).message === 'この明細はすべて取込済みです' && toasts.at(-1).type === 'error');
+
+    // PDFなどで家族カード分を区別せず共有に入れていた月: 妻個人の行は共有から外して移す
+    delete store['budgetMonths/2026-12'];
+    const b2 = makeBudget('2026-12', [{ id: 5, name: 'クレカ明細', amount: 0, note: '', subcategories: [
+        { id: 51, name: 'ブティック花', amount: 8800, note: '2026/10/09' },
+        { id: 52, name: 'マルナカ', amount: 4210, note: '2026/10/02' },
+        { id: 53, name: 'GOOGLE PLAY JAPAN', amount: 750, note: '2026/10/01' },
+    ] }]);
+    const pdfImp = new S.CSVImporter(b2);
+    pdfImp.familyCard = new F.FamilyCardManager(b2);
+    pdfImp._saveRules = async () => {};
+    pdfImp.fileName = '202612.csv';
+    globalThis.domValues = { csvImportMonth: { value: '2026-12' } };
+    pdfImp._parseTransactions(SECTIONED_CSV);
+    pdfImp._applyFamilyMatching();
+    pdfImp._renderAll();
+    const boutique = pdfImp.transactions.find(t => t.store === 'ブティック花');
+    const marunaka = pdfImp.transactions.find(t => t.store === 'スーパーマルナカ');
+    check('区別せず入れた家族カード分は、妻個人なら「移す」', pdfImp._rowPlan(boutique) === 'move' && boutique.personal);
+    check('移すことを案内する', elements.csvFamilyPanel.innerHTML.includes('取込済みの明細を外して'));
+    pdfImp.setPersonal(marunaka.id, false);
+    check('共有に切り替えた行は、そのまま（取り込まない）', pdfImp._rowPlan(marunaka) === 'skip');
+    // それでも取り込む
+    const google = pdfImp.transactions.find(t => t.store === 'GOOGLE PLAY JAPAN');
+    check('本会員の取込済みの行は取り込まない', pdfImp._rowPlan(google) === 'skip');
+    pdfImp.toggleForceImport(google.id);
+    check('「別に取り込む」で取り込める', pdfImp._rowPlan(google) === 'import');
+    pdfImp.toggleForceImport(google.id);
+    pdfImp.transactions.filter(t => !t.family && pdfImp._rowPlan(t) === 'import').forEach(t => { t.category = 'その他'; });
+    await pdfImp.importData();
+    const m2 = b2.data['2026-12'];
+    const pdfCat = m2.categories.find(c => c.name === 'クレカ明細');
+    check('移した明細は共有のカテゴリーから外れる', !pdfCat.subcategories.some(sub => sub.id === 51) && pdfCat.subcategories.length === 2);
+    check('妻の個人利用に入る（他の妻個人の行と合わせて）',
+        m2.wifePersonal.some(p => p.name === 'ブティック花' && p.amount === 8800) && m2.wifePersonal.some(p => p.name === 'UBER'));
+    check('合計から外れる', b2.calculateTotal() === 4210 + 750 + 750 + 1614 + 11008 + 5290);
+
+    Dialog.confirm = realConfirm;
+    globalThis.domValues = {};
+}
+
 console.log(`\n結果: ${pass}件成功 / ${fail}件失敗`);
 process.exit(fail === 0 ? 0 : 1);
